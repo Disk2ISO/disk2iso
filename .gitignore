@@ -1,0 +1,29 @@
+# Exclude workspace files
+*.code-workspace
+
+# Exclude old/backup files
+.old/
+*.bak
+*.backup
+
+# Exclude temporary files
+*.tmp
+*.temp
+*~
+
+# Exclude log files
+*.log
+
+# Exclude generated ISO/MD5 files
+*.iso
+*.md5
+
+# Exclude OS-specific files
+.DS_Store
+Thumbs.db
+
+# Exclude IDE/Editor files
+.vscode/
+.idea/
+*.swp
+*.swo
