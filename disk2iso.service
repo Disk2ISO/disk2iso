@@ -1,0 +1,17 @@
+[Unit]
+Description=disk2iso - Automatic CD/DVD to ISO Ripper
+After=multi-user.target
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/disk2iso.sh
+WorkingDirectory=/usr/local/bin
+Restart=always
+RestartSec=10
+TimeoutStopSec=600
+User=root
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
