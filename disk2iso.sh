@@ -241,7 +241,7 @@ main() {
     
     # Dynamische Device-Erkennung
     log_message "$MSG_SEARCH_DRIVE"
-    local detected_device=$(find_optical_device)
+    local detected_device=$(detect_device)
     
     # Prüfe ob Device gefunden wurde
     if [[ -z "$detected_device" ]]; then

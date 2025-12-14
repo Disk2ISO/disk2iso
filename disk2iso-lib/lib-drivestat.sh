@@ -1,5 +1,5 @@
 #!/bin/bash
-################################################################################
+#############################################################################
 # Drive Status Library
 # Filepath: disk2iso-lib/lib-drivestat.sh
 #
@@ -8,7 +8,7 @@
 #   Erkennt Änderungen im Drive-Status für automatisches Disc-Handling.
 #
 # Funktionen:
-#   - find_optical_device() : Findet erstes optisches Laufwerk
+#   - detect_device()       : Findet erstes optisches Laufwerk
 #   - is_drive_closed()     : Prüft ob Schublade geschlossen ist
 #   - is_disc_inserted()    : Prüft ob Medium eingelegt ist
 #   - wait_for_disc_change(): Wartet auf Status-Änderung (Schublade/Medium)
@@ -17,9 +17,14 @@
 # Verschoben: 13.12.2025 (detection/drivestatus.sh → lib-drivestat.sh)
 ################################################################################
 
-# Funktion zum Finden des ersten optischen Laufwerks
-# Gibt Device-Pfad zurück (/dev/sr0, /dev/sr1, etc.) oder leeren String
-find_optical_device() {
+# ===========================================================================
+# detect_device()
+# ---------------------------------------------------------------------------
+# Description: Suchen des ersten optischen Laufwerks
+# Parameter..: Keine
+# Return.....: Device-Pfad oder leerer String
+# ===========================================================================
+detect_device() {
     local device=""
     
     # Methode 1: lsblk mit TYPE=rom
@@ -27,7 +32,15 @@ find_optical_device() {
         device=$(lsblk -ndo NAME,TYPE 2>/dev/null | awk '$2=="rom" {print "/dev/" $1; exit}')
     fi
     
-    # Methode 2: /sys/class/block Durchsuchen
+    # Methode 2: dmesg Kernel-Logs durchsuchen
+    if [[ -z "$device" ]] && command -v dmesg >/dev/null 2>&1; then
+        device=$(dmesg 2>/dev/null | grep -iE "cd|dvd|sr[0-9]" | grep -oE "sr[0-9]+" | head -n1)
+        if [[ -n "$device" ]]; then
+            device="/dev/$device"
+        fi
+    fi
+    
+    # Methode 3: /sys/class/block Durchsuchen
     if [[ -z "$device" ]]; then
         for dev in /sys/class/block/sr*; do
             if [[ -e "$dev" ]]; then
@@ -37,7 +50,7 @@ find_optical_device() {
         done
     fi
     
-    # Methode 3: Fallback auf /dev/cdrom Symlink
+    # Methode 4: Fallback auf /dev/cdrom Symlink
     if [[ -z "$device" ]] && [[ -L "/dev/cdrom" ]]; then
         device=$(readlink -f "/dev/cdrom")
     fi
@@ -52,6 +65,7 @@ find_optical_device() {
 ensure_device_ready() {
     local device="$1"
     
+    # Prüfe ob Device-Parameter gesetzt ist
     if [[ -z "$device" ]]; then
         log_message "[DriveStatus] Fehler: Kein Device angegeben"
         return 1
