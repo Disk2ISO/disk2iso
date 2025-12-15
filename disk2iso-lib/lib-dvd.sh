@@ -197,13 +197,13 @@ copy_dvd_video() {
                 # mkisofs mit pv für Fortschrittsanzeige (falls verfügbar)
                 if [[ -t 0 ]] && command -v pv >/dev/null 2>&1; then
                     local dir_size=$(du -sb "$dvd_dir" | cut -f1)
-                    if $mkiso_cmd -dvd-video -udf -V "$disk_label" -o - "$dvd_dir" 2>>"$log_filename" | pv -s "$dir_size" | dd of="$iso_filename" bs="$block_size" 2>>"$log_filename"; then
+                    if $mkiso_cmd -dvd-video -udf -V "$disc_label" -o - "$dvd_dir" 2>>"$log_filename" | pv -s "$dir_size" | dd of="$iso_filename" bs="$block_size" 2>>"$log_filename"; then
                         log_message "ISO erfolgreich erstellt mit $mkiso_cmd"
                         return 0
                     fi
                 else
                     # Ohne pv
-                    if $mkiso_cmd -dvd-video -udf -V "$disk_label" -o "$iso_filename" "$dvd_dir" 2>>"$log_filename"; then
+                    if $mkiso_cmd -dvd-video -udf -V "$disc_label" -o "$iso_filename" "$dvd_dir" 2>>"$log_filename"; then
                         log_message "ISO erfolgreich erstellt mit $mkiso_cmd"
                         return 0
                     fi

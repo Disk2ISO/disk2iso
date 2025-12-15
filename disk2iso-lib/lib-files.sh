@@ -43,14 +43,14 @@ get_iso_filename() {
     # Erstelle Ausgabeordner falls nicht vorhanden
     get_out_folder
     
-    # Erstelle eindeutigen Dateinamen (disk_label konvertiere zu Kleinbuchstaben)
-    local base_filename="$(echo "${disk_label}" | tr '[:upper:]' '[:lower:]').iso"
+    # Erstelle eindeutigen Dateinamen (disc_label konvertiere zu Kleinbuchstaben)
+    local base_filename="$(echo "${disc_label}" | tr '[:upper:]' '[:lower:]').iso"
     local full_path="${OUTPUT_DIR}/${base_filename}"
     
     # Prüfe ob Datei bereits existiert und füge Nummer hinzu
     local counter=1
     while [[ -f "$full_path" ]]; do
-        base_filename="$(echo "${disk_label}" | tr '[:upper:]' '[:lower:]')_${counter}.iso"
+        base_filename="$(echo "${disc_label}" | tr '[:upper:]' '[:lower:]')_${counter}.iso"
         full_path="${OUTPUT_DIR}/${base_filename}"
         ((counter++))
     done

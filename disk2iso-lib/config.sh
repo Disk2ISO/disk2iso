@@ -14,7 +14,6 @@
 # ============================================================================
 
 OUTPUT_DIR="/mnt/hdd/nas/images"      # Standard Ausgabeordner für ISO-Dateien
-CD_DEVICE="/dev/sr0"     # Standard CD/DVD-Laufwerk (wird dynamisch ermittelt)
 
 # Audio-CD Konfiguration
 AUDIO_OUTPUT_FORMAT="mp3"                               # "mp3", "flac", "wav"
@@ -27,7 +26,7 @@ AUDIO_DOWNLOAD_COVER="true"          # Album-Cover herunterladen und einbetten
 # GLOBALE VARIABLEN
 # ============================================================================
 
-disk_label=""      # Normalisierter Label-Name der Disc
+disc_label=""      # Normalisierter Label-Name der Disc
 iso_filename=""    # Vollständiger Pfad zur ISO-Datei
 md5_filename=""    # Vollständiger Pfad zur MD5-Datei
 log_filename=""    # Vollständiger Pfad zur Log-Datei

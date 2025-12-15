@@ -153,7 +153,7 @@ copy_data_disc() {
 # Funktion zum Zurücksetzen aller Disc-Variablen
 # Wird nach jedem Kopiervorgang aufgerufen
 reset_disc_variables() {
-    disk_label=""
+    disc_label=""
     disc_type=""
     disc_block_size=""
     disc_volume_size=""

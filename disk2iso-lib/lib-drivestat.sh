@@ -18,44 +18,65 @@
 ################################################################################
 
 # ===========================================================================
+# GLOBAL VARIABLEN DES MODUL
+# ===========================================================================
+CD_DEVICE=""            # Standard CD/DVD-Laufwerk (wird dynamisch ermittelt)
+
+# ===========================================================================
 # detect_device()
 # ---------------------------------------------------------------------------
-# Description: Suchen des ersten optischen Laufwerks
+# Description: Suchen des ersten optischen Laufwerkes. Die Prüfungen erfolgen
+# ............ in folgender Reihenfolge:
+# ............ 1. lsblk mit TYPE=rom
+# ............ 2. dmesg Kernel-Logs durchsuchen
+# ............ 3. /sys/class/block Durchsuchen
+# ............ 4. Fallback auf /dev/cdrom Symlink
+# ............ Gefundener Device-Pfad wird in globaler Variable CD_DEVICE 
+# ............ gespeichert.
 # Parameter..: Keine
-# Return.....: Device-Pfad oder leerer String
+# Return.....: 0 = Device gefunden, 1 = Kein Device gefunden
 # ===========================================================================
 detect_device() {
-    local device=""
-    
+    # Log-Meldung eröffnen
+    log_message "$MSG_SEARCH_DRIVE"
+
     # Methode 1: lsblk mit TYPE=rom
-    if command -v lsblk >/dev/null 2>&1; then
-        device=$(lsblk -ndo NAME,TYPE 2>/dev/null | awk '$2=="rom" {print "/dev/" $1; exit}')
+    if [[ -z "$CD_DEVICE" ]] && command -v lsblk >/dev/null 2>&1; then
+        CD_DEVICE=$(lsblk -ndo NAME,TYPE 2>/dev/null | awk '$2=="rom" {print "/dev/" $1; exit}')
     fi
     
     # Methode 2: dmesg Kernel-Logs durchsuchen
-    if [[ -z "$device" ]] && command -v dmesg >/dev/null 2>&1; then
-        device=$(dmesg 2>/dev/null | grep -iE "cd|dvd|sr[0-9]" | grep -oE "sr[0-9]+" | head -n1)
-        if [[ -n "$device" ]]; then
-            device="/dev/$device"
+    if [[ -z "$CD_DEVICE" ]] && command -v dmesg >/dev/null 2>&1; then
+        CD_DEVICE=$(dmesg 2>/dev/null | grep -iE "cd|dvd|sr[0-9]" | grep -oE "sr[0-9]+" | head -n1)
+        if [[ -n "$CD_DEVICE" ]]; then
+            CD_DEVICE="/dev/$CD_DEVICE"
         fi
     fi
     
     # Methode 3: /sys/class/block Durchsuchen
-    if [[ -z "$device" ]]; then
+    if [[ -z "$CD_DEVICE" ]]; then
         for dev in /sys/class/block/sr*; do
             if [[ -e "$dev" ]]; then
-                device="/dev/$(basename "$dev")"
+                CD_DEVICE="/dev/$(basename "$dev")"
                 break
             fi
         done
     fi
     
     # Methode 4: Fallback auf /dev/cdrom Symlink
-    if [[ -z "$device" ]] && [[ -L "/dev/cdrom" ]]; then
-        device=$(readlink -f "/dev/cdrom")
+    if [[ -z "$CD_DEVICE" ]] && [[ -L "/dev/cdrom" ]]; then
+        CD_DEVICE=$(readlink -f "/dev/cdrom")
     fi
     
-    echo "$device"
+    # Prüfe ob das Device erkannt wurde 
+    if [[ -z "$CD_DEVICE" ]]; then
+        log_message "$MSG_DRIVE_FOUND $CD_DEVICE"
+        return 0
+    else
+        log_message "$MSG_DRIVE_NOT_FOUND"
+        echo "$MSG_DRIVE_USB_TIP"
+        return 1
+    fi
 }
 
 # Funktion: Stelle sicher dass Device bereit ist

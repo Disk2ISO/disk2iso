@@ -234,7 +234,7 @@ copy_bluray_video() {
     log_message "Erstelle entschlüsseltes Backup im BDMV-Format..."
     
     # Erstelle Backup-Ordner
-    local backup_dir="${OUTPUT_DIR}/${disk_label}_BACKUP"
+    local backup_dir="${OUTPUT_DIR}/${disc_label}_BACKUP"
     if ! get_bd_backup_folder "$backup_dir"; then
         return 1
     fi

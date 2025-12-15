@@ -60,7 +60,7 @@ copy_disc_to_iso() {
     touch "$log_filename"
     
     log_message "$MSG_COPY_START"
-    log_message "$MSG_COPY_LABEL $disk_label"
+    log_message "$MSG_COPY_LABEL $disc_label"
     log_message "$MSG_COPY_TARGET $iso_filename"
     
     # Wähle Kopiermethode basierend auf Verfügbarkeit und Medium-Typ
@@ -80,7 +80,7 @@ copy_disc_to_iso() {
             
             # Optional: Benachrichtigung senden
             if command -v notify-send >/dev/null 2>&1; then
-                notify-send "CD/DVD Ripper" "Audio-CD erfolgreich gerippt: $disk_label"
+                notify-send "CD/DVD Ripper" "Audio-CD erfolgreich gerippt: $disc_label"
             fi
         fi
     fi
@@ -134,7 +134,7 @@ copy_disc_to_iso() {
         
         # Optional: Benachrichtigung senden (falls notify-send verfügbar)
         if command -v notify-send >/dev/null 2>&1; then
-            notify-send "$MSG_NOTIFY_TITLE" "$MSG_NOTIFY_DISC_SUCCESS $disk_label"
+            notify-send "$MSG_NOTIFY_TITLE" "$MSG_NOTIFY_DISC_SUCCESS $disc_label"
         fi
         
         log_message "$MSG_STEP_7"
@@ -143,7 +143,7 @@ copy_disc_to_iso() {
         
     else
         log_message "$MSG_STEP_6_FAILED"
-        log_message "$MSG_COPY_ERROR $disk_label"
+        log_message "$MSG_COPY_ERROR $disc_label"
         
         log_message "$MSG_STEP_7"
         cleanup_disc_operation "failure"
@@ -239,20 +239,11 @@ monitor_cdrom() {
 main() {
     log_message "$MSG_STARTUP"
     
-    # Dynamische Device-Erkennung
-    log_message "$MSG_SEARCH_DRIVE"
-    local detected_device=$(detect_device)
-    
-    # Prüfe ob Device gefunden wurde
-    if [[ -z "$detected_device" ]]; then
-        log_message "$MSG_DRIVE_NOT_FOUND"
-        echo "$MSG_DRIVE_USB_TIP"
+    # Prüfe ob ein Optisches-Device angeschlossen ist
+    if (! detect_device()); then
         exit 1
     fi
     
-    # Setze globale Variable
-    CD_DEVICE="$detected_device"
-    log_message "$MSG_DRIVE_FOUND $CD_DEVICE"
     
     # Stelle sicher dass Device bereit ist (lädt sr_mod, wartet auf udev)
     if ! ensure_device_ready "$CD_DEVICE"; then

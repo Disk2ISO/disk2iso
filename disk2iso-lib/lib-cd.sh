@@ -420,7 +420,7 @@ copy_audio_cd() {
     else
         log_message "⚠ Keine Metadaten verfügbar, verwende generische Benennung"
         artist_name="Unknown Artist"
-        album_name="$disk_label"
+        album_name="$disc_label"
     fi
     
     # Erstelle Album-Verzeichnis mit Künstler/Album-Namen
