@@ -1,4 +1,110 @@
-# disk2iso
+# disk2iso - Minimale Version (nur Debian Standard-Tools)
+
+Automatisches Rippen von CDs, DVDs und Blu-rays zu ISO-Images beim Einlegen.
+
+## Features
+
+- ✓ Automatische Erkennung eingelegter Medien
+- ✓ Kopiert alle optischen Medien als ISO-Datei
+- ✓ MD5-Checksummen für Datenintegrität
+- ✓ Service-Modus für automatischen Betrieb
+- ✓ Debug-Modi für Entwicklung
+
+## Systemanforderungen
+
+**Nur Debian 13 Standard-Tools:**
+- dd (Kopieren)
+- md5sum (Checksummen)
+- lsblk (Laufwerkserkennung)
+- eject (Medien auswerfen)
+- Standard Shell-Tools (grep, sed, awk, date, etc.)
+
+**Keine zusätzlichen Pakete erforderlich!**
+
+## Installation
+
+```bash
+# 1. Repository clonen
+git clone <repository-url>
+cd disk2iso
+
+# 2. Script ausführbar machen
+chmod +x disk2iso.sh
+
+# 3. Optional: Als systemd Service einrichten
+sudo cp disk2iso.service /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable disk2iso
+sudo systemctl start disk2iso
+```
+
+## Verwendung
+
+### Manueller Modus
+```bash
+./disk2iso.sh
+```
+
+### Debug-Modi
+```bash
+# Debug-Modus (zeigt jede ausgeführte Zeile):
+DEBUG=1 ./disk2iso.sh
+
+# Strict-Modus (stoppt bei Fehlern):
+STRICT=1 ./disk2iso.sh
+
+# Kombiniert:
+DEBUG=1 STRICT=1 ./disk2iso.sh
+```
+
+### Service-Modus
+```bash
+sudo systemctl start disk2iso
+sudo systemctl status disk2iso
+sudo systemctl stop disk2iso
+```
+
+## Ausgabe
+
+- ISO-Dateien: `/mnt/hdd/nas/images/`
+- MD5-Checksummen: Gleicher Ordner wie ISO-Dateien (`.md5`)
+- Log-Dateien: `/mnt/hdd/nas/images/logs/`
+
+## Konfiguration
+
+Bearbeite `disk2iso-lib/config.sh`:
+```bash
+OUTPUT_DIR="/mnt/hdd/nas/images"  # Ausgabeordner
+```
+
+## Vereinfachungen (24.12.2025)
+
+Diese Version wurde radikal vereinfacht und nutzt **nur noch Debian-Standard-Tools**:
+
+### Entfernt:
+- ❌ Audio-CD Ripping (cdparanoia, lame)
+- ❌ Video-DVD Funktionen (dvdbackup, mkisofs)
+- ❌ Blu-ray Video Funktionen (makemkvcon)
+- ❌ Metadaten-Tools (blkid, isoinfo, blockdev)
+- ❌ Fortschrittsanzeige (pv)
+- ❌ Erweiterte Kopiermethoden (ddrescue)
+- ❌ Typ-Erkennung (Audio-CD, Video-DVD, etc.)
+- ❌ Label-Erkennung (alle Medien bekommen Zeitstempel-Namen)
+
+### Verblieben:
+- ✓ Einfaches dd-basiertes Kopieren
+- ✓ Automatische Laufwerkserkennung
+- ✓ MD5-Checksummen
+- ✓ Logging
+- ✓ Service-Modus
+
+## Lizenz
+
+Siehe LICENSE Datei
+
+## Support
+
+Bei Problemen: Prüfe die Log-Dateien in `/mnt/hdd/nas/images/logs/`
 
 **Automatisches CD/DVD/Blu-ray Archivierungstool für Linux**
 

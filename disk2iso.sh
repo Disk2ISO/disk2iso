@@ -24,6 +24,26 @@
 ################################################################################
 
 # ============================================================================
+# DEBUG-MODUS
+# ============================================================================
+
+# Debug-Modus aktivieren: DEBUG=1 ./disk2iso.sh
+if [[ "${DEBUG:-0}" == "1" ]]; then
+    set -x  # Trace-Modus: Zeigt jede ausgeführte Zeile
+    PS4='+ ${BASH_SOURCE}:${LINENO}: '  # Zeigt Datei und Zeilennummer
+fi
+
+# Verbose-Modus: VERBOSE=1 ./disk2iso.sh
+if [[ "${VERBOSE:-0}" == "1" ]]; then
+    set -v  # Verbose: Zeigt Zeilen während sie gelesen werden
+fi
+
+# Strict-Modus für Entwicklung: STRICT=1 ./disk2iso.sh
+if [[ "${STRICT:-0}" == "1" ]]; then
+    set -euo pipefail  # Beende bei Fehlern, undefined vars, pipe failures
+fi
+
+# ============================================================================
 # MODUL-LOADING (Service-sicher)
 # ============================================================================
 
@@ -31,24 +51,23 @@
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # Lade Basis-Module
-source "${SCRIPT_DIR}/lang/messages.de"
-source "${SCRIPT_DIR}/config.sh"
+source "${SCRIPT_DIR}/disk2iso-lib/lang/messages.de"
+source "${SCRIPT_DIR}/disk2iso-lib/config.sh"
 
 # Lade Kern-Bibliotheken
-source "${SCRIPT_DIR}/lib-logging.sh"
-source "${SCRIPT_DIR}/lib-tools.sh"
-source "${SCRIPT_DIR}/lib-files.sh"
-source "${SCRIPT_DIR}/lib-folders.sh"
-source "${SCRIPT_DIR}/lib-common.sh"
-source "${SCRIPT_DIR}/lib-diskinfos.sh"
-source "${SCRIPT_DIR}/lib-drivestat.sh"
+source "${SCRIPT_DIR}/disk2iso-lib/lib-logging.sh"
+source "${SCRIPT_DIR}/disk2iso-lib/lib-tools.sh"
+source "${SCRIPT_DIR}/disk2iso-lib/lib-files.sh"
+source "${SCRIPT_DIR}/disk2iso-lib/lib-folders.sh"
+source "${SCRIPT_DIR}/disk2iso-lib/lib-common.sh"
+source "${SCRIPT_DIR}/disk2iso-lib/lib-diskinfos.sh"
+source "${SCRIPT_DIR}/disk2iso-lib/lib-drivestat.sh"
 
 # ============================================================================
-# HAUPTLOGIK
+# HAUPTLOGIK - VEREINFACHT (nur Daten-Discs)
 # ============================================================================
 
-# Funktion zum Kopieren der CD/DVD als ISO
-# Wählt automatisch beste Kopiermethode basierend auf DVD-Typ
+# Funktion zum Kopieren der CD/DVD/BD als ISO
 copy_disc_to_iso() {
     # Initialisiere alle Dateinamen
     init_filenames
@@ -59,174 +78,57 @@ copy_disc_to_iso() {
     # Erstelle Log-Datei
     touch "$log_filename"
     
-    log_message "$MSG_COPY_START"
-    log_message "$MSG_COPY_LABEL $disc_label"
-    log_message "$MSG_COPY_TARGET $iso_filename"
+    log_message "Start Kopiervorgang: $disc_label -> $iso_filename"
     
-    # Wähle Kopiermethode basierend auf Verfügbarkeit und Medium-Typ
-    local copy_success=false
-    
-    log_message "$MSG_STEP_4"
-    
-    # Strategie 1: Audio-CDs (kein ISO, sondern MP3-Ripping)
-    if [[ "$disc_type" == "audio-cd" ]] && command -v cdparanoia >/dev/null 2>&1 && command -v lame >/dev/null 2>&1; then
-        # Lazy-Load Audio-CD Modul
-        log_message "$MSG_MODULE_AUDIO"
-        [[ -z "$(type -t copy_audio_cd)" ]] && source "${SCRIPT_DIR}/lib-cd.sh"
-        
-        log_message "$MSG_STEP_5"
-        if copy_audio_cd; then
-            copy_success=true
-            
-            # Optional: Benachrichtigung senden
-            if command -v notify-send >/dev/null 2>&1; then
-                notify-send "CD/DVD Ripper" "Audio-CD erfolgreich gerippt: $disc_label"
-            fi
-        fi
-    fi
-    
-    # Strategie 2: Für Video-Blu-rays nutze MakeMKV (ISO-Backup)
-    if [[ "$disc_type" == "video-bluray" ]] && command -v makemkvcon >/dev/null 2>&1; then
-        # Lazy-Load Blu-ray-Video Modul
-        log_message "$MSG_MODULE_VIDEO_BLURAY"
-        [[ -z "$(type -t copy_bluray_video)" ]] && source "${SCRIPT_DIR}/lib-bluray.sh"
-        
-        log_message "$MSG_STEP_5"
-        if copy_bluray_video; then
-            copy_success=true
-        fi
-    fi
-    
-    # Strategie 3: Für Video-DVDs bevorzuge dvdbackup + mkisofs
-    if [[ "$disc_type" == "video-dvd" ]] && command -v dvdbackup >/dev/null 2>&1; then
-        # Lazy-Load DVD-Video Modul
-        log_message "$MSG_MODULE_VIDEO_DVD"
-        [[ -z "$(type -t copy_dvd_video)" ]] && source "${SCRIPT_DIR}/lib-dvd.sh"
-        
-        log_message "$MSG_STEP_5"
-        if copy_dvd_video; then
-            copy_success=true
-        fi
-    fi
-    
-    # Strategie 4 & 5: Daten-Disc inkl. Daten-Blu-rays (nutzt ddrescue oder dd)
-    if [[ "$copy_success" == false ]]; then
-        # copy_with_ddrescue, copy_with_dd, copy_data_disc sind bereits in lib-common.sh geladen
-        log_message "$MSG_MODULE_DATA"
-        
-        log_message "$MSG_STEP_5"
-        if copy_data_disc; then
-            copy_success=true
-        fi
-    fi
-    
-    # Ergebnis verarbeiten
-    if [[ "$copy_success" == true ]]; then
-        log_message "$MSG_STEP_6_SUCCESS"
-        log_message "$MSG_COPY_COMPLETE $iso_filename"
-        
-        # Berechne MD5-Checksumme (nur wenn ISO-Datei existiert)
+    # Kopiere Daten-Disc mit dd
+    if copy_data_disc; then
+        # Berechne MD5-Checksumme
         if [[ -f "$iso_filename" ]]; then
             local md5sum=$(md5sum "$iso_filename" | cut -d' ' -f1)
             echo "$md5sum  $iso_basename" > "$md5_filename"
-            log_message "$MSG_MD5_CREATED $md5sum"
         fi
         
-        # Optional: Benachrichtigung senden (falls notify-send verfügbar)
-        if command -v notify-send >/dev/null 2>&1; then
-            notify-send "$MSG_NOTIFY_TITLE" "$MSG_NOTIFY_DISC_SUCCESS $disc_label"
-        fi
-        
-        log_message "$MSG_STEP_7"
+        log_message "Kopiervorgang erfolgreich: $iso_filename"
         cleanup_disc_operation "success"
-        log_message "$MSG_MONITOR_READY"
-        
+        return 0
     else
-        log_message "$MSG_STEP_6_FAILED"
-        log_message "$MSG_COPY_ERROR $disc_label"
-        
-        log_message "$MSG_STEP_7"
+        log_message "Kopiervorgang fehlgeschlagen: $disc_label"
         cleanup_disc_operation "failure"
-        log_message "$MSG_MONITOR_READY"
-        
         return 1
     fi
 }
 
-# Funktion zum Überwachen des CD/DVD-Laufwerks
-# Implementiert automatischen Workflow: Erkennung → Kopieren → Auswerfen
+# Funktion zum Überwachen des CD/DVD-Laufwerks - VEREINFACHT
+# Kopiert alle eingelegten Medien als ISO (keine Typ-Erkennung)
 monitor_cdrom() {
-    log_message "$MSG_MONITOR_STARTED"
+    log_message "Laufwerksüberwachung gestartet"
     
     while true; do
-        log_message "$MSG_CHECK_DRIVE_STATUS"
-        
         if is_disc_inserted; then
-            log_message "$MSG_MEDIA_PROCESSING"
+            log_message "Medium eingelegt erkannt"
             
             # Warte bis Medium bereit ist (Spin-Up)
-            if ! wait_for_disc_ready 5; then
-                log_message "$MSG_MEDIA_NOT_READY"
+            if ! wait_for_disc_ready 3; then
                 continue
             fi
             
-            log_message "$MSG_START_DETECTION"
+            # Generiere Label (ohne Typ-Erkennung)
+            get_disc_label "data"
+            disc_type="data"
             
-            # Lade Detection-Module (lazy loading)
-            [[ -z "$(type -t detect_cd_audio)" ]] && source "${SCRIPT_DIR}/lib-cd.sh"
-            [[ -z "$(type -t detect_dvd_video)" ]] && source "${SCRIPT_DIR}/lib-dvd.sh"
-            [[ -z "$(type -t detect_bd_video)" ]] && source "${SCRIPT_DIR}/lib-bluray.sh"
+            copy_disc_to_iso
             
-            # Durchlaufe alle Detection-Funktionen
-            local disc_detected=false
-            for detect_func in detect_cd_audio detect_dvd_video detect_bd_video detect_cd_rom detect_dvd_rom detect_bd_rom; do
-                if [[ "$(type -t $detect_func)" == "function" ]]; then
-                    if $detect_func; then
-                        log_message "$MSG_TYPE_DETECTED $disc_type (Label: $disc_label)"
-                        disc_detected=true
-                        break
-                    fi
-                fi
-            done
-            
-            if [[ "$disc_detected" == false ]]; then
-                log_message "$MSG_TYPE_UNKNOWN"
-                log_message "$MSG_WAIT_STATUS_CHANGE"
-                wait_for_disc_change 10
-                continue
-            fi
-            
-            log_message "$MSG_START_COPY_FOR_TYPE $disc_type..."
-            
-            if copy_disc_to_iso; then
-                log_message "$MSG_COPY_SUCCESS_COMPLETE"
-            else
-                log_message "$MSG_COPY_FAILED_COMPLETE"
-            fi
-            
-            log_message "$MSG_EJECT_DISC"
-            if command -v eject >/dev/null 2>&1; then
-                eject "$CD_DEVICE" 2>/dev/null && log_message "$MSG_DISC_EJECTED"
-            fi
-            
-            # Warte auf Statusänderung (Medium entfernt oder Schublade geschlossen)
-            log_message "$MSG_WAIT_STATUS_CHANGE"
-            wait_for_disc_change 5
-            
+            # Warte auf Statusänderung (Medium entfernt) - prüfe alle 2 Sekunden
+            wait_for_disc_change 2
         else
-            log_message "$MSG_NO_MEDIA_INSERTED"
-            log_message "$MSG_WAIT_STATUS_TRAY"
+            # Warte auf Statusänderung (Medium eingelegt) - prüfe alle 2 Sekunden
+            wait_for_disc_change 2
             
-            wait_for_disc_change 10
-            
-            # Wenn Laufwerk geschlossen wurde, kurz warten und dann neu prüfen
+            # Wenn Laufwerk geschlossen wurde, kurz warten
             if is_drive_closed; then
-                log_message "$MSG_DRIVE_CLOSED_CHECK"
-                sleep 2
+                sleep 1
             fi
         fi
-        
-        log_message "$MSG_NEW_CHECK"
     done
 }
 
@@ -237,17 +139,61 @@ monitor_cdrom() {
 # Hauptfunktion
 # Prüft Abhängigkeiten und startet Überwachung
 main() {
-    log_message "$MSG_STARTUP"
+    # Parse Kommandozeilenparameter
+    while [[ $# -gt 0 ]]; do
+        case $1 in
+            -o|--output)
+                OUTPUT_DIR="$2"
+                shift 2
+                ;;
+            *)
+                echo "Unbekannter Parameter: $1"
+                echo "Verwendung: $0 -o|--output <Ausgabeverzeichnis>"
+                exit 1
+                ;;
+        esac
+    done
     
-    # Prüfe ob ein Optisches-Device angeschlossen ist
-    if (! detect_device()); then
+    # Prüfe ob OUTPUT_DIR gesetzt wurde
+    if [[ -z "$OUTPUT_DIR" ]]; then
+        echo "FEHLER: Kein Ausgabeverzeichnis angegeben"
+        echo "Verwendung: $0 -o|--output <Ausgabeverzeichnis>"
+        echo "Beispiel: $0 -o /mnt/hdd/nas/images"
         exit 1
     fi
     
+    # Stelle sicher dass OUTPUT_DIR existiert
+    if ! mkdir -p "$OUTPUT_DIR" 2>/dev/null; then
+        echo "FEHLER: Kann Ausgabeverzeichnis nicht erstellen: $OUTPUT_DIR"
+        exit 1
+    fi
+    
+    log_message "disk2iso gestartet"
+    log_message "Ausgabeverzeichnis: $OUTPUT_DIR"
+    
+    # Prüfe ob ein Optisches-Device angeschlossen ist (mit Retry für USB-Laufwerke)
+    local max_attempts=5
+    local attempt=1
+    
+    while [[ $attempt -le $max_attempts ]]; do
+        if detect_device; then
+            log_message "Laufwerk erkannt: $CD_DEVICE"
+            break
+        fi
+        
+        if [[ $attempt -lt $max_attempts ]]; then
+            log_message "Suche USB-Laufwerk... (Versuch $attempt/$max_attempts)"
+            sleep 10
+            ((attempt++))
+        else
+            log_message "FEHLER: Kein Laufwerk erkannt nach $max_attempts Versuchen"
+            exit 1
+        fi
+    done
     
     # Stelle sicher dass Device bereit ist (lädt sr_mod, wartet auf udev)
     if ! ensure_device_ready "$CD_DEVICE"; then
-        log_message "$MSG_DRIVE_NOT_AVAILABLE $CD_DEVICE"
+        log_message "Laufwerk nicht verfügbar: $CD_DEVICE"
         exit 1
     fi
     
@@ -256,18 +202,8 @@ main() {
     missing_critical=$(check_all_critical_tools)
     
     if [[ -n "$missing_critical" ]]; then
-        log_message "$MSG_DEPS_CRITICAL_MISSING $missing_critical"
-        log_message "$MSG_DEPS_INSTALL_HINT"
+        log_message "Fehlende Tools: $missing_critical"
         exit 1
-    fi
-    
-    # Prüfe optionale Tools (nur loggen, keine Installation)
-    local missing_optional
-    missing_optional=$(check_all_optional_tools)
-    
-    if [[ -n "$missing_optional" ]]; then
-        log_message "$MSG_DEPS_OPTIONAL_MISSING $missing_optional"
-        log_message "$MSG_DEPS_OPTIONAL_HINT"
     fi
     
     # Starte Überwachung
@@ -275,14 +211,9 @@ main() {
 }
 
 # Signal-Handler für sauberes Service-Beenden
-# Wird bei SIGTERM/SIGINT aufgerufen
 cleanup_service() {
-    log_message "$MSG_SERVICE_SHUTDOWN"
-    
-    # Falls gerade Kopiervorgang läuft, aufräumen
+    log_message "Service wird beendet"
     cleanup_disc_operation "interrupted"
-    
-    log_message "$MSG_SERVICE_EXIT"
     exit 0
 }
 
