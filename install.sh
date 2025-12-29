@@ -180,17 +180,16 @@ install_optional_packages() {
     fi
 }
 
-# Setup für libdvdcss2 (nicht in Debian Trixie main)
+# Setup für libdvdcss2 (über libdvd-pkg aus contrib)
 setup_libdvdcss2() {
     print_header "LIBDVDCSS2 SETUP"
     
-    echo "libdvdcss2 ist NICHT in den Standard-Debian-Repositories verfügbar."
-    echo "Für DVD-Entschlüsselung gibt es zwei Optionen:"
+    echo "libdvdcss2 wird für die Entschlüsselung kommerzieller Video-DVDs benötigt."
     echo ""
-    echo "Option 1: deb-multimedia.org Repository hinzufügen"
-    echo "          → Volle Entschlüsselungs-Unterstützung"
-    echo "          → Schnellste Methode für Video-DVDs"
-    echo "          → Benötigt Drittanbieter-Repository"
+    echo "Option 1: libdvd-pkg verwenden (empfohlen)"
+    echo "          → Offizielles Debian contrib-Paket"
+    echo "          → Kompiliert libdvdcss2 automatisch"
+    echo "          → Benötigt 'contrib' in /etc/apt/sources.list"
     echo ""
     echo "Option 2: Nur ddrescue/dd verwenden (bereits installiert)"
     echo "          → Kopiert verschlüsselte ISOs"
@@ -198,56 +197,61 @@ setup_libdvdcss2() {
     echo "          → Keine zusätzlichen Repositories"
     echo ""
     
-    if ask_yes_no "deb-multimedia.org Repository hinzufügen?"; then
-        add_deb_multimedia_repo
-        install_libdvdcss2
+    if ask_yes_no "libdvd-pkg installieren (empfohlen)?"; then
+        enable_contrib_repo
+        install_libdvd_pkg
     else
         print_info "OK - dvdbackup funktioniert nur mit unverschlüsselten DVDs"
         print_info "Verschlüsselte DVDs werden mit ddrescue/dd kopiert (langsamer)"
     fi
 }
 
-add_deb_multimedia_repo() {
-    print_info "Füge deb-multimedia.org Repository hinzu..."
+# Aktiviere contrib Repository
+enable_contrib_repo() {
+    print_info "Prüfe contrib Repository..."
     
-    # Prüfe ob bereits vorhanden
-    if grep -q "deb-multimedia.org" /etc/apt/sources.list /etc/apt/sources.list.d/*.list 2>/dev/null; then
-        print_success "deb-multimedia.org bereits konfiguriert"
+    # Prüfe ob contrib bereits aktiviert ist
+    if grep -qE '^\s*deb\s+.*debian.*\bcontrib\b' /etc/apt/sources.list; then
+        print_success "contrib Repository bereits aktiviert"
         return 0
     fi
     
-    # Debian Version ermitteln
-    local debian_version=$(cat /etc/debian_version | cut -d. -f1)
-    local debian_codename="trixie"  # Debian 13
+    # Füge contrib zu allen Zeilen hinzu, die main enthalten
+    print_info "Aktiviere contrib Repository..."
+    sed -i 's/\(deb.*debian.*main\)\(\s\|$\)/\1 contrib\2/' /etc/apt/sources.list
     
-    if [[ "$debian_version" == "12" ]]; then
-        debian_codename="bookworm"
-    elif [[ "$debian_version" == "11" ]]; then
-        debian_codename="bullseye"
+    # Prüfe ob erfolgreich
+    if grep -qE '^\s*deb\s+.*debian.*\bcontrib\b' /etc/apt/sources.list; then
+        # Cache aktualisieren
+        apt-get update -qq
+        print_success "contrib Repository aktiviert"
+        return 0
+    else
+        print_warning "Konnte contrib nicht automatisch aktivieren"
+        print_info "Bitte fügen Sie 'contrib' manuell zu /etc/apt/sources.list hinzu"
+        return 1
     fi
-    
-    # Repository hinzufügen
-    echo "deb https://www.deb-multimedia.org ${debian_codename} main non-free" > /etc/apt/sources.list.d/deb-multimedia.list
-    
-    # Keyring installieren
-    print_info "Installiere deb-multimedia Keyring..."
-    apt-get update -qq -o Acquire::AllowInsecureRepositories=true
-    apt-get install -y --allow-unauthenticated deb-multimedia-keyring
-    
-    # Cache neu laden
-    apt-get update -qq
-    
-    print_success "deb-multimedia.org Repository hinzugefügt"
 }
 
-install_libdvdcss2() {
-    print_info "Installiere libdvdcss2..."
+# Installiere libdvd-pkg
+install_libdvd_pkg() {
+    print_info "Installiere libdvd-pkg..."
     
-    if install_package "libdvdcss2" "libdvdcss2"; then
-        print_success "DVD-Entschlüsselung aktiviert"
-        print_info "Video-DVDs können nun entschlüsselt kopiert werden"
+    if install_package "libdvd-pkg" "libdvd-pkg"; then
+        print_info "Konfiguriere libdvd-pkg (kompiliert libdvdcss2)..."
+        
+        # Konfiguriere libdvd-pkg automatisch
+        DEBIAN_FRONTEND=noninteractive dpkg-reconfigure libdvd-pkg
+        
+        if [[ $? -eq 0 ]]; then
+            print_success "libdvdcss2 erfolgreich kompiliert und installiert"
+            print_info "Video-DVDs können nun entschlüsselt kopiert werden"
+        else
+            print_warning "libdvdcss2 Kompilierung fehlgeschlagen"
+            print_info "Fallback auf ddrescue/dd für verschlüsselte DVDs"
+        fi
     else
-        print_warning "libdvdcss2 Installation fehlgeschlagen"
+        print_warning "libdvd-pkg Installation fehlgeschlagen"
         print_info "Fallback auf ddrescue/dd für verschlüsselte DVDs"
     fi
 }

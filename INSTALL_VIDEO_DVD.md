@@ -1,38 +1,32 @@
 # Installation: Video-DVD Unterstützung
 
-## Option 1: Entschlüsselte ISOs (empfohlen, benötigt externes Repository)
+## Option 1: Entschlüsselte ISOs (empfohlen, contrib Repository)
 
 Erstellt vollständig entschlüsselte ISOs ohne Kopierschutz.
 
-### Pakete installieren
+### libdvdcss2 über libdvd-pkg (empfohlen)
+
+Das offizielle Debian-Paket aus dem contrib-Repository:
 
 ```bash
-su -c 'apt-get update && apt-get install -y genisoimage'
-```
+# Aktiviere contrib Repository (einmalig)
+su -c "sed -i 's/^\(deb.*debian.*main\)\s*$/\1 contrib/' /etc/apt/sources.list"
 
-### libdvdcss2 aus deb-multimedia.org
+# Installiere Pakete
+su -c 'apt-get update && apt-get install -y genisoimage dvdbackup libdvd-pkg'
 
-Da libdvdcss2 nicht in Debian Standard-Repos ist:
-
-```bash
-# Repository hinzufügen
-su -c 'echo "deb http://www.deb-multimedia.org trixie main" > /etc/apt/sources.list.d/deb-multimedia.list'
-
-# GPG-Key importieren
-su -c 'apt-get update -oAcquire::AllowInsecureRepositories=true'
-su -c 'apt-get install -y deb-multimedia-keyring'
-
-# Pakete installieren
-su -c 'apt-get update && apt-get install -y libdvdcss2 dvdbackup'
+# Kompiliere libdvdcss2 automatisch
+su -c 'dpkg-reconfigure libdvd-pkg'
 ```
 
 **Vorteile:**
 - ✓ Entschlüsselte ISOs (direkt verarbeitbar)
 - ✓ Schnell: ~10-15 Minuten für 4,7 GB DVD
+- ✓ Offizielles Debian contrib-Paket
 - ✓ Überspringt Kopierschutz-Bereiche
 
 **Nachteile:**
-- ✗ Externes Repository erforderlich
+- ✗ contrib Repository erforderlich (aber offiziell)
 
 ---
 

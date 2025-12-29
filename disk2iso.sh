@@ -48,7 +48,9 @@ fi
 # ============================================================================
 
 # Ermittle Script-Verzeichnis (funktioniert auch bei Symlinks und Service)
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# Löse Symlinks auf, um den echten Pfad zu bekommen
+SCRIPT_PATH="$(readlink -f "${BASH_SOURCE[0]}")"
+SCRIPT_DIR="$(dirname "$SCRIPT_PATH")"
 
 # Lade Basis-Module
 source "${SCRIPT_DIR}/disk2iso-lib/lang/messages.de"
@@ -67,6 +69,45 @@ source "${SCRIPT_DIR}/disk2iso-lib/lib-drivestat.sh"
 # HAUPTLOGIK - VEREINFACHT (nur Daten-Discs)
 # ============================================================================
 
+# Funktion zum Auswählen der besten Kopiermethode
+# Gibt Methodennamen zurück: "dvdbackup", "ddrescue" oder "dd"
+select_copy_method() {
+    local disc_type="$1"
+    
+    # Für Video-DVDs/Blu-rays: Prüfe verfügbare Tools
+    if [[ "$disc_type" == "dvd-video" ]] || [[ "$disc_type" == "bd-video" ]]; then
+        # Priorität 1: dvdbackup (entschlüsselt, schnell)
+        if command -v dvdbackup >/dev/null 2>&1 && command -v genisoimage >/dev/null 2>&1; then
+            log_message "Gewählte Methode: dvdbackup (entschlüsselt)"
+            echo "dvdbackup"
+            return 0
+        fi
+        
+        # Priorität 2: ddrescue (verschlüsselt, mittelschnell)
+        if command -v ddrescue >/dev/null 2>&1; then
+            log_message "Gewählte Methode: ddrescue (verschlüsselt, robust)"
+            echo "ddrescue"
+            return 0
+        fi
+        
+        # Priorität 3: dd (verschlüsselt, langsam)
+        log_message "Gewählte Methode: dd (verschlüsselt, Basis-Methode)"
+        echo "dd"
+        return 0
+    else
+        # Für Daten-Discs: Prüfe ddrescue, sonst dd
+        if command -v ddrescue >/dev/null 2>&1; then
+            log_message "Gewählte Methode: ddrescue (robust)"
+            echo "ddrescue"
+            return 0
+        else
+            log_message "Gewählte Methode: dd (Basis-Methode)"
+            echo "dd"
+            return 0
+        fi
+    fi
+}
+
 # Funktion zum Kopieren der CD/DVD/BD als ISO
 copy_disc_to_iso() {
     # Initialisiere alle Dateinamen
@@ -80,20 +121,35 @@ copy_disc_to_iso() {
     
     log_message "Start Kopiervorgang: $disc_label -> $iso_filename"
     
-    # Wähle Kopiermethode basierend auf Disc-Typ
+    # Wähle Kopiermethode basierend auf Disc-Typ und verfügbaren Tools
+    local method=$(select_copy_method "$disc_type")
+    
+    # Kopiere mit gewählter Methode (KEIN Fallback bei Fehler)
     local copy_success=false
     
-    if [[ "$disc_type" == "dvd-video" ]]; then
-        # Video-DVD: Versuche dvdbackup (mit Fallback auf dd)
-        if copy_video_dvd; then
-            copy_success=true
-        fi
-    else
-        # Alle anderen: Standard dd-Kopie
-        if copy_data_disc; then
-            copy_success=true
-        fi
-    fi
+    case "$method" in
+        dvdbackup)
+            if copy_video_dvd; then
+                copy_success=true
+            fi
+            ;;
+        ddrescue)
+            if [[ "$disc_type" == "dvd-video" ]] || [[ "$disc_type" == "bd-video" ]]; then
+                if copy_video_dvd_ddrescue; then
+                    copy_success=true
+                fi
+            else
+                if copy_data_disc_ddrescue; then
+                    copy_success=true
+                fi
+            fi
+            ;;
+        dd)
+            if copy_data_disc; then
+                copy_success=true
+            fi
+            ;;
+    esac
     
     # Verarbeite Ergebnis
     if $copy_success; then

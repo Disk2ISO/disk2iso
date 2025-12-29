@@ -17,40 +17,98 @@
 
 # Funktion zum Kopieren von Video-DVDs mit Entschlüsselung
 # Nutzt dvdbackup (mit libdvdcss) + genisoimage
-# Fallback: copy_video_dvd_ddrescue() oder copy_data_disc()
+# KEIN Fallback - Methode wird zu Beginn gewählt
 copy_video_dvd() {
-    # Prüfe ob dvdbackup und genisoimage verfügbar sind
-    if ! command -v dvdbackup >/dev/null 2>&1 || ! command -v genisoimage >/dev/null 2>&1; then
-        log_message "INFO: dvdbackup nicht verfügbar - Versuche ddrescue"
-        copy_video_dvd_ddrescue
-        return $?
-    fi
-    
-    log_message "Methode 1: Kopiere Video-DVD mit dvdbackup (entschlüsselt)"
+    log_message "Methode: dvdbackup (entschlüsselt)"
     
     # Erstelle temporäres Verzeichnis für DVD-Struktur
     local temp_dvd="${temp_pathname}/dvd_rip"
     mkdir -p "$temp_dvd"
     
-    # Kopiere DVD-Struktur mit dvdbackup (entschlüsselt)
-    # Timeout nach 60 Sekunden (verhindert Hängen ohne libdvdcss2)
-    log_message "Extrahiere DVD-Struktur..."
-    if ! timeout 60 dvdbackup -M -i "$CD_DEVICE" -o "$temp_dvd" 2>>"$log_filename"; then
-        log_message "FEHLER: dvdbackup fehlgeschlagen (Timeout oder kein libdvdcss2) - Fallback auf ddrescue"
-        rm -rf "$temp_dvd"
-        copy_video_dvd_ddrescue
-        return $?
+    # Ermittle DVD-Größe für Fortschrittsanzeige
+    local dvd_size_mb=0
+    if command -v isoinfo >/dev/null 2>&1; then
+        local volume_blocks
+        volume_blocks=$(isoinfo -d -i "$CD_DEVICE" 2>/dev/null | grep "Volume size is:" | awk '{print $4}')
+        if [[ -n "$volume_blocks" ]] && [[ "$volume_blocks" =~ ^[0-9]+$ ]]; then
+            dvd_size_mb=$((volume_blocks * 2048 / 1024 / 1024))
+            log_message "DVD-Größe: ${dvd_size_mb} MB"
+        fi
     fi
+    
+    # Starte dvdbackup im Hintergrund mit Fortschrittsanzeige
+    log_message "Extrahiere DVD-Struktur..."
+    dvdbackup -M -i "$CD_DEVICE" -o "$temp_dvd" >>"$log_filename" 2>&1 &
+    local dvdbackup_pid=$!
+    
+    # Überwache Fortschritt (alle 60 Sekunden)
+    local start_time=$(date +%s)
+    local last_log_time=$start_time
+    
+    while kill -0 "$dvdbackup_pid" 2>/dev/null; do
+        sleep 5
+        
+        local current_time=$(date +%s)
+        local elapsed=$((current_time - last_log_time))
+        
+        # Log alle 60 Sekunden
+        if [[ $elapsed -ge 60 ]]; then
+            local copied_mb=0
+            if [[ -d "$temp_dvd" ]]; then
+                copied_mb=$(du -sm "$temp_dvd" 2>/dev/null | awk '{print $1}')
+            fi
+            
+            local percent=0
+            local eta="--:--:--"
+            
+            if [[ $dvd_size_mb -gt 0 ]] && [[ $copied_mb -gt 0 ]]; then
+                percent=$((copied_mb * 100 / dvd_size_mb))
+                if [[ $percent -gt 100 ]]; then percent=100; fi
+                
+                # Berechne geschätzte Restzeit
+                local total_elapsed=$((current_time - start_time))
+                if [[ $percent -gt 0 ]]; then
+                    local estimated_total=$((total_elapsed * 100 / percent))
+                    local remaining=$((estimated_total - total_elapsed))
+                    local hours=$((remaining / 3600))
+                    local minutes=$(((remaining % 3600) / 60))
+                    local seconds=$((remaining % 60))
+                    eta=$(printf "%02d:%02d:%02d" $hours $minutes $seconds)
+                fi
+            fi
+            
+            # Formatierte Ausgabe mit tatsächlichen Werten
+            if [[ $dvd_size_mb -gt 0 ]]; then
+                log_message "Fortschritt: ${copied_mb} MB von ${dvd_size_mb} MB (${percent}%) - verbleibend: ${eta}"
+            else
+                log_message "Fortschritt: ${copied_mb} MB kopiert - verbleibend: ${eta}"
+            fi
+            
+            last_log_time=$current_time
+        fi
+    done
+    
+    # Warte auf dvdbackup Prozess-Ende
+    wait "$dvdbackup_pid"
+    local dvdbackup_exit=$?
+    
+    # Prüfe Ergebnis
+    if [[ $dvdbackup_exit -ne 0 ]]; then
+        log_message "FEHLER: dvdbackup fehlgeschlagen (Exit-Code: $dvdbackup_exit)"
+        rm -rf "$temp_dvd"
+        return 1
+    fi
+    
+    log_message "✓ DVD-Struktur extrahiert (100%)"
     
     # Finde VIDEO_TS Ordner (dvdbackup erstellt Unterordner mit Titel)
     local video_ts_dir
     video_ts_dir=$(find "$temp_dvd" -type d -name "VIDEO_TS" | head -1)
     
     if [[ -z "$video_ts_dir" ]]; then
-        log_message "FEHLER: Kein VIDEO_TS Ordner gefunden - Fallback auf ddrescue"
+        log_message "FEHLER: Kein VIDEO_TS Ordner gefunden"
         rm -rf "$temp_dvd"
-        copy_video_dvd_ddrescue
-        return $?
+        return 1
     fi
     
     # Erstelle ISO aus VIDEO_TS Struktur
@@ -60,10 +118,9 @@ copy_video_dvd() {
         rm -rf "$temp_dvd"
         return 0
     else
-        log_message "FEHLER: genisoimage fehlgeschlagen - Fallback auf ddrescue"
+        log_message "FEHLER: genisoimage fehlgeschlagen"
         rm -rf "$temp_dvd"
-        copy_video_dvd_ddrescue
-        return $?
+        return 1
     fi
 }
 
@@ -73,16 +130,9 @@ copy_video_dvd() {
 
 # Funktion zum Kopieren von Video-DVDs mit ddrescue
 # Schneller als dd bei Lesefehlern, ISO bleibt verschlüsselt
-# Fallback: copy_data_disc()
+# KEIN Fallback - Methode wird zu Beginn gewählt
 copy_video_dvd_ddrescue() {
-    # Prüfe ob ddrescue verfügbar ist
-    if ! command -v ddrescue >/dev/null 2>&1; then
-        log_message "INFO: ddrescue nicht verfügbar - Fallback auf dd"
-        copy_data_disc
-        return $?
-    fi
-    
-    log_message "Methode 2: Kopiere Video-DVD mit ddrescue (verschlüsselt, schnell)"
+    log_message "Methode: ddrescue (verschlüsselt, robust)"
     
     # ddrescue benötigt Map-Datei
     local mapfile="${iso_filename}.mapfile"
@@ -106,6 +156,10 @@ copy_video_dvd_ddrescue() {
             log_message "✓ Video-DVD mit ddrescue erfolgreich kopiert"
             rm -f "$mapfile"
             return 0
+        else
+            log_message "FEHLER: ddrescue fehlgeschlagen"
+            rm -f "$mapfile"
+            return 1
         fi
     else
         # Ohne bekannte Größe (kopiert bis Ende)
@@ -113,14 +167,62 @@ copy_video_dvd_ddrescue() {
             log_message "✓ Video-DVD mit ddrescue erfolgreich kopiert"
             rm -f "$mapfile"
             return 0
+        else
+            log_message "FEHLER: ddrescue fehlgeschlagen"
+            rm -f "$mapfile"
+            return 1
+        fi
+    fi
+}
+
+# ============================================================================
+# DATA DISC COPY - DDRESCUE (für Daten-Discs)
+# ============================================================================
+
+# Funktion zum Kopieren von Daten-Discs mit ddrescue
+# Schneller und robuster als dd
+copy_data_disc_ddrescue() {
+    log_message "Methode: ddrescue (robust)"
+    
+    # ddrescue benötigt Map-Datei
+    local mapfile="${iso_filename}.mapfile"
+    
+    # Ermittle Disc-Größe mit isoinfo
+    local volume_size=""
+    local total_bytes=0
+    
+    if command -v isoinfo >/dev/null 2>&1; then
+        volume_size=$(isoinfo -d -i "$CD_DEVICE" 2>/dev/null | grep "Volume size is:" | awk '{print $4}')
+        if [[ -n "$volume_size" ]] && [[ "$volume_size" =~ ^[0-9]+$ ]]; then
+            total_bytes=$((volume_size * 2048))
+            log_message "ISO-Volume erkannt: $volume_size Blöcke ($(( total_bytes / 1024 / 1024 )) MB)"
         fi
     fi
     
-    # Fallback wenn ddrescue fehlschlägt
-    log_message "FEHLER: ddrescue fehlgeschlagen - Fallback auf dd"
-    rm -f "$mapfile"
-    copy_data_disc
-    return $?
+    # Kopiere mit ddrescue
+    if [[ $total_bytes -gt 0 ]]; then
+        # Mit bekannter Größe
+        if ddrescue -b 2048 -s "$total_bytes" -n "$CD_DEVICE" "$iso_filename" "$mapfile" 2>>"$log_filename"; then
+            log_message "✓ Daten-Disc mit ddrescue erfolgreich kopiert"
+            rm -f "$mapfile"
+            return 0
+        else
+            log_message "FEHLER: ddrescue fehlgeschlagen"
+            rm -f "$mapfile"
+            return 1
+        fi
+    else
+        # Ohne bekannte Größe
+        if ddrescue -b 2048 -n "$CD_DEVICE" "$iso_filename" "$mapfile" 2>>"$log_filename"; then
+            log_message "✓ Daten-Disc mit ddrescue erfolgreich kopiert"
+            rm -f "$mapfile"
+            return 0
+        else
+            log_message "FEHLER: ddrescue fehlgeschlagen"
+            rm -f "$mapfile"
+            return 1
+        fi
+    fi
 }
 
 # ============================================================================
