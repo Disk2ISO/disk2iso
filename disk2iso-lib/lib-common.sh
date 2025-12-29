@@ -1,18 +1,129 @@
 #!/bin/bash
 ################################################################################
-# Common Functions Library - Minimal (nur Debian Standard-Tools)
+# Common Functions Library - Mit Video-DVD Unterstützung
 # Filepath: disk2iso-lib/lib-common.sh
 #
 # Beschreibung:
-#   Nur dd-basiertes Kopieren (Standard-Tool)
 #   - copy_data_disc() - Daten-Disc kopieren mit dd
+#   - copy_video_dvd() - Video-DVD mit dvdbackup + genisoimage (Fallback: dd)
 #   - reset_disc_variables, cleanup_disc_operation
 #
-# Vereinfacht: 24.12.2025
+# Erweitert: 29.12.2025
 ################################################################################
 
 # ============================================================================
-# DATA DISC COPY - NUR DD
+# VIDEO DVD COPY - DVDBACKUP + GENISOIMAGE (Methode 1 - Schnellste)
+# ============================================================================
+
+# Funktion zum Kopieren von Video-DVDs mit Entschlüsselung
+# Nutzt dvdbackup (mit libdvdcss) + genisoimage
+# Fallback: copy_video_dvd_ddrescue() oder copy_data_disc()
+copy_video_dvd() {
+    # Prüfe ob dvdbackup und genisoimage verfügbar sind
+    if ! command -v dvdbackup >/dev/null 2>&1 || ! command -v genisoimage >/dev/null 2>&1; then
+        log_message "INFO: dvdbackup nicht verfügbar - Versuche ddrescue"
+        copy_video_dvd_ddrescue
+        return $?
+    fi
+    
+    log_message "Methode 1: Kopiere Video-DVD mit dvdbackup (entschlüsselt)"
+    
+    # Erstelle temporäres Verzeichnis für DVD-Struktur
+    local temp_dvd="${temp_pathname}/dvd_rip"
+    mkdir -p "$temp_dvd"
+    
+    # Kopiere DVD-Struktur mit dvdbackup (entschlüsselt)
+    log_message "Extrahiere DVD-Struktur..."
+    if ! dvdbackup -M -i "$CD_DEVICE" -o "$temp_dvd" 2>>"$log_filename"; then
+        log_message "FEHLER: dvdbackup fehlgeschlagen - Fallback auf ddrescue"
+        rm -rf "$temp_dvd"
+        copy_video_dvd_ddrescue
+        return $?
+    fi
+    
+    # Finde VIDEO_TS Ordner (dvdbackup erstellt Unterordner mit Titel)
+    local video_ts_dir
+    video_ts_dir=$(find "$temp_dvd" -type d -name "VIDEO_TS" | head -1)
+    
+    if [[ -z "$video_ts_dir" ]]; then
+        log_message "FEHLER: Kein VIDEO_TS Ordner gefunden - Fallback auf ddrescue"
+        rm -rf "$temp_dvd"
+        copy_video_dvd_ddrescue
+        return $?
+    fi
+    
+    # Erstelle ISO aus VIDEO_TS Struktur
+    log_message "Erstelle entschlüsselte ISO aus VIDEO_TS..."
+    if genisoimage -dvd-video -V "$disc_label" -o "$iso_filename" "$(dirname "$video_ts_dir")" 2>>"$log_filename"; then
+        log_message "✓ Entschlüsselte Video-DVD ISO erfolgreich erstellt"
+        rm -rf "$temp_dvd"
+        return 0
+    else
+        log_message "FEHLER: genisoimage fehlgeschlagen - Fallback auf ddrescue"
+        rm -rf "$temp_dvd"
+        copy_video_dvd_ddrescue
+        return $?
+    fi
+}
+
+# ============================================================================
+# VIDEO DVD COPY - DDRESCUE (Methode 2 - Mittelschnell)
+# ============================================================================
+
+# Funktion zum Kopieren von Video-DVDs mit ddrescue
+# Schneller als dd bei Lesefehlern, ISO bleibt verschlüsselt
+# Fallback: copy_data_disc()
+copy_video_dvd_ddrescue() {
+    # Prüfe ob ddrescue verfügbar ist
+    if ! command -v ddrescue >/dev/null 2>&1; then
+        log_message "INFO: ddrescue nicht verfügbar - Fallback auf dd"
+        copy_data_disc
+        return $?
+    fi
+    
+    log_message "Methode 2: Kopiere Video-DVD mit ddrescue (verschlüsselt, schnell)"
+    
+    # ddrescue benötigt Map-Datei
+    local mapfile="${iso_filename}.mapfile"
+    
+    # Ermittle Disc-Größe mit isoinfo
+    local volume_size=""
+    local total_bytes=0
+    
+    if command -v isoinfo >/dev/null 2>&1; then
+        volume_size=$(isoinfo -d -i "$CD_DEVICE" 2>/dev/null | grep "Volume size is:" | awk '{print $4}')
+        if [[ -n "$volume_size" ]] && [[ "$volume_size" =~ ^[0-9]+$ ]]; then
+            total_bytes=$((volume_size * 2048))
+            log_message "ISO-Volume erkannt: $volume_size Blöcke ($(( total_bytes / 1024 / 1024 )) MB)"
+        fi
+    fi
+    
+    # Kopiere mit ddrescue
+    if [[ $total_bytes -gt 0 ]]; then
+        # Mit bekannter Größe
+        if ddrescue -b 2048 -s "$total_bytes" -n "$CD_DEVICE" "$iso_filename" "$mapfile" 2>>"$log_filename"; then
+            log_message "✓ Video-DVD mit ddrescue erfolgreich kopiert"
+            rm -f "$mapfile"
+            return 0
+        fi
+    else
+        # Ohne bekannte Größe (kopiert bis Ende)
+        if ddrescue -b 2048 -n "$CD_DEVICE" "$iso_filename" "$mapfile" 2>>"$log_filename"; then
+            log_message "✓ Video-DVD mit ddrescue erfolgreich kopiert"
+            rm -f "$mapfile"
+            return 0
+        fi
+    fi
+    
+    # Fallback wenn ddrescue fehlschlägt
+    log_message "FEHLER: ddrescue fehlgeschlagen - Fallback auf dd"
+    rm -f "$mapfile"
+    copy_data_disc
+    return $?
+}
+
+# ============================================================================
+# DATA DISC COPY - DD (Methode 3 - Langsamste, immer verfügbar)
 # ============================================================================
 
 # Funktion zum Kopieren von Daten-Discs (CD/DVD/BD) mit dd

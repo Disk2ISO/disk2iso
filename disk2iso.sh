@@ -80,8 +80,23 @@ copy_disc_to_iso() {
     
     log_message "Start Kopiervorgang: $disc_label -> $iso_filename"
     
-    # Kopiere Daten-Disc mit dd
-    if copy_data_disc; then
+    # Wähle Kopiermethode basierend auf Disc-Typ
+    local copy_success=false
+    
+    if [[ "$disc_type" == "dvd-video" ]]; then
+        # Video-DVD: Versuche dvdbackup (mit Fallback auf dd)
+        if copy_video_dvd; then
+            copy_success=true
+        fi
+    else
+        # Alle anderen: Standard dd-Kopie
+        if copy_data_disc; then
+            copy_success=true
+        fi
+    fi
+    
+    # Verarbeite Ergebnis
+    if $copy_success; then
         # Berechne MD5-Checksumme
         if [[ -f "$iso_filename" ]]; then
             local md5sum=$(md5sum "$iso_filename" | cut -d' ' -f1)

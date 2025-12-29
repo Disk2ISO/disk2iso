@@ -29,6 +29,21 @@ check_isoinfo() {
     command -v isoinfo >/dev/null 2>&1
 }
 
+# Prüfe ob dvdbackup verfügbar ist (optional, für Video-DVD Entschlüsselung)
+check_dvdbackup() {
+    command -v dvdbackup >/dev/null 2>&1
+}
+
+# Prüfe ob genisoimage verfügbar ist (optional, für ISO-Erstellung)
+check_genisoimage() {
+    command -v genisoimage >/dev/null 2>&1
+}
+
+# Prüfe ob ddrescue verfügbar ist (optional, für schnelles Kopieren mit Fehlern)
+check_ddrescue() {
+    command -v ddrescue >/dev/null 2>&1
+}
+
 # Prüfe alle kritischen System-Tools
 check_all_critical_tools() {
     local missing=()
@@ -48,11 +63,23 @@ check_all_critical_tools() {
 # Prüfe optionale Tools (für bessere Performance)
 check_all_optional_tools() {
     local missing=()
+    local available=()
     
-    check_isoinfo || missing+=("isoinfo (Paket: genisoimage)")
+    check_isoinfo && available+=("isoinfo") || missing+=("isoinfo (Paket: genisoimage)")
+    check_dvdbackup && available+=("dvdbackup") || missing+=("dvdbackup (Paket: dvdbackup)")
+    check_genisoimage && available+=("genisoimage") || missing+=("genisoimage (Paket: genisoimage)")
+    check_ddrescue && available+=("ddrescue") || missing+=("ddrescue (Paket: gddrescue)")
+    
+    if [[ ${#available[@]} -gt 0 ]]; then
+        log_message "Verfügbare optionale Tools: ${available[*]}"
+    fi
     
     if [[ ${#missing[@]} -gt 0 ]]; then
-        echo "${missing[@]}"
+        log_message "Fehlende optionale Tools: ${missing[*]}"
+        log_message "Video-DVD Optionen:"
+        log_message "  Option 1 (entschlüsselt): apt-get install dvdbackup libdvdcss2 genisoimage"
+        log_message "  Option 2 (verschlüsselt, schnell): apt-get install gddrescue"
+        log_message "  Option 3 (verschlüsselt, langsam): dd (immer verfügbar)"
         return 1
     fi
     
