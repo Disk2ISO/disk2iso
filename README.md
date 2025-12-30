@@ -1,52 +1,103 @@
-# disk2iso - Minimale Version (nur Debian Standard-Tools)
+# disk2iso - Modulares CD/DVD/Blu-ray Archivierungstool
 
-Automatisches Rippen von CDs, DVDs und Blu-rays zu ISO-Images beim Einlegen.
+Automatisches Rippen und Archivieren von optischen Medien zu ISO-Images beim Einlegen.
 
-## Features
+## ✨ Features
 
-- ✓ Automatische Erkennung eingelegter Medien
-- ✓ Kopiert alle optischen Medien als ISO-Datei
-- ✓ MD5-Checksummen für Datenintegrität
-- ✓ Service-Modus für automatischen Betrieb
-- ✓ Debug-Modi für Entwicklung
+- ✓ **Modulare Architektur** - Optionale Unterstützung für Audio-CD, Video-DVD, Blu-ray
+- ✓ **Automatische Medien-Erkennung** - 6 spezialisierte Disc-Typen
+- ✓ **Intelligente Methoden-Auswahl** - Beste Kopiermethode pro Medientyp
+- ✓ **MD5-Checksummen** - Automatische Integritätsprüfung
+- ✓ **Service-Modus** - systemd-Integration für automatischen Betrieb
+- ✓ **Dezentrale Dependency-Checks** - Module prüfen eigene Abhängigkeiten
+- ✓ **Debug-Modi** - Umfangreiche Entwickler-Unterstützung
 
-## Systemanforderungen
+## 💿 Unterstützte Medientypen
 
-### Kritische Pakete (immer erforderlich)
-- **coreutils**: dd (Kopieren), md5sum (Checksummen)
-- **util-linux**: lsblk (Laufwerkserkennung)
-- **eject**: Medien auswerfen
-- **mount**: Dateisystem-Mount für Label-Erkennung
-- Standard Shell-Tools (grep, sed, awk, date, etc.)
+### Kern-Funktionen (immer verfügbar)
 
-### Optionale Pakete (für erweiterte Funktionen)
-- **genisoimage** (empfohlen): isoinfo für exakte Volume-Größen → schnelleres Kopieren
-- **gddrescue** (empfohlen): Intelligentes Rettungs-Tool → deutlich schneller als dd
-- **dvdbackup** (optional): DVD-Entschlüsselung → schnellste Methode für Video-DVDs
-- **libdvdcss2** (optional): CSS-Entschlüsselung für kommerzielle DVDs (nur mit deb-multimedia.org)
+- 💾 **CD-ROM** - Daten-CDs als ISO mit dd/ddrescue
+- 📀 **DVD-ROM** - Daten-DVDs als ISO mit dd/ddrescue
+- 📁 **Blu-ray ROM** - Daten-Blu-rays als ISO mit dd/ddrescue
 
-**Hinweis**: Das install.sh Script bietet alle Pakete interaktiv zur Installation an.
+### Optionale Module (bei Installation wählbar)
 
-## Installation
+- 🎵 **Audio-CDs** (lib-cd.sh) - Rippen zu MP3 mit MusicBrainz-Metadaten und Cover
+- 💿 **DVD-Video** (lib-dvd.sh) - Entschlüsselte Backups mit dvdbackup
+- 🎬 **Blu-ray Video** (lib-bluray.sh) - Entschlüsselte Backups mit MakeMKV
+
+## 💻 Systemanforderungen
+
+### Kern-Pakete (immer erforderlich)
+
+**Kritische Abhängigkeiten:**
+
+- **coreutils** - dd (Kopieren), md5sum (Checksummen)
+- **util-linux** - lsblk (Laufwerkserkennung)
+- **eject** - Medien auswerfen
+- **mount** - Dateisystem-Mount für Label-Erkennung
+
+**Empfohlen für bessere Performance:**
+
+- **genisoimage** - isoinfo für exakte Volume-Größen
+- **gddrescue** - Robustes Kopieren mit Fehlerbehandlung
+
+### Optionale Pakete (pro Modul)
+
+**Audio-CD Support (lib-cd.sh):**
+
+- **cdparanoia** - Audio-CD Ripping (kritisch)
+- **lame** - MP3-Encoding (kritisch)
+- **genisoimage** - ISO-Erstellung (kritisch)
+- **cd-discid** - MusicBrainz Disc-ID (optional)
+- **curl, jq** - MusicBrainz Metadaten-Abfrage (optional)
+- **eyeD3** - Cover-Art Einbettung (optional)
+
+**Video-DVD Support (lib-dvd.sh):**
+
+- **dvdbackup** - DVD-Entschlüsselung (empfohlen)
+- **libdvdcss2** - CSS-Entschlüsselung für kommerzielle DVDs (empfohlen)
+- **genisoimage** - ISO-Erstellung aus VIDEO_TS (empfohlen)
+- **gddrescue** - Fallback-Methode (optional)
+
+**Blu-ray Support (lib-bluray.sh):**
+
+- **makemkvcon** - Blu-ray-Entschlüsselung (empfohlen)
+- **genisoimage** - ISO-Erstellung aus BDMV (empfohlen)
+- **gddrescue** - Fallback-Methode (optional)
+
+## 🚀 Installation
 
 ### Automatische Installation (empfohlen)
 
 ```bash
-# 1. Repository clonen
+# Repository clonen
 git clone <repository-url>
 cd disk2iso
 
-# 2. Installations-Script ausführen
+# Installations-Script ausführen
 sudo ./install.sh
 ```
 
-Das Installations-Script führt Sie interaktiv durch den Setup-Prozess:
-- ✓ Prüft und installiert kritische Pakete (dd, md5sum, lsblk, eject)
-- ✓ Bietet optionale Pakete an (genisoimage, gddrescue, dvdbackup)
-- ✓ Konfiguriert libdvdcss2 für DVD-Entschlüsselung (optional)
-- ✓ Installiert disk2iso nach /opt/disk2iso
-- ✓ Erstellt Symlink in /usr/local/bin
-- ✓ Konfiguriert systemd Service (optional)
+**Das Installations-Script bietet:**
+
+1. **Modulare Installation** - Wähle benötigte Features:
+   - Nur Daten-Disks (Minimal)
+   - Audio-CD Support
+   - Video-DVD Support
+   - Blu-ray Support
+   - Alle Features (Komplett)
+
+2. **Automatische Paket-Installation:**
+   - Prüft und installiert Kern-Pakete (dd, md5sum, lsblk, eject)
+   - Installiert optionale Pakete basierend auf gewählten Modulen
+   - Konfiguriert libdvdcss2 für DVD-Entschlüsselung (optional)
+   - MakeMKV Installations-Hinweise für Blu-ray Support
+
+3. **System-Integration:**
+   - Installiert nach /opt/disk2iso
+   - Erstellt Symlink in /usr/local/bin
+   - Konfiguriert systemd Service (optional)
 
 ### Manuelle Installation
 
@@ -65,14 +116,29 @@ sudo systemctl enable disk2iso
 sudo systemctl start disk2iso
 ```
 
-## Verwendung
+## 💻 Verwendung
 
 ### Manueller Modus
+
 ```bash
-./disk2iso.sh
+# Mit Ausgabeverzeichnis
+sudo ./disk2iso.sh -o /mnt/hdd/nas/images
 ```
 
+**Automatisches Verhalten:**
+
+1. Medium einlegen
+2. Automatische Typ-Erkennung (audio-cd, dvd-video, bd-video, etc.)
+3. Beste Methode wählen basierend auf:
+   - Disc-Typ
+   - Verfügbaren Tools
+   - Installierten Modulen
+4. Kopieren mit Fortschrittsanzeige
+5. MD5-Checksumme erstellen
+6. Medium auswerfen
+
 ### Debug-Modi
+
 ```bash
 # Debug-Modus (zeigt jede ausgeführte Zeile):
 DEBUG=1 ./disk2iso.sh
@@ -85,143 +151,38 @@ DEBUG=1 STRICT=1 ./disk2iso.sh
 ```
 
 ### Service-Modus
+
 ```bash
 sudo systemctl start disk2iso
 sudo systemctl status disk2iso
 sudo systemctl stop disk2iso
 ```
 
-## Ausgabe
+## 📋 Ausgabe
 
 - ISO-Dateien: `/mnt/hdd/nas/images/`
 - MD5-Checksummen: Gleicher Ordner wie ISO-Dateien (`.md5`)
 - Log-Dateien: `/mnt/hdd/nas/images/logs/`
 
-## Konfiguration
+## ⚙️ Konfiguration
 
 Bearbeite `disk2iso-lib/config.sh`:
-```bash
-OUTPUT_DIR="/mnt/hdd/nas/images"  # Ausgabeordner
-```
-
-## Vereinfachungen (24.12.2025)
-
-Diese Version wurde radikal vereinfacht und nutzt **nur noch Debian-Standard-Tools**:
-
-### Entfernt:
-- ❌ Audio-CD Ripping (cdparanoia, lame)
-- ❌ Video-DVD Funktionen (dvdbackup, mkisofs)
-- ❌ Blu-ray Video Funktionen (makemkvcon)
-- ❌ Metadaten-Tools (blkid, isoinfo, blockdev)
-- ❌ Fortschrittsanzeige (pv)
-- ❌ Erweiterte Kopiermethoden (ddrescue)
-- ❌ Typ-Erkennung (Audio-CD, Video-DVD, etc.)
-- ❌ Label-Erkennung (alle Medien bekommen Zeitstempel-Namen)
-
-### Verblieben:
-- ✓ Einfaches dd-basiertes Kopieren
-- ✓ Automatische Laufwerkserkennung
-- ✓ MD5-Checksummen
-- ✓ Logging
-- ✓ Service-Modus
-
-## Lizenz
-
-Siehe LICENSE Datei
-
-## Support
-
-Bei Problemen: Prüfe die Log-Dateien in `/mnt/hdd/nas/images/logs/`
-
-**Automatisches CD/DVD/Blu-ray Archivierungstool für Linux**
-
-`disk2iso` ist ein intelligentes Bash-Skript, das optische Medien automatisch erkennt, archiviert und als ISO-Images oder MP3-Dateien (bei Audio-CDs) speichert. Ideal für Heimserver und automatische Backup-Lösungen.
-
-## ✨ Features
-
-### Unterstützte Medientypen
-- 🎵 **Audio-CDs** - Rippen zu MP3 mit automatischen Metadaten (MusicBrainz/CD-TEXT) und Album-Cover
-- 💿 **CD-ROM** - ISO-Erstellung mit MD5-Checksummen
-- 📀 **DVD-Video** - Struktur-erhaltende Backups mit dvdbackup
-- 💾 **DVD-ROM** - Standard ISO-Images
-- 🎬 **Blu-ray Video** - Entschlüsselte Backups mit MakeMKV
-- 📁 **Blu-ray ROM** - Daten-Blu-ray ISO-Images
-
-### Intelligente Funktionen
-- ✅ **Automatische Typ-Erkennung** - 6 spezialisierte Detection-Algorithmen
-- ✅ **Mehrfache Fallback-Strategien** - ddrescue → dd für maximale Erfolgsrate
-- ✅ **MD5-Checksummen** - Automatische Integritätsprüfung
-- ✅ **Service-Modus** - systemd-Integration für unbeaufsichtigten Betrieb
-- ✅ **Robuste Fehlerbehandlung** - Cleanup und Recovery bei Problemen
-- ✅ **Fortschrittsanzeige** - Optional mit `pv`
-
-### Architektur
-- 📦 **Modulare Struktur** - 10 spezialisierte Bibliotheken
-- 🚀 **Lazy Loading** - Module werden nur bei Bedarf geladen
-- 🌍 **Internationalisierung** - Deutsche Sprachdatei (erweiterbar)
-- 📝 **Umfangreiches Logging** - Alle Operationen werden protokolliert
-
-## 📋 Voraussetzungen
-
-### Kritische Abhängigkeiten
-- `dd` (coreutils)
-- `md5sum` (coreutils)
-- `lsblk` (util-linux)
-- `isoinfo` (genisoimage)
-
-### Optionale Tools (erweiterte Funktionen)
-- `ddrescue` - Robustes Kopieren mit Fehlerbehandlung
-- `dvdbackup` - Video-DVD Backup
-- `makemkvcon` - Blu-ray Video Backup
-- `cdparanoia` + `lame` - Audio-CD Ripping
-- `cd-discid` + `curl` + `jq` - MusicBrainz Metadaten-Lookup
-- `cdrdao` - CD-TEXT Extraktion
-- `eyeD3` oder `mid3v2` - MP3-Tag-Editor
-- `pv` - Fortschrittsanzeige
-
-## 🚀 Installation
-
-### Automatische Installation (empfohlen)
 
 ```bash
-# Repository klonen
-git clone https://github.com/IhrUsername/disk2iso.git
-cd disk2iso
+# Ausgabe-Verzeichnis
+OUTPUT_DIR="/mnt/hdd/nas/images"
 
-# Installation mit sudo ausführen
-sudo ./install.sh
+# CD-Device (automatisch erkannt)
+CD_DEVICE=""  # Leer lassen für Auto-Detect
+
+# Audio-CD Einstellungen
+AUDIO_QUALITY="V2"              # LAME VBR Qualität (V0-V9)
+AUDIO_USE_MUSICBRAINZ=true      # MusicBrainz Metadaten-Lookup
+AUDIO_USE_CDTEXT=true           # CD-TEXT Extraktion
+AUDIO_DOWNLOAD_COVER=true       # Album-Cover herunterladen
 ```
 
-Das Installations-Script:
-- ✅ Erkennt automatisch den Paketmanager (apt/dnf/yum/pacman/zypper)
-- ✅ Installiert fehlende Abhängigkeiten
-- ✅ Kopiert Dateien nach `/usr/local/bin`
-- ✅ Richtet optional den systemd-Service ein
-
-### Manuelle Installation
-
-```bash
-# Kopiere Hauptskript
-sudo cp disk2iso.sh /usr/local/bin/
-sudo chmod +x /usr/local/bin/disk2iso.sh
-
-# Kopiere Bibliotheken
-sudo cp -r disk2iso-lib /usr/local/bin/
-
-# Passe Pfad im Hauptskript an
-sudo sed -i 's|SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE\[0\]}")" && pwd)"|SCRIPT_DIR="/usr/local/bin/disk2iso-lib"|' /usr/local/bin/disk2iso.sh
-```
-
-## 💻 Verwendung
-
-### Manueller Modus
-
-```bash
-# Laufwerk wird automatisch erkannt
-sudo disk2iso.sh
-```
-
-### Service-Modus (Automatisch)
+## 🔧 Service-Modus (Automatisch)
 
 ```bash
 # Service aktivieren und starten
@@ -236,48 +197,53 @@ sudo journalctl -u disk2iso.service -f
 ```
 
 Im Service-Modus:
+
 1. Medium einlegen
 2. Automatische Erkennung und Archivierung
 3. Medium wird automatisch ausgeworfen
 4. Bereit für nächstes Medium
 
-## ⚙️ Konfiguration
-
-Konfiguration in `disk2iso-lib/config.sh`:
-
-```bash
-# Ausgabe-Verzeichnis
-OUTPUT_DIR="/mnt/pve/Public/images"
-
-# Audio-CD Einstellungen
-AUDIO_QUALITY="V2"              # LAME VBR Qualität (V0-V9)
-AUDIO_USE_MUSICBRAINZ=true      # MusicBrainz Metadaten-Lookup
-AUDIO_USE_CDTEXT=true           # CD-TEXT Extraktion
-AUDIO_DOWNLOAD_COVER=true       # Album-Cover herunterladen
-```
-
 ## 📁 Projekt-Struktur
 
-```
+```txt
 disk2iso/
-├── disk2iso.sh              # Hauptskript
-├── install.sh               # Installations-Script
+├── disk2iso.sh              # Hauptskript mit modularem Loading
+├── install.sh               # Installations-Script (modular)
 ├── uninstall.sh             # Deinstallations-Script
 └── disk2iso-lib/            # Bibliotheken
     ├── config.sh            # Konfiguration
-    ├── lib-bluray.sh        # Blu-ray Funktionen
-    ├── lib-cd.sh            # CD Funktionen
-    ├── lib-common.sh        # Gemeinsame Kopierfunktionen
-    ├── lib-diskinfos.sh     # Disc-Informationen
-    ├── lib-drivestat.sh     # Laufwerk-Status
-    ├── lib-dvd.sh           # DVD Funktionen
-    ├── lib-files.sh         # Dateinamen-Verwaltung
-    ├── lib-folders.sh       # Ordner-Verwaltung
-    ├── lib-logging.sh       # Logging-System
-    ├── lib-tools.sh         # Tool-Validierung
+    ├── lib-bluray.sh        # Blu-ray Funktionen (OPTIONAL)
+    ├── lib-cd.sh            # Audio-CD Funktionen (OPTIONAL)
+    ├── lib-dvd.sh           # Video-DVD Funktionen (OPTIONAL)
+    ├── lib-common.sh        # Daten-Disc Kopierfunktionen (KERN)
+    ├── lib-diskinfos.sh     # Disc-Typ-Erkennung (KERN)
+    ├── lib-drivestat.sh     # Laufwerk-Status (KERN)
+    ├── lib-files.sh         # Dateinamen-Verwaltung (KERN)
+    ├── lib-folders.sh       # Ordner-Verwaltung (KERN)
+    ├── lib-logging.sh       # Logging-System (KERN)
     └── lang/
         └── messages.de      # Deutsche Sprachdatei
 ```
+
+### Modulare Architektur
+
+**Kern-Module (immer geladen):**
+
+- Daten-Disc Unterstützung (dd, ddrescue)
+- Laufwerkserkennung und -überwachung
+- Logging und Datei-Management
+
+**Optionale Module (konditional geladen):**
+
+- `lib-cd.sh` - Nur wenn Audio-CD Support gewählt
+- `lib-dvd.sh` - Nur wenn Video-DVD Support gewählt
+- `lib-bluray.sh` - Nur wenn Blu-ray Support gewählt
+
+**Vorteile:**
+
+- Minimale Installation möglich (nur Daten-Disks)
+- Fehlende Module führen zu graceful degradation
+- Klare Trennung der Funktionalitäten
 
 ## 🔧 Deinstallation
 
@@ -286,21 +252,42 @@ sudo ./uninstall.sh
 ```
 
 Das Skript:
+
 - ✅ Stoppt und deaktiviert den Service
 - ✅ Entfernt alle installierten Dateien
 - ✅ Optional: Löscht archivierte Daten
 
 ## 📝 Ausgabe-Dateien
 
-### ISO-Images
-- **Dateiname:** `disc_label.iso` (Kleinbuchstaben)
+### ISO-Images (alle Disc-Typen)
+
+- **Dateiname:** `disc_label.iso` (bereinigt, lowercase)
 - **MD5-Checksumme:** `disc_label.md5`
 - **Log-Datei:** `disc_label.log`
+- **Speicherort:** `OUTPUT_DIR/[disc-type]/`
 
-### Audio-CDs
-- **Verzeichnis:** `OUTPUT_DIR/Artist - Album/`
-- **Dateien:** `01 - Track Title.mp3`, `folder.jpg` (Cover)
-- **Tags:** Artist, Album, Title, Track, Year, Genre
+**Disc-Type Unterordner:**
+
+- `audio-cd/` - Audio-CD ISOs mit MP3s
+- `cd-rom/` - Daten-CDs
+- `dvd-video/` - Video-DVDs (entschlüsselt/verschlüsselt)
+- `dvd-rom/` - Daten-DVDs
+- `bd-video/` - Blu-ray Videos (entschlüsselt/verschlüsselt)
+- `bd-rom/` - Daten-Blu-rays
+
+### Audio-CDs (mit lib-cd.sh)
+
+**Struktur innerhalb der ISO:**
+
+```text
+AlbumArtist/
+  Album/
+    Artist - Title.mp3
+    folder.jpg (Cover)
+    album.nfo (Jellyfin-Metadaten)
+```
+
+**ID3-Tags:** Artist, Album, Title, Track, Year
 
 ## 🛡️ Fehlerbehandlung
 
@@ -312,6 +299,7 @@ Das Skript:
 ## 🤝 Beitragen
 
 Beiträge sind willkommen! Bitte:
+
 1. Forken Sie das Repository
 2. Erstellen Sie einen Feature-Branch (`git checkout -b feature/AmazingFeature`)
 3. Committen Sie Ihre Änderungen (`git commit -m 'Add AmazingFeature'`)
@@ -331,20 +319,25 @@ Dieses Projekt ist unter der MIT-Lizenz lizenziert - siehe [LICENSE](LICENSE) Da
 ## 📞 Support
 
 Bei Problemen oder Fragen:
+
 - Öffnen Sie ein Issue auf GitHub
 - Prüfen Sie die Logs: `journalctl -u disk2iso.service`
 
 ## 🗺️ Roadmap
 
+- [x] Modulare Architektur mit optionalen Features
+- [x] Dezentrale Dependency-Checks pro Modul
+- [x] MakeMKV Integration für Blu-ray
+- [ ] Web-Interface für Monitoring und Konfiguration
 - [ ] Weitere Sprachen (EN, FR, ES)
-- [ ] Web-Interface für Monitoring
-- [ ] Konfigurierbares Qualitätsprofil pro Medium-Typ
-- [ ] Automatische Discogs-Integration
-- [ ] Docker-Container
-- [ ] Batch-Processing-Modus
+- [ ] Automatische Discogs-Integration für Audio-CDs
+- [ ] Docker-Container für einfache Deployment
+- [ ] Batch-Processing-Modus für mehrere Discs
+- [ ] REST-API für externe Steuerung
 
 ---
 
-**Version:** 1.0.0  
+**Version:** 2.0.0  
 **Autor:** Dirk  
-**Status:** Production Ready (95%)
+**Status:** Production Ready  
+**Letzte Aktualisierung:** 30.12.2025
