@@ -91,19 +91,34 @@ else
     log_message "✗ Audio-CD Support nicht installiert (lib-cd.sh fehlt)"
 fi
 
-# Video-DVD/BD Support (optional)
+# Video-DVD Support (optional)
 VIDEO_DVD_SUPPORT=false
 if [[ -f "${SCRIPT_DIR}/disk2iso-lib/lib-dvd.sh" ]]; then
     source "${SCRIPT_DIR}/disk2iso-lib/lib-dvd.sh"
     
     if check_video_dvd_dependencies; then
         VIDEO_DVD_SUPPORT=true
-        log_message "✓ Video-DVD/BD Support aktiviert"
+        log_message "✓ Video-DVD Support aktiviert"
     else
-        log_message "✗ Video-DVD/BD Support deaktiviert (fehlende Tools)"
+        log_message "✗ Video-DVD Support deaktiviert (fehlende Tools)"
     fi
 else
-    log_message "✗ Video-DVD/BD Support nicht installiert (lib-dvd.sh fehlt)"
+    log_message "✗ Video-DVD Support nicht installiert (lib-dvd.sh fehlt)"
+fi
+
+# Blu-ray Support (optional)
+BLURAY_SUPPORT=false
+if [[ -f "${SCRIPT_DIR}/disk2iso-lib/lib-bluray.sh" ]]; then
+    source "${SCRIPT_DIR}/disk2iso-lib/lib-bluray.sh"
+    
+    if check_bluray_dependencies; then
+        BLURAY_SUPPORT=true
+        log_message "✓ Blu-ray Support aktiviert"
+    else
+        log_message "✗ Blu-ray Support deaktiviert (fehlende Tools)"
+    fi
+else
+    log_message "✗ Blu-ray Support nicht installiert (lib-bluray.sh fehlt)"
 fi
 
 # ============================================================================
@@ -148,15 +163,29 @@ select_copy_method() {
         echo "dd"
         return 0
     
-    # Für Blu-ray Video: dvdbackup funktioniert NICHT, nur ddrescue/dd
+    # Für Blu-ray Video: MakeMKV (entschlüsselt) oder ddrescue/dd (verschlüsselt)
     elif [[ "$disc_type" == "bd-video" ]]; then
-        # Priorität 1: ddrescue (robust)
-        if command -v ddrescue >/dev/null 2>&1; then
-            echo "ddrescue"
-            return 0
+        if [[ "$BLURAY_SUPPORT" == true ]]; then
+            # Priorität 1: MakeMKV (entschlüsselt, langsam)
+            if command -v makemkvcon >/dev/null 2>&1 && command -v genisoimage >/dev/null 2>&1; then
+                echo "makemkv"
+                return 0
+            fi
+            
+            # Priorität 2: ddrescue (verschlüsselt, schneller)
+            if command -v ddrescue >/dev/null 2>&1; then
+                echo "bluray-ddrescue"
+                return 0
+            fi
+        else
+            # Ohne Blu-ray Support: Nutze Standard-Methoden
+            if command -v ddrescue >/dev/null 2>&1; then
+                echo "ddrescue"
+                return 0
+            fi
         fi
         
-        # Priorität 2: dd (langsam)
+        # Priorität 3: dd (verschlüsselt, langsam)
         echo "dd"
         return 0
     
@@ -192,6 +221,8 @@ copy_disc_to_iso() {
     case "$method" in
         audio-cd) log_message "Gewählte Methode: Audio-CD Ripping (cdparanoia + lame)" ;;
         dvdbackup) log_message "Gewählte Methode: dvdbackup (entschlüsselt)" ;;
+        makemkv) log_message "Gewählte Methode: MakeMKV (Blu-ray entschlüsselt)" ;;
+        bluray-ddrescue) log_message "Gewählte Methode: ddrescue (Blu-ray verschlüsselt, robust)" ;;
         ddrescue) log_message "Gewählte Methode: ddrescue (robust)" ;;
         dd) log_message "Gewählte Methode: dd (Basis-Methode)" ;;
     esac
@@ -217,6 +248,26 @@ copy_disc_to_iso() {
                 fi
             else
                 log_message "FEHLER: Video-DVD Support nicht verfügbar"
+                return 1
+            fi
+            ;;
+        makemkv)
+            if [[ "$BLURAY_SUPPORT" == true ]] && declare -f copy_bluray_makemkv >/dev/null 2>&1; then
+                if copy_bluray_makemkv; then
+                    copy_success=true
+                fi
+            else
+                log_message "FEHLER: Blu-ray Support (MakeMKV) nicht verfügbar"
+                return 1
+            fi
+            ;;
+        bluray-ddrescue)
+            if [[ "$BLURAY_SUPPORT" == true ]] && declare -f copy_bluray_ddrescue >/dev/null 2>&1; then
+                if copy_bluray_ddrescue; then
+                    copy_success=true
+                fi
+            else
+                log_message "FEHLER: Blu-ray Support (ddrescue) nicht verfügbar"
                 return 1
             fi
             ;;
