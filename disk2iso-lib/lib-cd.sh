@@ -14,6 +14,42 @@
 ################################################################################
 
 # ============================================================================
+# DEPENDENCY CHECK
+# ============================================================================
+
+# Funktion: Prüfe Audio-CD Abhängigkeiten
+# Rückgabe: 0 = Alle Tools OK, 1 = Kritische Tools fehlen
+check_audio_cd_dependencies() {
+    local missing=()
+    local optional_missing=()
+    
+    # Kritische Tools für Audio-CD Ripping
+    command -v cdparanoia >/dev/null 2>&1 || missing+=("cdparanoia")
+    command -v lame >/dev/null 2>&1 || missing+=("lame")
+    command -v genisoimage >/dev/null 2>&1 || missing+=("genisoimage")
+    
+    if [[ ${#missing[@]} -gt 0 ]]; then
+        log_message "Audio-CD Support NICHT verfügbar - fehlende Tools: ${missing[*]}"
+        log_message "Installation: apt-get install cdparanoia lame genisoimage"
+        return 1
+    fi
+    
+    # Optionale Tools für Metadaten
+    command -v cd-discid >/dev/null 2>&1 || optional_missing+=("cd-discid")
+    command -v curl >/dev/null 2>&1 || optional_missing+=("curl")
+    command -v jq >/dev/null 2>&1 || optional_missing+=("jq")
+    command -v eyeD3 >/dev/null 2>&1 || optional_missing+=("eyeD3")
+    
+    if [[ ${#optional_missing[@]} -gt 0 ]]; then
+        log_message "Audio-CD: Optionale Features eingeschränkt - fehlende Tools: ${optional_missing[*]}"
+        log_message "Für MusicBrainz/Cover: apt-get install cd-discid curl jq eyed3"
+    fi
+    
+    log_message "Audio-CD Support verfügbar: cdparanoia + lame + genisoimage"
+    return 0
+}
+
+# ============================================================================
 # MUSICBRAINZ METADATA ABFRAGE
 # ============================================================================
 

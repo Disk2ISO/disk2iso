@@ -56,15 +56,55 @@ SCRIPT_DIR="$(dirname "$SCRIPT_PATH")"
 source "${SCRIPT_DIR}/disk2iso-lib/lang/messages.de"
 source "${SCRIPT_DIR}/disk2iso-lib/config.sh"
 
-# Lade Kern-Bibliotheken
+# Lade Kern-Bibliotheken (IMMER erforderlich)
 source "${SCRIPT_DIR}/disk2iso-lib/lib-logging.sh"
-source "${SCRIPT_DIR}/disk2iso-lib/lib-tools.sh"
 source "${SCRIPT_DIR}/disk2iso-lib/lib-files.sh"
 source "${SCRIPT_DIR}/disk2iso-lib/lib-folders.sh"
-source "${SCRIPT_DIR}/disk2iso-lib/lib-common.sh"
 source "${SCRIPT_DIR}/disk2iso-lib/lib-diskinfos.sh"
 source "${SCRIPT_DIR}/disk2iso-lib/lib-drivestat.sh"
-source "${SCRIPT_DIR}/disk2iso-lib/lib-cd.sh"
+source "${SCRIPT_DIR}/disk2iso-lib/lib-common.sh"
+
+# Prüfe Kern-Abhängigkeiten (kritisch - Abbruch bei Fehler)
+if ! check_common_dependencies; then
+    echo "ABBRUCH: Kritische Abhängigkeiten fehlen"
+    exit 1
+fi
+
+log_message "Kern-Module geladen und geprüft"
+
+# ============================================================================
+# OPTIONALE MODULE MIT DEPENDENCY-CHECKS
+# ============================================================================
+
+# Audio-CD Support (optional)
+AUDIO_CD_SUPPORT=false
+if [[ -f "${SCRIPT_DIR}/disk2iso-lib/lib-cd.sh" ]]; then
+    source "${SCRIPT_DIR}/disk2iso-lib/lib-cd.sh"
+    
+    if check_audio_cd_dependencies; then
+        AUDIO_CD_SUPPORT=true
+        log_message "✓ Audio-CD Support aktiviert"
+    else
+        log_message "✗ Audio-CD Support deaktiviert (fehlende Tools)"
+    fi
+else
+    log_message "✗ Audio-CD Support nicht installiert (lib-cd.sh fehlt)"
+fi
+
+# Video-DVD/BD Support (optional)
+VIDEO_DVD_SUPPORT=false
+if [[ -f "${SCRIPT_DIR}/disk2iso-lib/lib-dvd.sh" ]]; then
+    source "${SCRIPT_DIR}/disk2iso-lib/lib-dvd.sh"
+    
+    if check_video_dvd_dependencies; then
+        VIDEO_DVD_SUPPORT=true
+        log_message "✓ Video-DVD/BD Support aktiviert"
+    else
+        log_message "✗ Video-DVD/BD Support deaktiviert (fehlende Tools)"
+    fi
+else
+    log_message "✗ Video-DVD/BD Support nicht installiert (lib-dvd.sh fehlt)"
+fi
 
 # ============================================================================
 # HAUPTLOGIK - VEREINFACHT (nur Daten-Discs)
@@ -75,18 +115,27 @@ source "${SCRIPT_DIR}/disk2iso-lib/lib-cd.sh"
 select_copy_method() {
     local disc_type="$1"
     
-    # Für Audio-CDs: Spezielle Behandlung
+    # Für Audio-CDs
     if [[ "$disc_type" == "audio-cd" ]]; then
-        echo "audio-cd"
-        return 0
+        if [[ "$AUDIO_CD_SUPPORT" == true ]]; then
+            echo "audio-cd"
+            return 0
+        else
+            log_message "WARNUNG: Audio-CD erkannt, aber kein Audio-CD Support installiert"
+            log_message "Fallback: Kopiere als Daten-Disc mit dd (kein Audio-Ripping)"
+            echo "dd"
+            return 0
+        fi
     fi
     
-    # Für Video-DVDs: dvdbackup (entschlüsselt)
+    # Für Video-DVDs
     if [[ "$disc_type" == "dvd-video" ]]; then
-        # Priorität 1: dvdbackup (entschlüsselt, schnell)
-        if command -v dvdbackup >/dev/null 2>&1 && command -v genisoimage >/dev/null 2>&1; then
-            echo "dvdbackup"
-            return 0
+        if [[ "$VIDEO_DVD_SUPPORT" == true ]]; then
+            # Priorität 1: dvdbackup (entschlüsselt, schnell)
+            if command -v dvdbackup >/dev/null 2>&1 && command -v genisoimage >/dev/null 2>&1; then
+                echo "dvdbackup"
+                return 0
+            fi
         fi
         
         # Priorität 2: ddrescue (verschlüsselt, mittelschnell)
@@ -152,13 +201,23 @@ copy_disc_to_iso() {
     
     case "$method" in
         audio-cd)
-            if copy_audio_cd; then
-                copy_success=true
+            if [[ "$AUDIO_CD_SUPPORT" == true ]] && declare -f copy_audio_cd >/dev/null 2>&1; then
+                if copy_audio_cd; then
+                    copy_success=true
+                fi
+            else
+                log_message "FEHLER: Audio-CD Support nicht verfügbar"
+                return 1
             fi
             ;;
         dvdbackup)
-            if copy_video_dvd; then
-                copy_success=true
+            if [[ "$VIDEO_DVD_SUPPORT" == true ]] && declare -f copy_video_dvd >/dev/null 2>&1; then
+                if copy_video_dvd; then
+                    copy_success=true
+                fi
+            else
+                log_message "FEHLER: Video-DVD Support nicht verfügbar"
+                return 1
             fi
             ;;
         ddrescue)
@@ -304,14 +363,10 @@ main() {
         exit 1
     fi
     
-    # Prüfe kritische Abhängigkeiten (müssen vorhanden sein)
-    local missing_critical
-    missing_critical=$(check_all_critical_tools)
-    
-    if [[ -n "$missing_critical" ]]; then
-        log_message "Fehlende Tools: $missing_critical"
-        exit 1
-    fi
+    # Abhängigkeiten wurden bereits beim Modul-Loading geprüft
+    # Kern-Abhängigkeiten: check_common_dependencies()
+    # Audio-CD: check_audio_cd_dependencies() (optional)
+    # Video-DVD/BD: check_video_dvd_dependencies() (optional)
     
     # Starte Überwachung
     monitor_cdrom
