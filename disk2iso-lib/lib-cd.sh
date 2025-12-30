@@ -77,7 +77,6 @@ get_musicbrainz_metadata() {
     
     # MusicBrainz-Abfrage mit TOC statt nur Disc-ID
     local mb_url="https://musicbrainz.org/ws/2/discid/${cd_discid}?toc=${toc}&fmt=json&inc=artists+recordings"
-    local mb_response
     
     log_message "Frage MusicBrainz-Datenbank ab..."
     mb_response=$(curl -s -A "disk2iso/1.0 (https://github.com/user/disk2iso)" "$mb_url" 2>/dev/null)
