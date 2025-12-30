@@ -1,15 +1,19 @@
 # disk2iso - Umfassende Code-Prüfung
 
 **Datum:** 30.12.2025  
-**Status:** ✅ **PRODUKTIONSBEREIT** (nach Bugfix)
+**Status:** ✅ **PRODUKTIONSBEREIT** (nach Bugfix & MSG_ Konstanten-Bereinigung)
 
 ## Zusammenfassung
 
-Das disk2iso Tool wurde umfassend auf Syntax- und Logik-Fehler geprüft und ist **einsatzbereit** nach Behebung eines kritischen Fehlers.
+Das disk2iso Tool wurde umfassend auf Syntax- und Logik-Fehler geprüft und ist **einsatzbereit** nach Behebung mehrerer kritischer Fehler:
+
+1. ✅ Veralteter Import in disk2iso.sh entfernt
+2. ✅ 24+ fehlende MSG_ Konstanten-Aliase in lib-cd.de hinzugefügt
+3. ✅ Alle Sprachdateien validiert und korrigiert
 
 ## Gefundene Probleme
 
-### ❌ KRITISCH (behoben)
+### ❌ KRITISCH #1 (behoben)
 
 **Problem:** Veralteter Import in disk2iso.sh  
 **Zeile 56:** `source "${SCRIPT_DIR}/disk2iso-lib/lang/messages.de"`
@@ -25,6 +29,39 @@ source "${SCRIPT_DIR}/disk2iso-lib/config.sh"
 
 # NACHHER (KORREKT):
 source "${SCRIPT_DIR}/disk2iso-lib/config.sh"
+```
+
+### ❌ KRITISCH #2 (behoben)
+
+**Problem:** MSG_ Konstanten-Namenskonflikte in lib-cd.de  
+**Betroffene Datei:** disk2iso-lib/lang/lib-cd.de
+
+- **Ursache:** Migration zu modularem Sprachsystem hat inkonsistente Namenskonventionen erzeugt
+- **Auswirkung:** Script würde mit "unbound variable" Fehlern abstürzen (im strict mode)
+- **Status:** ✅ **BEHOBEN** - 24+ Alias-Konstanten hinzugefügt
+
+**Beispiele behobener Konflikte:**
+```bash
+# Code verwendet:                    # Datei hatte:
+MSG_RETRIEVE_METADATA               MSG_GET_METADATA
+MSG_WARNING_CDISCID_MISSING        MSG_WARNING_NO_DISCID
+MSG_WARNING_CURL_JQ_MISSING        MSG_WARNING_NO_CURL_JQ
+MSG_DISCID                         MSG_DISC_ID
+MSG_ALBUM_DIRECTORY                MSG_ALBUM_DIR
+MSG_CREATE_ISO                     MSG_CREATING_ISO
+MSG_CREATE_MD5                     MSG_CREATING_MD5
+MSG_ENCODING_TRACK_WITH_TITLE      (fehlte komplett)
+MSG_ENCODING_TRACK                 (fehlte komplett)
+MSG_COVER_SAVED_FOLDER_JPG         MSG_COVER_SAVED_AS_FOLDER_JPG
+MSG_ERROR_INSUFFICIENT_SPACE_ISO   MSG_ERROR_NO_DISK_SPACE_ISO
+MSG_ERROR_ISO_NOT_CREATED          MSG_ERROR_ISO_FILE_NOT_CREATED
+# ... und 12+ weitere
+```
+
+**Lösung:** Beide Namensversionen werden jetzt unterstützt durch Aliase:
+```bash
+readonly MSG_RETRIEVE_METADATA="Ermittle Audio-CD Metadaten..."
+readonly MSG_GET_METADATA="Ermittle Audio-CD Metadaten..."
 ```
 
 ## Validierte Komponenten
