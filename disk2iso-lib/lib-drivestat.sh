@@ -150,8 +150,17 @@ is_drive_closed() {
 is_disc_inserted() {
     # Versuche mit dd ein paar Bytes zu lesen
     # Timeout von 2 Sekunden für langsame USB-Laufwerke
+    # Versuche zuerst mit bs=2048 (Daten-CDs/DVDs/Blu-ray)
     if timeout 2 dd if="$CD_DEVICE" of=/dev/null bs=2048 count=1 2>/dev/null; then
         return 0
+    fi
+    
+    # Fallback: Prüfe mit cdparanoia ob Audio-CD vorhanden
+    # cdparanoia -Q gibt 0 zurück wenn Audio-CD lesbar ist
+    if command -v cdparanoia >/dev/null 2>&1; then
+        if timeout 3 cdparanoia -Q -d "$CD_DEVICE" >/dev/null 2>&1; then
+            return 0
+        fi
     fi
     
     return 1

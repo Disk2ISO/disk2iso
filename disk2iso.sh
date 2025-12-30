@@ -64,44 +64,59 @@ source "${SCRIPT_DIR}/disk2iso-lib/lib-folders.sh"
 source "${SCRIPT_DIR}/disk2iso-lib/lib-common.sh"
 source "${SCRIPT_DIR}/disk2iso-lib/lib-diskinfos.sh"
 source "${SCRIPT_DIR}/disk2iso-lib/lib-drivestat.sh"
+source "${SCRIPT_DIR}/disk2iso-lib/lib-cd.sh"
 
 # ============================================================================
 # HAUPTLOGIK - VEREINFACHT (nur Daten-Discs)
 # ============================================================================
 
 # Funktion zum Auswählen der besten Kopiermethode
-# Gibt Methodennamen zurück: "dvdbackup", "ddrescue" oder "dd"
+# Gibt Methodennamen zurück: "audio-cd", "dvdbackup", "ddrescue" oder "dd"
 select_copy_method() {
     local disc_type="$1"
     
-    # Für Video-DVDs/Blu-rays: Prüfe verfügbare Tools
-    if [[ "$disc_type" == "dvd-video" ]] || [[ "$disc_type" == "bd-video" ]]; then
+    # Für Audio-CDs: Spezielle Behandlung
+    if [[ "$disc_type" == "audio-cd" ]]; then
+        echo "audio-cd"
+        return 0
+    fi
+    
+    # Für Video-DVDs: dvdbackup (entschlüsselt)
+    if [[ "$disc_type" == "dvd-video" ]]; then
         # Priorität 1: dvdbackup (entschlüsselt, schnell)
         if command -v dvdbackup >/dev/null 2>&1 && command -v genisoimage >/dev/null 2>&1; then
-            log_message "Gewählte Methode: dvdbackup (entschlüsselt)"
             echo "dvdbackup"
             return 0
         fi
         
         # Priorität 2: ddrescue (verschlüsselt, mittelschnell)
         if command -v ddrescue >/dev/null 2>&1; then
-            log_message "Gewählte Methode: ddrescue (verschlüsselt, robust)"
             echo "ddrescue"
             return 0
         fi
         
         # Priorität 3: dd (verschlüsselt, langsam)
-        log_message "Gewählte Methode: dd (verschlüsselt, Basis-Methode)"
         echo "dd"
         return 0
-    else
-        # Für Daten-Discs: Prüfe ddrescue, sonst dd
+    
+    # Für Blu-ray Video: dvdbackup funktioniert NICHT, nur ddrescue/dd
+    elif [[ "$disc_type" == "bd-video" ]]; then
+        # Priorität 1: ddrescue (robust)
         if command -v ddrescue >/dev/null 2>&1; then
-            log_message "Gewählte Methode: ddrescue (robust)"
+            echo "ddrescue"
+            return 0
+        fi
+        
+        # Priorität 2: dd (langsam)
+        echo "dd"
+        return 0
+    
+    # Für Daten-Discs: ddrescue oder dd
+    else
+        if command -v ddrescue >/dev/null 2>&1; then
             echo "ddrescue"
             return 0
         else
-            log_message "Gewählte Methode: dd (Basis-Methode)"
             echo "dd"
             return 0
         fi
@@ -124,10 +139,23 @@ copy_disc_to_iso() {
     # Wähle Kopiermethode basierend auf Disc-Typ und verfügbaren Tools
     local method=$(select_copy_method "$disc_type")
     
+    # Logge gewählte Methode
+    case "$method" in
+        audio-cd) log_message "Gewählte Methode: Audio-CD Ripping (cdparanoia + lame)" ;;
+        dvdbackup) log_message "Gewählte Methode: dvdbackup (entschlüsselt)" ;;
+        ddrescue) log_message "Gewählte Methode: ddrescue (robust)" ;;
+        dd) log_message "Gewählte Methode: dd (Basis-Methode)" ;;
+    esac
+    
     # Kopiere mit gewählter Methode (KEIN Fallback bei Fehler)
     local copy_success=false
     
     case "$method" in
+        audio-cd)
+            if copy_audio_cd; then
+                copy_success=true
+            fi
+            ;;
         dvdbackup)
             if copy_video_dvd; then
                 copy_success=true
@@ -187,21 +215,11 @@ monitor_cdrom() {
             detect_disc_type
             log_message "Disc-Typ erkannt: $disc_type"
             
-            # Audio-CD Sonderbehandlung
-            if [[ "$disc_type" == "audio-cd" ]]; then
-                log_message "FEHLER: Audio-CD - Erstellung eines ISO-Image nicht möglich"
-                
-                # Werfe Medium aus und warte auf Entnahme
-                eject "$CD_DEVICE" 2>/dev/null
-                while is_disc_inserted; do
-                    sleep 2
-                done
-                continue
+            # Generiere Label (für Audio-CDs wird Label in copy_audio_cd() gesetzt)
+            if [[ "$disc_type" != "audio-cd" ]]; then
+                get_disc_label
+                log_message "Volume-Label: $disc_label"
             fi
-            
-            # Generiere Label
-            get_disc_label
-            log_message "Volume-Label: $disc_label"
             
             # Kopiere Disc als ISO
             copy_disc_to_iso

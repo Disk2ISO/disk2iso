@@ -12,6 +12,34 @@
 ################################################################################
 
 # ============================================================================
+# HELPER FUNCTIONS
+# ============================================================================
+
+# Funktion zur Prüfung des verfügbaren Speicherplatzes
+# Parameter: $1 = benötigte Größe in MB
+# Rückgabe: 0 = genug Platz, 1 = zu wenig Platz
+check_disk_space() {
+    local required_mb=$1
+    
+    # Ermittle verfügbaren Speicherplatz am Ausgabepfad
+    local available_mb=$(df -BM "$OUTPUT_DIR" 2>/dev/null | tail -1 | awk '{print $4}' | sed 's/M//')
+    
+    if [[ -z "$available_mb" ]] || [[ ! "$available_mb" =~ ^[0-9]+$ ]]; then
+        log_message "WARNUNG: Konnte verfügbaren Speicherplatz nicht ermitteln"
+        return 0  # Fahre fort, wenn Prüfung fehlschlägt
+    fi
+    
+    log_message "Speicherplatz: ${available_mb} MB verfügbar, ${required_mb} MB benötigt"
+    
+    if [[ $available_mb -lt $required_mb ]]; then
+        log_message "FEHLER: Nicht genug Speicherplatz! Benötigt: ${required_mb} MB, Verfügbar: ${available_mb} MB"
+        return 1
+    fi
+    
+    return 0
+}
+
+# ============================================================================
 # VIDEO DVD COPY - DVDBACKUP + GENISOIMAGE (Methode 1 - Schnellste)
 # ============================================================================
 
@@ -33,6 +61,15 @@ copy_video_dvd() {
         if [[ -n "$volume_blocks" ]] && [[ "$volume_blocks" =~ ^[0-9]+$ ]]; then
             dvd_size_mb=$((volume_blocks * 2048 / 1024 / 1024))
             log_message "DVD-Größe: ${dvd_size_mb} MB"
+        fi
+    fi
+    
+    # Prüfe Speicherplatz (DVD-Größe + 5% Puffer)
+    if [[ $dvd_size_mb -gt 0 ]]; then
+        local required_mb=$((dvd_size_mb + dvd_size_mb * 5 / 100))
+        if ! check_disk_space "$required_mb"; then
+            rm -rf "$temp_dvd"
+            return 1
         fi
     fi
     
@@ -149,6 +186,16 @@ copy_video_dvd_ddrescue() {
         fi
     fi
     
+    # Prüfe Speicherplatz (ISO-Größe + 5% Puffer)
+    if [[ $total_bytes -gt 0 ]]; then
+        local size_mb=$((total_bytes / 1024 / 1024))
+        local required_mb=$((size_mb + size_mb * 5 / 100))
+        if ! check_disk_space "$required_mb"; then
+            rm -f "$mapfile"
+            return 1
+        fi
+    fi
+    
     # Kopiere mit ddrescue
     if [[ $total_bytes -gt 0 ]]; then
         # Mit bekannter Größe
@@ -199,6 +246,16 @@ copy_data_disc_ddrescue() {
         fi
     fi
     
+    # Prüfe Speicherplatz (ISO-Größe + 5% Puffer)
+    if [[ $total_bytes -gt 0 ]]; then
+        local size_mb=$((total_bytes / 1024 / 1024))
+        local required_mb=$((size_mb + size_mb * 5 / 100))
+        if ! check_disk_space "$required_mb"; then
+            rm -f "$mapfile"
+            return 1
+        fi
+    fi
+    
     # Kopiere mit ddrescue
     if [[ $total_bytes -gt 0 ]]; then
         # Mit bekannter Größe
@@ -244,6 +301,13 @@ copy_data_disc() {
         if [[ -n "$volume_size" ]] && [[ "$volume_size" =~ ^[0-9]+$ ]]; then
             total_bytes=$((volume_size * block_size))
             log_message "ISO-Volume erkannt: $volume_size Blöcke à $block_size Bytes ($(( total_bytes / 1024 / 1024 )) MB)"
+            
+            # Prüfe Speicherplatz (ISO-Größe + 5% Puffer)
+            local size_mb=$((total_bytes / 1024 / 1024))
+            local required_mb=$((size_mb + size_mb * 5 / 100))
+            if ! check_disk_space "$required_mb"; then
+                return 1
+            fi
             
             # Starte dd im Hintergrund
             dd if="$CD_DEVICE" of="$iso_filename" bs="$block_size" count="$volume_size" conv=noerror,sync status=progress 2>>"$log_filename" &

@@ -18,39 +18,62 @@
 detect_disc_type() {
     disc_type="unknown"
     
-    # Prüfe ob isoinfo verfügbar ist
-    if ! command -v isoinfo >/dev/null 2>&1; then
-        disc_type="data"
-        return 0
+    # Prüfe zuerst mit blkid (funktioniert besser für UDF/Blu-ray)
+    local blkid_output
+    blkid_output=$(blkid "$CD_DEVICE" 2>/dev/null)
+    
+    # Wenn blkid fehlschlägt, versuche isoinfo
+    if [[ -z "$blkid_output" ]]; then
+        # Prüfe ob isoinfo verfügbar ist
+        if ! command -v isoinfo >/dev/null 2>&1; then
+            disc_type="data"
+            return 0
+        fi
+        
+        # Versuche ISO-Informationen zu lesen
+        local iso_info
+        iso_info=$(isoinfo -d -i "$CD_DEVICE" 2>/dev/null)
+        
+        # Wenn isoinfo fehlschlägt → Audio-CD (kein Dateisystem)
+        if [[ -z "$iso_info" ]]; then
+            disc_type="audio-cd"
+            return 0
+        fi
     fi
     
-    # Versuche ISO-Informationen zu lesen
-    local iso_info
-    iso_info=$(isoinfo -d -i "$CD_DEVICE" 2>/dev/null)
+    # Mounte Disc temporär um Struktur zu prüfen
+    local mount_point="/tmp/disk2iso_mount_$$"
+    mkdir -p "$mount_point"
     
-    # Wenn isoinfo fehlschlägt → Audio-CD (kein Dateisystem)
-    if [[ -z "$iso_info" ]]; then
-        disc_type="audio-cd"
-        return 0
+    if mount -o ro "$CD_DEVICE" "$mount_point" 2>/dev/null; then
+        # Prüfe auf Video-DVD (VIDEO_TS Ordner)
+        if [[ -d "$mount_point/VIDEO_TS" ]]; then
+            disc_type="dvd-video"
+            umount "$mount_point" 2>/dev/null
+            rmdir "$mount_point" 2>/dev/null
+            return 0
+        fi
+        
+        # Prüfe auf Blu-ray (BDMV Ordner)
+        if [[ -d "$mount_point/BDMV" ]]; then
+            disc_type="bd-video"
+            umount "$mount_point" 2>/dev/null
+            rmdir "$mount_point" 2>/dev/null
+            return 0
+        fi
+        
+        umount "$mount_point" 2>/dev/null
+        rmdir "$mount_point" 2>/dev/null
     fi
     
-    # Prüfe auf Video-DVD (VIDEO_TS Ordner)
-    if isoinfo -f -i "$CD_DEVICE" 2>/dev/null | grep -qi "VIDEO_TS"; then
-        disc_type="dvd-video"
-        return 0
+    # Fallback: Ermittle Disc-Größe für CD/DVD/BD Unterscheidung
+    local volume_size=""
+    
+    if command -v isoinfo >/dev/null 2>&1; then
+        volume_size=$(isoinfo -d -i "$CD_DEVICE" 2>/dev/null | grep "Volume size is:" | awk '{print $4}')
     fi
     
-    # Prüfe auf Blu-ray (BDMV Ordner)
-    if isoinfo -f -i "$CD_DEVICE" 2>/dev/null | grep -qi "BDMV"; then
-        disc_type="bd-video"
-        return 0
-    fi
-    
-    # Ermittle Disc-Größe für CD/DVD/BD Unterscheidung
-    local volume_size
-    volume_size=$(echo "$iso_info" | grep "Volume size is:" | awk '{print $4}')
-    
-    if [[ -n "$volume_size" ]]; then
+    if [[ -n "$volume_size" ]] && [[ "$volume_size" =~ ^[0-9]+$ ]]; then
         local size_mb=$((volume_size * 2048 / 1024 / 1024))
         
         # CD: bis 900 MB, DVD: bis 9 GB, BD: darüber
@@ -77,8 +100,11 @@ detect_disc_type() {
 get_volume_label() {
     local label=""
     
-    # Versuche Volume ID mit isoinfo zu lesen
-    if command -v isoinfo >/dev/null 2>&1; then
+    # Versuche zuerst mit blkid (funktioniert besser für UDF/Blu-ray)
+    label=$(blkid "$CD_DEVICE" 2>/dev/null | grep -o 'LABEL="[^"]*"' | cut -d'"' -f2)
+    
+    # Fallback: Versuche Volume ID mit isoinfo zu lesen
+    if [[ -z "$label" ]] && command -v isoinfo >/dev/null 2>&1; then
         label=$(isoinfo -d -i "$CD_DEVICE" 2>/dev/null | grep "Volume id:" | sed 's/Volume id: //' | xargs)
     fi
     

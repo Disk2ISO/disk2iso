@@ -1,0 +1,423 @@
+#!/bin/bash
+################################################################################
+# disk2iso - Audio CD Library
+# Filepath: disk2iso-lib/lib-cd.sh
+#
+# Beschreibung:
+#   Funktionen für Audio-CD Ripping mit MusicBrainz-Metadaten
+#   - MusicBrainz-Abfrage via cd-discid
+#   - CD-Ripping mit cdparanoia
+#   - MP3-Encoding mit lame
+#   - ISO-Erstellung mit gerippten MP3s
+#
+# Erstellt: 30.12.2025
+################################################################################
+
+# ============================================================================
+# MUSICBRAINZ METADATA ABFRAGE
+# ============================================================================
+
+# Funktion: MusicBrainz-Metadaten abrufen
+# Benötigt: cd-discid, curl, jq
+# Rückgabe: Setzt globale Variablen: cd_artist, cd_album, cd_year, cd_discid, mb_response
+get_musicbrainz_metadata() {
+    cd_artist=""
+    cd_album=""
+    cd_year=""
+    cd_discid=""
+    mb_response=""  # Speichere vollständige Antwort für Track-Infos
+    
+    log_message "Ermittle Audio-CD Metadaten..."
+    
+    # Prüfe benötigte Tools
+    if ! command -v cd-discid >/dev/null 2>&1; then
+        log_message "WARNUNG: cd-discid nicht installiert - Metadaten-Abfrage nicht möglich"
+        return 1
+    fi
+    
+    if ! command -v curl >/dev/null 2>&1 || ! command -v jq >/dev/null 2>&1; then
+        log_message "WARNUNG: curl/jq nicht installiert - Metadaten-Abfrage nicht möglich"
+        return 1
+    fi
+    
+    # Disc-ID und TOC ermitteln
+    local discid_output
+    discid_output=$(cd-discid "$CD_DEVICE" 2>/dev/null)
+    
+    if [[ -z "$discid_output" ]]; then
+        log_message "FEHLER: Konnte Disc-ID nicht ermitteln"
+        return 1
+    fi
+    
+    # Parse cd-discid output: discid tracks offset1 offset2 ... offsetN total_seconds
+    local discid_parts=($discid_output)
+    cd_discid="${discid_parts[0]}"
+    local track_count="${discid_parts[1]}"
+    
+    log_message "Disc-ID: $cd_discid (Tracks: $track_count)"
+    
+    # Ermittle Leadout-Position (letzte Position + 150 für Pregap der ersten Track)
+    # cdparanoia gibt TOTAL in Frames, das ist der Leadout
+    local leadout
+    leadout=$(cdparanoia -Q -d "$CD_DEVICE" 2>&1 | grep "TOTAL" | awk '{print $2}')
+    
+    if [[ -z "$leadout" ]]; then
+        log_message "WARNUNG: Konnte Leadout nicht ermitteln"
+        leadout="${discid_parts[-1]}"  # Fallback auf letzte Spalte
+    fi
+    
+    # Leadout = TOTAL + 150 (Pregap)
+    leadout=$((leadout + 150))
+    
+    # Baue TOC-String für MusicBrainz: 1+track_count+leadout+offset1+offset2+...
+    local toc="1+${track_count}+${leadout}"
+    for ((i=2; i<${#discid_parts[@]}-1; i++)); do
+        toc="${toc}+${discid_parts[$i]}"
+    done
+    
+    # MusicBrainz-Abfrage mit TOC statt nur Disc-ID
+    local mb_url="https://musicbrainz.org/ws/2/discid/${cd_discid}?toc=${toc}&fmt=json&inc=artists+recordings"
+    local mb_response
+    
+    log_message "Frage MusicBrainz-Datenbank ab..."
+    mb_response=$(curl -s -A "disk2iso/1.0 (https://github.com/user/disk2iso)" "$mb_url" 2>/dev/null)
+    
+    if [[ -z "$mb_response" ]]; then
+        log_message "WARNUNG: MusicBrainz-Abfrage fehlgeschlagen (kein Netzwerk?)"
+        return 1
+    fi
+    
+    # Prüfe ob Release gefunden wurde
+    local releases_count
+    releases_count=$(echo "$mb_response" | jq -r '.releases | length' 2>/dev/null)
+    
+    if [[ -z "$releases_count" ]] || [[ "$releases_count" == "0" ]] || [[ "$releases_count" == "null" ]]; then
+        log_message "WARNUNG: Keine MusicBrainz-Einträge gefunden für Disc-ID: $cd_discid"
+        return 1
+    fi
+    
+    # Extrahiere ersten Release (meist korrekt)
+    cd_album=$(echo "$mb_response" | jq -r '.releases[0].title' 2>/dev/null)
+    cd_artist=$(echo "$mb_response" | jq -r '.releases[0]["artist-credit"][0].name' 2>/dev/null)
+    cd_year=$(echo "$mb_response" | jq -r '.releases[0].date' 2>/dev/null | cut -d'-' -f1)
+    
+    # Bereinige null-Werte
+    [[ "$cd_album" == "null" ]] && cd_album=""
+    [[ "$cd_artist" == "null" ]] && cd_artist=""
+    [[ "$cd_year" == "null" ]] && cd_year=""
+    
+    if [[ -n "$cd_artist" ]] && [[ -n "$cd_album" ]]; then
+        log_message "Album: $cd_album"
+        log_message "Künstler: $cd_artist"
+        [[ -n "$cd_year" ]] && log_message "Jahr: $cd_year"
+        
+        # Zähle Track-Anzahl
+        local mb_track_count
+        mb_track_count=$(echo "$mb_response" | jq -r '.releases[0].media[0].tracks | length' 2>/dev/null)
+        if [[ -n "$mb_track_count" ]] && [[ "$mb_track_count" != "null" ]] && [[ "$mb_track_count" != "0" ]]; then
+            log_message "MusicBrainz: $mb_track_count Track-Titel gefunden"
+        fi
+        
+        # Prüfe Cover-Art Verfügbarkeit
+        local has_cover
+        has_cover=$(echo "$mb_response" | jq -r '.releases[0]["cover-art-archive"].front' 2>/dev/null)
+        if [[ "$has_cover" == "true" ]]; then
+            log_message "Cover-Art verfügbar"
+        fi
+        
+        return 0
+    else
+        log_message "WARNUNG: Unvollständige Metadaten von MusicBrainz"
+        mb_response=""  # Leere Antwort bei Fehler
+        return 1
+    fi
+}
+
+# Funktion: Lade Album-Cover von Cover Art Archive
+# Rückgabe: Pfad zur Cover-Datei oder leer
+download_cover_art() {
+    if [[ -z "$mb_response" ]]; then
+        return 1
+    fi
+    
+    # Prüfe ob Cover verfügbar ist
+    local has_cover
+    has_cover=$(echo "$mb_response" | jq -r '.releases[0]["cover-art-archive"].front' 2>/dev/null)
+    
+    if [[ "$has_cover" != "true" ]]; then
+        return 1
+    fi
+    
+    # Extrahiere Release-ID
+    local release_id
+    release_id=$(echo "$mb_response" | jq -r '.releases[0].id' 2>/dev/null)
+    
+    if [[ -z "$release_id" ]] || [[ "$release_id" == "null" ]]; then
+        log_message "WARNUNG: Keine Release-ID für Cover-Download"
+        return 1
+    fi
+    
+    # Download Cover (mit -L für Redirects)
+    local cover_file="/tmp/disk2iso_cover_$$.jpg"
+    local cover_url="https://coverartarchive.org/release/${release_id}/front"
+    
+    log_message "Lade Album-Cover herunter..."
+    
+    if curl -L -s -f "$cover_url" -o "$cover_file" 2>/dev/null; then
+        # Prüfe ob Datei gültig ist
+        if [[ -f "$cover_file" ]] && [[ -s "$cover_file" ]]; then
+            local cover_size=$(du -h "$cover_file" | awk '{print $1}')
+            log_message "Cover heruntergeladen: ${cover_size}"
+            echo "$cover_file"
+            return 0
+        fi
+    fi
+    
+    log_message "WARNUNG: Cover-Download fehlgeschlagen"
+    rm -f "$cover_file" 2>/dev/null
+    return 1
+}
+
+# Funktion: Hole Track-Titel aus MusicBrainz-Antwort
+# Parameter: $1 = Track-Nummer (1-basiert)
+# Rückgabe: Track-Titel oder leer
+get_track_title() {
+    local track_num="$1"
+    
+    if [[ -z "$mb_response" ]]; then
+        echo ""
+        return 1
+    fi
+    
+    # Extrahiere Track-Titel (track_num ist 1-basiert, Array ist 0-basiert)
+    local track_index=$((track_num - 1))
+    local track_title
+    track_title=$(echo "$mb_response" | jq -r ".releases[0].media[0].tracks[${track_index}].recording.title" 2>/dev/null)
+    
+    if [[ -n "$track_title" ]] && [[ "$track_title" != "null" ]]; then
+        echo "$track_title"
+        return 0
+    fi
+    
+    echo ""
+    return 1
+}
+
+# ============================================================================
+# AUDIO CD RIPPING
+# ============================================================================
+
+# Funktion: Audio-CD rippen und als ISO erstellen
+# Workflow: MusicBrainz → cdparanoia → lame → genisoimage → ISO
+copy_audio_cd() {
+    log_message "Starte Audio-CD Ripping..."
+    
+    # Prüfe benötigte Tools
+    if ! command -v cdparanoia >/dev/null 2>&1; then
+        log_message "FEHLER: cdparanoia nicht installiert"
+        return 1
+    fi
+    
+    if ! command -v lame >/dev/null 2>&1; then
+        log_message "FEHLER: lame nicht installiert"
+        return 1
+    fi
+    
+    if ! command -v genisoimage >/dev/null 2>&1; then
+        log_message "FEHLER: genisoimage nicht installiert"
+        return 1
+    fi
+    
+    # Metadaten abrufen (optional, Fehler nicht kritisch)
+    get_musicbrainz_metadata || log_message "Fahre ohne Metadaten fort..."
+    
+    # Lade Album-Cover falls verfügbar
+    local cover_file=""
+    if command -v eyeD3 >/dev/null 2>&1; then
+        cover_file=$(download_cover_art)
+    else
+        log_message "INFO: eyeD3 nicht installiert - Cover-Einbettung übersprungen"
+    fi
+    
+    # Erstelle Arbeitsverzeichnis
+    local temp_audio="/tmp/disk2iso_audio_$$"
+    mkdir -p "$temp_audio"
+    
+    # Erstelle Jellyfin-kompatible Verzeichnisstruktur: AlbumArtist/Album/
+    local album_dir
+    if [[ -n "$cd_album" ]] && [[ -n "$cd_artist" ]]; then
+        # Behalte Originalnamen (nur gefährliche Zeichen entfernen)
+        local safe_artist=$(echo "$cd_artist" | sed 's/[\/\\:*?"<>|]/_/g')
+        local safe_album=$(echo "$cd_album" | sed 's/[\/\\:*?"<>|]/_/g')
+        
+        # Struktur: AlbumArtist/Album/
+        album_dir="${temp_audio}/${safe_artist}/${safe_album}"
+        
+        # Setze disc_label für ISO-Dateinamen (lowercase für Dateinamen)
+        local label_artist=$(echo "$cd_artist" | sed 's/[^a-zA-Z0-9_-]/_/g' | tr '[:upper:]' '[:lower:]')
+        local label_album=$(echo "$cd_album" | sed 's/[^a-zA-Z0-9_-]/_/g' | tr '[:upper:]' '[:lower:]')
+        disc_label="${label_artist}_${label_album}"
+    else
+        # Fallback: Verwende Disc-ID oder generischen Namen
+        if [[ -n "$cd_discid" ]]; then
+            album_dir="${temp_audio}/Unknown_Artist/audio_cd_${cd_discid}"
+            disc_label="audio_cd_${cd_discid}"
+        else
+            local timestamp=$(date +%Y%m%d_%H%M%S)
+            album_dir="${temp_audio}/Unknown_Artist/audio_cd_${timestamp}"
+            disc_label="audio_cd_${timestamp}"
+        fi
+    fi
+    
+    mkdir -p "$album_dir"
+    log_message "Album-Verzeichnis: $album_dir"
+    
+    # Ermittle Anzahl der Tracks
+    local track_info
+    track_info=$(cdparanoia -Q 2>&1 | grep -E "^\s+[0-9]+\.")
+    local track_count=$(echo "$track_info" | wc -l)
+    
+    if [[ $track_count -eq 0 ]]; then
+        log_message "FEHLER: Keine Tracks gefunden"
+        rm -rf "$temp_audio"
+        return 1
+    fi
+    
+    log_message "Gefundene Tracks: $track_count"
+    
+    # Rippe alle Tracks mit cdparanoia
+    log_message "Starte Ripping mit cdparanoia..."
+    local track
+    for track in $(seq 1 "$track_count"); do
+        local track_num=$(printf "%02d" "$track")
+        local wav_file="${temp_audio}/track_${track_num}.wav"
+        
+        log_message "Rippe Track $track von $track_count..."
+        
+        if ! cdparanoia -d "$CD_DEVICE" "$track" "$wav_file" >>"$log_filename" 2>&1; then
+            log_message "FEHLER: Track $track konnte nicht gerippt werden"
+            rm -rf "$temp_audio"
+            return 1
+        fi
+        
+        # Konvertiere WAV zu MP3 mit lame
+        # Dateiname: "Artist - Title.mp3" (Jellyfin-Format)
+        local mp3_filename
+        local track_title
+        track_title=$(get_track_title "$track")
+        
+        if [[ -n "$track_title" ]] && [[ -n "$cd_artist" ]]; then
+            # Jellyfin-Format: "Artist - Title.mp3"
+            # Entferne nur gefährliche Zeichen, behalte Groß-/Kleinschreibung
+            local safe_artist=$(echo "$cd_artist" | sed 's/[\/\\:*?"<>|]/_/g')
+            local safe_title=$(echo "$track_title" | sed 's/[\/\\:*?"<>|]/_/g')
+            mp3_filename="${safe_artist} - ${safe_title}.mp3"
+            log_message "Kodiere Track $track zu MP3: $track_title"
+        else
+            # Fallback ohne MusicBrainz: "Track 01.mp3"
+            mp3_filename="Track ${track_num}.mp3"
+            log_message "Kodiere Track $track zu MP3..."
+        fi
+        
+        local mp3_file="${album_dir}/${mp3_filename}"
+        
+        # lame Optionen: -V2 (VBR ~190 kbps), --quiet
+        local lame_opts="-V2 --quiet"
+        
+        # Füge ID3-Tags hinzu
+        if [[ -n "$cd_artist" ]]; then
+            lame_opts="$lame_opts --ta \"$cd_artist\""
+        fi
+        if [[ -n "$cd_album" ]]; then
+            lame_opts="$lame_opts --tl \"$cd_album\""
+        fi
+        if [[ -n "$cd_year" ]]; then
+            lame_opts="$lame_opts --ty \"$cd_year\""
+        fi
+        if [[ -n "$track_title" ]]; then
+            lame_opts="$lame_opts --tt \"$track_title\""
+        fi
+        lame_opts="$lame_opts --tn \"$track/$track_count\""
+        
+        if ! eval lame $lame_opts \"$wav_file\" \"$mp3_file\" >>"$log_filename" 2>&1; then
+            log_message "FEHLER: MP3-Encoding für Track $track fehlgeschlagen"
+            rm -rf "$temp_audio"
+            [[ -n "$cover_file" ]] && rm -f "$cover_file"
+            return 1
+        fi
+        
+        # Bette Cover-Art ein (falls vorhanden und eyeD3 verfügbar)
+        if [[ -n "$cover_file" ]] && [[ -f "$cover_file" ]]; then
+            eyeD3 --quiet --add-image "${cover_file}:FRONT_COVER" "$mp3_file" >>"$log_filename" 2>&1
+        fi
+        
+        # Lösche WAV-Datei um Speicherplatz zu sparen
+        rm -f "$wav_file"
+    done
+    
+    # Kopiere Cover als folder.jpg ins Album-Verzeichnis (Jellyfin-Standard)
+    if [[ -n "$cover_file" ]] && [[ -f "$cover_file" ]]; then
+        cp "$cover_file" "${album_dir}/folder.jpg" 2>/dev/null
+        log_message "Cover als folder.jpg gespeichert"
+    fi
+    
+    # Cleanup temporäre Cover-Datei
+    [[ -n "$cover_file" ]] && rm -f "$cover_file"
+    
+    log_message "Ripping abgeschlossen - erstelle ISO..."
+    
+    # Initialisiere Dateinamen (verwendet disc_label)
+    init_filenames
+    
+    # Prüfe Speicherplatz (MP3s sind ~10x kleiner als WAV, aber ISO braucht Overhead)
+    local album_size_mb=$(du -sm "$album_dir" | awk '{print $1}')
+    local required_mb=$((album_size_mb + album_size_mb / 10 + 50))  # +10% + 50MB Puffer
+    
+    if ! check_disk_space "$required_mb"; then
+        log_message "FEHLER: Nicht genügend Speicherplatz für ISO-Erstellung"
+        rm -rf "$temp_audio"
+        return 1
+    fi
+    
+    # Erstelle ISO mit genisoimage
+    local volume_id
+    if [[ -n "$cd_album" ]]; then
+        # Volume-ID: max 32 Zeichen, nur A-Z0-9_
+        volume_id=$(echo "$cd_album" | sed 's/[^A-Za-z0-9_]/_/g' | cut -c1-32 | tr '[:lower:]' '[:upper:]')
+    else
+        volume_id="AUDIO_CD"
+    fi
+    
+    log_message "Erstelle ISO: $iso_filename"
+    log_message "Volume-ID: $volume_id"
+    
+    if ! genisoimage -R -J -joliet-long \
+        -V "$volume_id" \
+        -o "$iso_filename" \
+        "$album_dir" >>"$log_filename" 2>&1; then
+        log_message "FEHLER: ISO-Erstellung fehlgeschlagen"
+        rm -rf "$temp_audio"
+        return 1
+    fi
+    
+    # Cleanup
+    rm -rf "$temp_audio"
+    
+    # Prüfe ISO-Größe
+    if [[ ! -f "$iso_filename" ]]; then
+        log_message "FEHLER: ISO-Datei wurde nicht erstellt"
+        return 1
+    fi
+    
+    local iso_size_mb=$(du -m "$iso_filename" | awk '{print $1}')
+    log_message "ISO erstellt: ${iso_size_mb} MB"
+    
+    # Erstelle MD5-Checksumme
+    log_message "Erstelle MD5-Checksumme..."
+    if ! md5sum "$iso_filename" > "$md5_filename" 2>>"$log_filename"; then
+        log_message "WARNUNG: MD5-Checksumme konnte nicht erstellt werden"
+    fi
+    
+    log_message "Audio-CD erfolgreich gerippt und als ISO gespeichert"
+    return 0
+}

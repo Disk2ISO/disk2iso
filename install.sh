@@ -155,6 +155,11 @@ install_optional_packages() {
     echo "                   → Entschlüsselt kommerzielle Video-DVDs"
     echo "                   → Benötigt libdvdcss2 (siehe nächster Schritt)"
     echo ""
+    echo "4. Audio-CD      - CD-Ripping mit MusicBrainz-Metadaten (optional)"
+    echo "                   → cdparanoia: Fehlerkorrektur beim Rippen"
+    echo "                   → lame: MP3-Encoding"
+    echo "                   → cd-discid + curl + jq: MusicBrainz-Abfrage"
+    echo ""
     
     # genisoimage (sehr empfohlen)
     if ask_yes_no "genisoimage installieren?" "y"; then
@@ -172,6 +177,17 @@ install_optional_packages() {
         install_package "genisoimage" "genisoimage (Abhängigkeit)" || true
         install_package "dvdbackup" "dvdbackup"
         install_dvdbackup=true
+    fi
+    
+    # Audio-CD Ripping (optional)
+    if ask_yes_no "Audio-CD Ripping installieren?" "n"; then
+        install_package "genisoimage" "genisoimage (für ISO-Erstellung)" || true
+        install_package "cdparanoia" "cdparanoia (CD-Ripper)"
+        install_package "lame" "lame (MP3-Encoder)"
+        install_package "cd-discid" "cd-discid (MusicBrainz Disc-ID)"
+        install_package "curl" "curl (HTTP-Client)"
+        install_package "jq" "jq (JSON-Parser)"
+        install_package "eyed3" "eyeD3 (ID3-Tag Editor für Cover-Art)"
     fi
     
     # libdvdcss2 Konfiguration (nur wenn dvdbackup installiert)
