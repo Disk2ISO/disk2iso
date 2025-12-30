@@ -203,6 +203,92 @@ get_track_title() {
     return 1
 }
 
+# Funktion: Erstelle album.nfo für Jellyfin
+# Parameter: $1 = Pfad zum Album-Verzeichnis
+# Benötigt: mb_response, cd_artist, cd_album, cd_year
+create_album_nfo() {
+    local album_dir="$1"
+    local nfo_file="${album_dir}/album.nfo"
+    
+    if [[ -z "$mb_response" ]]; then
+        log_message "INFO: Keine MusicBrainz-Daten - album.nfo übersprungen"
+        return 1
+    fi
+    
+    log_message "Erstelle album.nfo..."
+    
+    # Extrahiere MusicBrainz IDs
+    local release_id=$(echo "$mb_response" | jq -r '.releases[0].id' 2>/dev/null)
+    local release_group_id=$(echo "$mb_response" | jq -r '.releases[0]["release-group"].id' 2>/dev/null)
+    local artist_id=$(echo "$mb_response" | jq -r '.releases[0]["artist-credit"][0].artist.id' 2>/dev/null)
+    
+    # Berechne Gesamtlaufzeit in Minuten
+    local total_duration_ms=0
+    local track_count=$(echo "$mb_response" | jq -r '.releases[0].media[0].tracks | length' 2>/dev/null)
+    
+    for ((i=0; i<track_count; i++)); do
+        local track_length=$(echo "$mb_response" | jq -r ".releases[0].media[0].tracks[$i].length" 2>/dev/null)
+        if [[ -n "$track_length" ]] && [[ "$track_length" != "null" ]]; then
+            total_duration_ms=$((total_duration_ms + track_length))
+        fi
+    done
+    
+    local runtime_minutes=$((total_duration_ms / 60000))
+    
+    # Erstelle album.nfo XML
+    cat > "$nfo_file" <<EOF
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<album>
+  <title>${cd_album}</title>
+  <year>${cd_year}</year>
+  <runtime>${runtime_minutes}</runtime>
+  <musicbrainzalbumid>${release_id}</musicbrainzalbumid>
+  <musicbrainzalbumartistid>${artist_id}</musicbrainzalbumartistid>
+  <musicbrainzreleasegroupid>${release_group_id}</musicbrainzreleasegroupid>
+  <actor>
+    <name>${cd_artist}</name>
+    <type>AlbumArtist</type>
+  </actor>
+  <actor>
+    <name>${cd_artist}</name>
+    <type>Artist</type>
+  </actor>
+  <artist>${cd_artist}</artist>
+  <albumartist>${cd_artist}</albumartist>
+EOF
+    
+    # Füge Track-Liste hinzu
+    for ((i=0; i<track_count; i++)); do
+        local position=$((i + 1))
+        local track_title=$(echo "$mb_response" | jq -r ".releases[0].media[0].tracks[$i].recording.title" 2>/dev/null)
+        local track_length=$(echo "$mb_response" | jq -r ".releases[0].media[0].tracks[$i].length" 2>/dev/null)
+        
+        # Konvertiere Millisekunden zu MM:SS
+        if [[ -n "$track_length" ]] && [[ "$track_length" != "null" ]]; then
+            local duration_sec=$((track_length / 1000))
+            local minutes=$((duration_sec / 60))
+            local seconds=$((duration_sec % 60))
+            local duration=$(printf "%02d:%02d" $minutes $seconds)
+        else
+            local duration="00:00"
+        fi
+        
+        cat >> "$nfo_file" <<EOF
+  <track>
+    <position>${position}</position>
+    <title>${track_title}</title>
+    <duration>${duration}</duration>
+  </track>
+EOF
+    done
+    
+    # Schließe XML
+    echo "</album>" >> "$nfo_file"
+    
+    log_message "album.nfo erstellt"
+    return 0
+}
+
 # ============================================================================
 # AUDIO CD RIPPING
 # ============================================================================
@@ -365,6 +451,9 @@ copy_audio_cd() {
     [[ -n "$cover_file" ]] && rm -f "$cover_file"
     
     log_message "Ripping abgeschlossen - erstelle ISO..."
+    
+    # Erstelle album.nfo für Jellyfin
+    create_album_nfo "$album_dir"
     
     # Initialisiere Dateinamen (verwendet disc_label)
     init_filenames
