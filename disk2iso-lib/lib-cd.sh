@@ -506,9 +506,6 @@ copy_audio_cd() {
         log_message "$MSG_COVER_SAVED_FOLDER_JPG"
     fi
     
-    # Cleanup temporäre Cover-Datei
-    [[ -n "$cover_file" ]] && rm -f "$cover_file"
-    
     log_message "$MSG_RIPPING_COMPLETE_CREATE_ISO"
     
     # Erstelle album.nfo für Jellyfin
@@ -550,8 +547,9 @@ copy_audio_cd() {
         return 1
     fi
     
-    # Cleanup
+    # Cleanup temp-Verzeichnis und Cover-Datei
     rm -rf "$temp_audio"
+    [[ -n "$cover_file" ]] && rm -f "$cover_file"
     
     # Prüfe ISO-Größe
     if [[ ! -f "$iso_filename" ]]; then

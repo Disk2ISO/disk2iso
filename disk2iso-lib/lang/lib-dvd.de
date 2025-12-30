@@ -31,10 +31,7 @@ readonly MSG_ERROR_NO_VIDEO_METHOD="FEHLER: Keine Video-DVD/BD Methode verfügba
 readonly MSG_METHOD_DVDBACKUP="Methode: dvdbackup (entschlüsselt)"
 readonly MSG_DVD_SIZE="DVD-Größe:"
 readonly MSG_EXTRACT_DVD_STRUCTURE="Extrahiere DVD-Struktur..."
-readonly MSG_PROGRESS="Fortschritt:"
-readonly MSG_PROGRESS_MB="MB"
-readonly MSG_REMAINING="verbleibend:"
-readonly MSG_COPIED="kopiert"
+# MSG_PROGRESS, MSG_PROGRESS_MB, MSG_REMAINING, MSG_COPIED bereits in lib-common.de definiert
 readonly MSG_ERROR_DVDBACKUP_FAILED="FEHLER: dvdbackup fehlgeschlagen"
 readonly MSG_DVD_STRUCTURE_EXTRACTED="✓ DVD-Struktur extrahiert (100%)"
 readonly MSG_ERROR_NO_VIDEO_TS="FEHLER: Kein VIDEO_TS Ordner gefunden"
@@ -47,11 +44,9 @@ readonly MSG_ERROR_GENISOIMAGE_FAILED="FEHLER: genisoimage fehlgeschlagen"
 # ============================================================================
 
 readonly MSG_METHOD_DDRESCUE_ENCRYPTED="Methode: ddrescue (verschlüsselt, robust)"
-readonly MSG_ISO_VOLUME_DETECTED="ISO-Volume erkannt:"
+# MSG_ISO_VOLUME_DETECTED bereits in lib-common.de definiert
 readonly MSG_ISO_BLOCKS="Blöcke"
 readonly MSG_VIDEO_DVD_DDRESCUE_SUCCESS="✓ Video-DVD mit ddrescue erfolgreich kopiert"
-readonly MSG_ERROR_DDRESCUE_FAILED="FEHLER: ddrescue fehlgeschlagen"
-readonly MSG_ISO_VOLUME_DETECTED="ISO-Volume erkannt:"
+# MSG_ERROR_DDRESCUE_FAILED bereits in lib-common.de definiert
 readonly MSG_BLOCKS="Blöcke"
 readonly MSG_DVD_SUCCESS_DDRESCUE="✓ Video-DVD mit ddrescue erfolgreich kopiert"
-readonly MSG_ERROR_DDRESCUE_FAILED="FEHLER: ddrescue fehlgeschlagen"
