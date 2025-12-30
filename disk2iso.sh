@@ -53,7 +53,6 @@ SCRIPT_PATH="$(readlink -f "${BASH_SOURCE[0]}")"
 SCRIPT_DIR="$(dirname "$SCRIPT_PATH")"
 
 # Lade Basis-Module
-source "${SCRIPT_DIR}/disk2iso-lib/lang/messages.de"
 source "${SCRIPT_DIR}/disk2iso-lib/config.sh"
 
 # Lade Kern-Bibliotheken (IMMER erforderlich)
