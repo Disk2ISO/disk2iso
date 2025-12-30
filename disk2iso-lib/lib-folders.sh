@@ -29,12 +29,13 @@ _TEMP_BASE_CREATED=false
 # Funktion zum Erstellen des Temp-Verzeichnisses
 # Erstellt strukturiertes Temp-Verzeichnis im OUTPUT_DIR
 # Setzt globale Variable: temp_pathname
-# Nutzt Lazy Initialization für temp_base
+# Nutzt Lazy Initialization für temp_base und TEMP_DIR Konstante
 get_temp_pathname() {
     # Stelle sicher dass OUTPUT_DIR existiert
     get_out_folder
     
-    local temp_base="${OUTPUT_DIR}/temp"
+    # Nutze Konstante aus lib-common.sh
+    local temp_base="${OUTPUT_DIR}/${TEMP_DIR}"
     
     # Lazy Initialization: temp_base nur einmal erstellen
     if [[ "$_TEMP_BASE_CREATED" == false ]]; then
@@ -68,7 +69,8 @@ get_tmp_mount() {
     # Stelle sicher dass OUTPUT_DIR existiert
     get_out_folder
     
-    local mount_base="${OUTPUT_DIR}/temp/mountpoints"
+    # Nutze Konstante aus lib-common.sh
+    local mount_base="${OUTPUT_DIR}/${MOUNTPOINTS_DIR}"
     
     # mount_base wird bei jedem Aufruf erstellt (mehrere parallele Mounts möglich)
     mkdir -p "$mount_base"
@@ -112,28 +114,31 @@ get_out_folder() {
 # Funktion zum Erstellen von Typ-spezifischen Unterordnern
 # Parameter: $1 = disc_type (audio-cd, cd-rom, dvd-video, dvd-rom, bd-video, bd-rom)
 # Rückgabe: Unterordner-Pfad
+# Nutzt Getter-Methoden mit Fallback-Logik aus den jeweiligen Modulen
 get_type_subfolder() {
     local dtype="$1"
-    local subfolder=""
+    local full_path=""
     
     case "$dtype" in
+        audio-cd)
+            full_path=$(get_path_audio)
+            ;;
         cd-rom|dvd-rom|bd-rom)
-            subfolder="DATA"
+            full_path=$(get_path_data)
             ;;
         dvd-video)
-            subfolder="DVD"
+            full_path=$(get_path_dvd)
             ;;
         bd-video)
-            subfolder="BD"
+            full_path=$(get_path_bd)
             ;;
         *)
-            subfolder="DATA"
+            # Default Fallback für unbekannte Typen
+            full_path=$(get_path_data)
             ;;
     esac
     
-    local full_path="${OUTPUT_DIR}/${subfolder}"
     mkdir -p "$full_path"
-    
     echo "$full_path"
 }
 

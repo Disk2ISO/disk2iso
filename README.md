@@ -212,15 +212,15 @@ disk2iso/
 ├── uninstall.sh             # Deinstallations-Script
 └── disk2iso-lib/            # Bibliotheken
     ├── config.sh            # Konfiguration
-    ├── lib-bluray.sh        # Blu-ray Funktionen (OPTIONAL)
-    ├── lib-cd.sh            # Audio-CD Funktionen (OPTIONAL)
-    ├── lib-dvd.sh           # Video-DVD Funktionen (OPTIONAL)
-    ├── lib-common.sh        # Daten-Disc Kopierfunktionen (KERN)
+    ├── lib-bluray.sh        # Blu-ray Funktionen (OPTIONAL) - Definiert BD_DIR
+    ├── lib-cd.sh            # Audio-CD Funktionen (OPTIONAL) - Definiert AUDIO_DIR
+    ├── lib-dvd.sh           # Video-DVD Funktionen (OPTIONAL) - Definiert DVD_DIR
+    ├── lib-common.sh        # Daten-Disc Kopierfunktionen (KERN) - Definiert DATA_DIR
     ├── lib-diskinfos.sh     # Disc-Typ-Erkennung (KERN)
     ├── lib-drivestat.sh     # Laufwerk-Status (KERN)
     ├── lib-files.sh         # Dateinamen-Verwaltung (KERN)
-    ├── lib-folders.sh       # Ordner-Verwaltung (KERN)
-    ├── lib-logging.sh       # Logging-System (KERN)
+    ├── lib-folders.sh       # Ordner-Verwaltung mit Gettern (KERN)
+    ├── lib-logging.sh       # Logging-System (KERN) - Definiert LOG_DIR
     └── lang/
         └── messages.de      # Deutsche Sprachdatei
 ```
@@ -239,13 +239,61 @@ disk2iso/
 - `lib-dvd.sh` - Nur wenn Video-DVD Support gewählt
 - `lib-bluray.sh` - Nur wenn Blu-ray Support gewählt
 
+**Pfad-Verwaltung:**
+
+- Jedes Modul definiert eigene Pfad-Konstanten (`AUDIO_DIR`, `DVD_DIR`, `BD_DIR`)
+- `lib-folders.sh` nutzt Getter-Methoden (`get_path_audio()`, `get_path_dvd()`, etc.)
+- Graceful Degradation: Fehlende Module → Fallback auf `data/`
+
 **Vorteile:**
 
 - Minimale Installation möglich (nur Daten-Disks)
 - Fehlende Module führen zu graceful degradation
 - Klare Trennung der Funktionalitäten
+- Konsistente lowercase Ordnerstruktur
 
-## 🔧 Deinstallation
+## � Verzeichnisstruktur der Ausgabe
+
+```text
+output_dir/                  # -o Parameter beim Start
+├── audio/                   # Audio-CDs (nur mit lib-cd.sh)
+│   ├── artist_album.iso
+│   ├── artist_album.md5
+│   └── ...
+├── data/                    # Daten-Discs (cd-rom, dvd-rom, bd-rom)
+│   ├── disc_label.iso
+│   ├── disc_label.md5
+│   └── ...
+├── dvd/                     # Video-DVDs (nur mit lib-dvd.sh)
+│   ├── movie_title.iso
+│   ├── movie_title.md5
+│   └── ...
+├── bd/                      # Blu-ray Videos (nur mit lib-bluray.sh)
+│   ├── movie_title.iso
+│   ├── movie_title.md5
+│   └── ...
+├── log/                     # Zentrale Log-Dateien
+│   ├── disc_label.log
+│   └── ...
+└── temp/                    # Temporäre Arbeitsverzeichnisse
+    ├── mountpoints/         # Mount-Points für Label-Erkennung
+    └── disc_label_$$/       # Wird nach Abschluss gelöscht
+```
+
+### Pfad-Logik mit Graceful Degradation
+
+```bash
+# Beispiel: DVD-Video ohne lib-dvd.sh installiert
+get_path_dvd() → Fallback auf data/
+
+# Alle Disc-Typen haben Fallback-Pfad
+audio-cd   → audio/ (oder data/ wenn lib-cd.sh fehlt)
+dvd-video  → dvd/   (oder data/ wenn lib-dvd.sh fehlt)
+bd-video   → bd/    (oder data/ wenn lib-bluray.sh fehlt)
+*-rom      → data/  (immer verfügbar)
+```
+
+## �🔧 Deinstallation
 
 ```bash
 sudo ./uninstall.sh
@@ -263,17 +311,17 @@ Das Skript:
 
 - **Dateiname:** `disc_label.iso` (bereinigt, lowercase)
 - **MD5-Checksumme:** `disc_label.md5`
-- **Log-Datei:** `disc_label.log`
+- **Log-Datei:** `disc_label.log` (im separaten log/ Verzeichnis)
 - **Speicherort:** `OUTPUT_DIR/[disc-type]/`
 
 **Disc-Type Unterordner:**
 
-- `audio-cd/` - Audio-CD ISOs mit MP3s
-- `cd-rom/` - Daten-CDs
-- `dvd-video/` - Video-DVDs (entschlüsselt/verschlüsselt)
-- `dvd-rom/` - Daten-DVDs
-- `bd-video/` - Blu-ray Videos (entschlüsselt/verschlüsselt)
-- `bd-rom/` - Daten-Blu-rays
+- `audio/` - Audio-CD ISOs mit MP3s
+- `data/` - Daten-CDs, Daten-DVDs, Daten-Blu-rays
+- `dvd/` - Video-DVDs (entschlüsselt/verschlüsselt)
+- `bd/` - Blu-ray Videos (entschlüsselt/verschlüsselt)
+- `log/` - Alle Log-Dateien (zentral)
+- `temp/` - Temporäre Dateien (werden nach Abschluss gelöscht)
 
 ### Audio-CDs (mit lib-cd.sh)
 

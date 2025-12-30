@@ -70,10 +70,14 @@ get_md5_filename() {
 
 # Funktion zum Erstellen des LOG-Dateinamens
 # Leitet LOG-Dateinamen vom ISO-Dateinamen ab
+# Log-Dateien werden im separaten log/ Verzeichnis gespeichert
 # Setzt globale Variable: log_filename
 get_log_filename() {
-    # Ersetze .iso durch .log (iso_filename enthält bereits OUTPUT_DIR)
-    log_filename="${iso_filename%.iso}.log"
+    # Extrahiere nur den Dateinamen ohne Pfad
+    local base_name=$(basename "${iso_filename%.iso}")
+    
+    # Erstelle Pfad im log/ Verzeichnis
+    log_filename="$(get_path_log)/${base_name}.log"
 }
 
 # Funktion zum Extrahieren des ISO-Basisnamens
