@@ -410,6 +410,7 @@ Bei Problemen oder Fragen:
 - [x] Modulare Architektur mit optionalen Features
 - [x] Dezentrale Dependency-Checks pro Modul
 - [x] MakeMKV Integration für Blu-ray
+- [ ] CD-Text Unterstützung
 - [ ] Web-Interface für Monitoring und Konfiguration
 - [ ] Weitere Sprachen (EN, FR, ES)
 - [ ] Automatische Discogs-Integration für Audio-CDs
