@@ -111,7 +111,7 @@ readonly MSG_ENCODING_TO_MP3="zu MP3..."
 readonly MSG_ERROR_MP3_ENCODING_FAILED="FEHLER: MP3-Encoding für Track"
 readonly MSG_FAILED="fehlgeschlagen"
 
-readonly MSG_COVER_SAVED_FOLDER_JPG="Cover als folder.jpg gespeichert"
+readonly MSG_COVER_SAVED_FOLDER_JPG="Cover als folder.jpg im Album-Verzeichnis gespeichert"
 readonly MSG_COVER_SAVED_AS_FOLDER_JPG="Cover als folder.jpg gespeichert"
 readonly MSG_RIPPING_COMPLETE_CREATE_ISO="Ripping abgeschlossen - erstelle ISO..."
 readonly MSG_ERROR_INSUFFICIENT_SPACE_ISO="FEHLER: Nicht genügend Speicherplatz für ISO-Erstellung"

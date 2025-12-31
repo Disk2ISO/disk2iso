@@ -222,19 +222,19 @@ download_cover_art() {
     local cover_file="${target_dir}/disk2iso_cover_$$.jpg"
     local cover_url="https://coverartarchive.org/release/${release_id}/front"
     
-    log_message "$MSG_DOWNLOAD_COVER"
+    log_message "$MSG_DOWNLOAD_COVER" >&2
     
     if curl -L -s -f "$cover_url" -o "$cover_file" 2>/dev/null; then
         # Prüfe ob Datei gültig ist
         if [[ -f "$cover_file" ]] && [[ -s "$cover_file" ]]; then
             local cover_size=$(du -h "$cover_file" | awk '{print $1}')
-            log_message "$MSG_COVER_DOWNLOADED: ${cover_size}"
+            log_message "$MSG_COVER_DOWNLOADED: ${cover_size}" >&2
             echo "$cover_file"
             return 0
         fi
     fi
     
-    log_message "$MSG_WARNING_COVER_DOWNLOAD_FAILED"
+    log_message "$MSG_WARNING_COVER_DOWNLOAD_FAILED" >&2
     rm -f "$cover_file" 2>/dev/null
     return 1
 }
@@ -506,15 +506,29 @@ copy_audio_cd() {
     done
     
     # Kopiere Cover als folder.jpg ins Album-Verzeichnis (Jellyfin-Standard)
-    if [[ -n "$cover_file" ]] && [[ -f "$cover_file" ]]; then
-        cp "$cover_file" "${album_dir}/folder.jpg" 2>/dev/null
-        log_message "$MSG_COVER_SAVED_FOLDER_JPG"
+    log_message "DEBUG: Prüfe Cover-Kopieren: cover_file='$cover_file', album_dir='$album_dir'"
+    if [[ -n "$cover_file" ]]; then
+        if [[ -f "$cover_file" ]]; then
+            log_message "DEBUG: Cover-Datei existiert: $cover_file"
+            if cp "$cover_file" "${album_dir}/folder.jpg" 2>>/dev/stderr; then
+                log_message "$MSG_COVER_SAVED_FOLDER_JPG"
+            else
+                log_message "FEHLER: Cover konnte nicht als folder.jpg kopiert werden (cp exit code: $?)"
+            fi
+        else
+            log_message "FEHLER: Cover-Datei nicht gefunden: $cover_file"
+        fi
+    else
+        log_message "DEBUG: cover_file Variable ist leer"
     fi
     
     log_message "$MSG_RIPPING_COMPLETE_CREATE_ISO"
     
     # Erstelle album.nfo für Jellyfin
     create_album_nfo "$album_dir"
+    
+    # Sichere temp_pathname bevor init_filenames es überschreibt
+    local audio_temp_path="$temp_pathname"
     
     # Initialisiere Dateinamen (verwendet disc_label)
     init_filenames
@@ -525,7 +539,7 @@ copy_audio_cd() {
     
     if ! check_disk_space "$required_mb"; then
         log_message "$MSG_ERROR_INSUFFICIENT_SPACE_ISO"
-        rm -rf "$temp_pathname"
+        rm -rf "$audio_temp_path"
         return 1
     fi
     
@@ -541,19 +555,19 @@ copy_audio_cd() {
     log_message "$MSG_CREATE_ISO: $iso_filename"
     log_message "$MSG_VOLUME_ID: $volume_id"
     
-    # Erstelle ISO aus temp_pathname (nicht album_dir!) um Ordnerstruktur zu erhalten
+    # Erstelle ISO aus audio_temp_path (nicht album_dir!) um Ordnerstruktur zu erhalten
     # ISO enthält dann: AlbumArtist/Album/Tracks.mp3
     if ! genisoimage -R -J -joliet-long \
         -V "$volume_id" \
         -o "$iso_filename" \
-        "$temp_pathname" >>"$log_filename" 2>&1; then
+        "$audio_temp_path" >>"$log_filename" 2>&1; then
         log_message "$MSG_ERROR_ISO_CREATION_FAILED"
-        rm -rf "$temp_pathname"
+        rm -rf "$audio_temp_path"
         return 1
     fi
     
     # Cleanup temp-Verzeichnis und Cover-Datei
-    rm -rf "$temp_pathname"
+    rm -rf "$audio_temp_path"
     [[ -n "$cover_file" ]] && rm -f "$cover_file"
     
     # Prüfe ISO-Größe
