@@ -1,46 +1,53 @@
-# Web-First Architecture for disk2iso
+# Web-First Architektur für disk2iso
 
-## Overview
+## Übersicht
 
-This document outlines the Web-First architecture for disk2iso, providing a modern web-based interface for disk imaging operations. The system is designed to run in an LXC container with a web interface as the primary interaction method, while maintaining minimal CLI support for advanced users.
+Dieses Dokument beschreibt die Web-First Architektur für disk2iso und bietet
+eine moderne webbasierte Oberfläche für Disk-Imaging-Operationen. Das System
+ist für den Betrieb in einem LXC-Container konzipiert, wobei die Web-Oberfläche
+die primäre Interaktionsmethode darstellt, während minimale CLI-Unterstützung
+für fortgeschrittene Benutzer erhalten bleibt.
 
-## Architecture Principles
+## Architektur-Prinzipien
 
-- **Web-First Design**: Primary interaction through a responsive web interface
-- **Container-Based**: Runs in LXC containers for isolation and portability
-- **RESTful API**: Clean API design for all operations
-- **Progressive Enhancement**: Core functionality works without JavaScript, enhanced UX with it
-- **Security-First**: Authentication, authorization, and audit logging built-in
-- **Mobile-Friendly**: Responsive design for access from any device
+- **Web-First Design**: Primäre Interaktion über eine responsive Web-Oberfläche
+- **Container-basiert**: Läuft in LXC-Containern für Isolation und Portabilität
+- **RESTful API**: Sauberes API-Design für alle Operationen
+- **Progressive Enhancement**: Kernfunktionalität funktioniert ohne JavaScript, verbesserte UX damit
+- **Security-First**: Authentifizierung, Autorisierung und Audit-Logging integriert
+- **Mobile-freundlich**: Responsives Design für Zugriff von jedem Gerät
 
 ## LXC Container Setup
 
-### Container Requirements
+### Container-Anforderungen
 
 ```bash
-# Recommended LXC configuration
+# Empfohlene LXC-Konfiguration
 lxc.cgroup2.memory.max = 2G
-lxc.cgroup2.cpu.max = 200000 100000  # 2 CPU cores worth
+lxc.cgroup2.cpu.max = 200000 100000  # 2 CPU-Kerne
 lxc.mount.entry = /dev/sr0 dev/sr0 none bind,optional,create=file
 lxc.mount.entry = /dev/sr1 dev/sr1 none bind,optional,create=file
 ```
 
-### Installation Steps
+### Installationsschritte
 
-1. **Create Container**
+1.**Container erstellen**
+
 ```bash
 lxc-create -n disk2iso -t download -- -d debian -r bookworm -a amd64
 ```
 
-2. **Configure Storage**
+2.**Speicher konfigurieren**
+
 ```bash
-# Add storage mount for ISO output
+# Speicher-Mount für ISO-Ausgabe hinzufügen
 lxc config device add disk2iso storage disk source=/storage/isos path=/opt/disk2iso/output
 ```
 
-3. **Install Dependencies**
+3.**Abhängigkeiten installieren**
+
 ```bash
-# Inside container
+# Im Container
 apt-get update
 apt-get install -y python3 python3-pip python3-venv \
     ddrescue cdrdao cdrtools genisoimage \
@@ -48,7 +55,8 @@ apt-get install -y python3 python3-pip python3-venv \
     udev udisks2
 ```
 
-4. **Deploy Application**
+4.**Anwendung bereitstellen**
+
 ```bash
 cd /opt/disk2iso
 python3 -m venv venv
@@ -82,202 +90,216 @@ RestartSec=10
 WantedBy=multi-user.target
 ```
 
-## Web Interface Specifications
+## Web-Oberflächen-Spezifikationen
 
-### 1. Dashboard Page (`/`)
+### 1. Dashboard-Seite (`/`)
 
-**Purpose**: Main control center for disk imaging operations
+**Zweck**: Hauptsteuerungszentrale für Disk-Imaging-Operationen
 
 **Layout**:
-```
+
+```txt
 ┌─────────────────────────────────────────┐
 │  disk2iso - Dashboard                   │
 ├─────────────────────────────────────────┤
 │  [Active Jobs (2)]  [Completed (15)]    │
-│                                          │
-│  ┌─────────────────────────────────┐   │
-│  │ Job: movie_collection_disc1     │   │
-│  │ Status: Running (45%)           │   │
-│  │ Progress: ████████░░░░░░░░      │   │
-│  │ Speed: 2.4 MB/s | ETA: 4:23    │   │
-│  │ [Pause] [Cancel] [Details]     │   │
-│  └─────────────────────────────────┘   │
-│                                          │
-│  ┌─────────────────────────────────┐   │
-│  │ Job: backup_dvd_2024           │   │
-│  │ Status: Queued                  │   │
-│  │ Position: #2 in queue          │   │
-│  │ [Cancel] [Edit Priority]       │   │
-│  └─────────────────────────────────┘   │
-│                                          │
-│  [+ New Imaging Job]                   │
-│                                          │
+│                                         │
+│  ┌─────────────────────────────────┐    │
+│  │ Job: movie_collection_disc1     │    │
+│  │ Status: Running (45%)           │    │
+│  │ Progress: ████████░░░░░░░░      │    │
+│  │ Speed: 2.4 MB/s | ETA: 4:23     │    │
+│  │ [Pause] [Cancel] [Details]      │    │
+│  └─────────────────────────────────┘    │
+│                                         │
+│  ┌─────────────────────────────────┐    │
+│  │ Job: backup_dvd_2024            │    │
+│  │ Status: Queued                  │    │
+│  │ Position: #2 in queue           │    │
+│  │ [Cancel] [Edit Priority]        │    │
+│  └─────────────────────────────────┘    │
+│                                         │
+│  [+ New Imaging Job]                    │
+│                                         │
 │  System Status:                         │
 │  • Available Drives: 2                  │
-│  • Storage Free: 847 GB                │
-│  • CPU Usage: 12%                      │
-│  • Memory: 456 MB / 2 GB               │
+│  • Storage Free: 847 GB                 │
+│  • CPU Usage: 12%                       │
+│  • Memory: 456 MB / 2 GB                │
 └─────────────────────────────────────────┘
 ```
 
 **Features**:
-- Real-time job status updates (WebSocket or SSE)
-- Progress bars with percentage and ETA
-- Quick actions (pause, cancel, resume)
-- System resource monitoring
-- Drive detection and status
-- One-click job creation
 
-**Key UI Elements**:
-- Job cards with color-coded status (green=running, blue=queued, gray=completed)
-- Toast notifications for events
-- Responsive grid layout
-- Auto-refresh every 2 seconds for active jobs
+- Echtzeit-Jobstatus-Updates (WebSocket oder SSE)
+- Fortschrittsbalken mit Prozentangabe und ETA
+- Schnellaktionen (Pause, Abbrechen, Fortsetzen)
+- Systemressourcen-Überwachung
+- Laufwerkserkennung und Status
+- Ein-Klick-Job-Erstellung
 
-### 2. Archive Page (`/archive`)
+**Wichtige UI-Elemente**:
 
-**Purpose**: Browse, search, and manage completed ISO images
+- Job-Karten mit farbcodiertem Status (grün=läuft, blau=wartend, grau=abgeschlossen)
+- Toast-Benachrichtigungen für Ereignisse
+- Responsives Grid-Layout
+- Auto-Refresh alle 2 Sekunden für aktive Jobs
+
+### 2. Archiv-Seite (`/archive`)
+
+**Zweck**: Durchsuchen, Suchen und Verwalten abgeschlossener ISO-Images
 
 **Layout**:
-```
+
+```txt
 ┌─────────────────────────────────────────┐
 │  Archive                                │
 ├─────────────────────────────────────────┤
 │  [Search: _________] [Filter ▼] [Sort ▼]│
-│                                          │
-│  ┌─────────────────────────────────┐   │
-│  │ 📀 movie_collection_disc1.iso   │   │
-│  │ 4.7 GB • Created: 2025-12-30   │   │
-│  │ MD5: a3b4c5d6...               │   │
-│  │ [Download] [Verify] [Delete]   │   │
-│  └─────────────────────────────────┘   │
-│                                          │
-│  ┌─────────────────────────────────┐   │
-│  │ 💿 software_archive_2024.iso    │   │
-│  │ 8.5 GB • Created: 2025-12-28   │   │
-│  │ SHA256: f7e8d9a0...            │   │
-│  │ [Download] [Verify] [Delete]   │   │
-│  └─────────────────────────────────┘   │
-│                                          │
-│  Showing 1-20 of 156 items             │
-│  [← Previous] [1] [2] [3] ... [Next →] │
+│                                         │
+│  ┌─────────────────────────────────┐    │
+│  │ 📀 movie_collection_disc1.iso   │    │
+│  │ 4.7 GB • Created: 2025-12-30    │    │
+│  │ MD5: a3b4c5d6...                │    │
+│  │ [Download] [Verify] [Delete]    │    │
+│  └─────────────────────────────────┘    │
+│                                         │
+│  ┌─────────────────────────────────┐    │
+│  │ 💿 software_archive_2024.iso    │    │
+│  │ 8.5 GB • Created: 2025-12-28    │    │
+│  │ SHA256: f7e8d9a0...             │    │
+│  │ [Download] [Verify] [Delete]    │    │
+│  └─────────────────────────────────┘    │
+│                                         │
+│  Showing 1-20 of 156 items              │
+│  [← Previous] [1] [2] [3] ... [Next →]  │
 └─────────────────────────────────────────┘
 ```
 
 **Features**:
-- Full-text search across metadata
-- Filter by date, size, type, status
-- Sort by name, date, size
-- Bulk operations (delete, verify)
-- Checksum verification
-- Direct download links
-- Pagination for large archives
-- Metadata editing
 
-**Advanced Features**:
-- Tags and categories
-- Notes and descriptions
-- Quality ratings
-- Verification history
-- Export metadata to CSV/JSON
+- Volltextsuche über Metadaten
+- Filter nach Datum, Größe, Typ, Status
+- Sortierung nach Name, Datum, Größe
+- Massenoperationen (Löschen, Verifizieren)
+- Checksummen-Verifizierung
+- Direkte Download-Links
+- Seitennummerierung für große Archive
+- Metadaten-Bearbeitung
 
-### 3. Configuration Page (`/config`)
+**Erweiterte Features**:
 
-**Purpose**: System settings and preferences
+- Tags und Kategorien
+- Notizen und Beschreibungen
+- Qualitätsbewertungen
+- Verifizierungshistorie
+- Metadaten-Export nach CSV/JSON
 
-**Sections**:
+### 3. Konfigurations-Seite (`/config`)
 
-#### Storage Settings
-```
+**Zweck**: Systemeinstellungen und Präferenzen
+
+**Bereiche**:
+
+#### Speicher-Einstellungen
+
+```txt
 ┌─────────────────────────────────────────┐
-│ Storage Configuration                   │
+│ Speicher-Konfiguration                  │
 ├─────────────────────────────────────────┤
-│ Output Directory:                       │
-│ [/opt/disk2iso/output] [Browse]        │
-│                                          │
-│ Auto-cleanup:                           │
-│ ☑ Delete source on success             │
-│ ☑ Keep logs for [30] days              │
-│                                          │
-│ Storage Threshold:                      │
-│ [⚠️ Alert at 90% full]                  │
-│ [🛑 Stop at 95% full]                   │
+│ Ausgabe-Verzeichnis:                    │
+│ [/opt/disk2iso/output] [Durchsuchen]    │
+│                                         │
+│ Auto-Bereinigung:                       │
+│ ☑ Quelle bei Erfolg löschen             │
+│ ☑ Logs aufbewahren für [30] Tage        │
+│                                         │
+│ Speicher-Schwellenwerte:                │
+│ [⚠️ Warnung bei 90% voll]               │
+│ [🛑 Stopp bei 95% voll]                 │
 └─────────────────────────────────────────┘
 ```
 
-#### Imaging Defaults
-```
+#### Imaging-Standards
+
+```txt
 ┌─────────────────────────────────────────┐
-│ Default Imaging Options                 │
+│ Standard Imaging-Optionen               │
 ├─────────────────────────────────────────┤
-│ Read Attempts: [5]                      │
-│ Sector Size: [2048] bytes              │
-│ Verify After Creation: ☑ Enabled       │
-│ Generate Checksums: ☑ MD5 ☑ SHA256    │
-│ Compression: [None ▼]                  │
-│ Priority: [Normal ▼]                   │
+│ Leseversuche: [5]                       │
+│ Sektorgröße: [2048] Bytes               │
+│ Nach Erstellung verifizieren: ☑ Aktiv   │
+│ Checksummen generieren: ☑ MD5 ☑ SHA256 │
+│ Kompression: [Keine ▼]                  │
+│ Priorität: [Normal ▼]                   │
 └─────────────────────────────────────────┘
 ```
 
-#### Notification Settings
-```
+#### Benachrichtigungs-Einstellungen
+
+```txt
 ┌─────────────────────────────────────────┐
-│ Notifications                           │
+│ Benachrichtigungen                      │
 ├─────────────────────────────────────────┤
-│ ☑ Email on completion                  │
-│   Email: [user@example.com]            │
-│                                          │
-│ ☑ Webhook notifications                │
-│   URL: [https://hooks.example.com]     │
-│                                          │
-│ ☑ Browser notifications                │
+│ ☑ E-Mail bei Abschluss                  │
+│   E-Mail: [user@example.com]            │
+│                                         │
+│ ☑ Webhook-Benachrichtigungen            │
+│   URL: [https://hooks.example.com]      │
+│                                         │
+│ ☑ Browser-Benachrichtigungen            │
 └─────────────────────────────────────────┘
 ```
 
-#### User Management
-```
+#### Benutzerverwaltung
+
+```txt
 ┌─────────────────────────────────────────┐
-│ Users & Authentication                  │
+│ Benutzer & Authentifizierung            │
 ├─────────────────────────────────────────┤
-│ Current User: admin                     │
-│ Role: Administrator                     │
-│                                          │
-│ [Change Password]                       │
-│ [Manage API Keys]                      │
-│ [View Audit Log]                       │
-│                                          │
-│ Users:                                  │
-│ • admin (Administrator)                │
-│ • operator (Operator) [Edit] [Delete] │
-│ [+ Add User]                           │
+│ Aktueller Benutzer: admin               │
+│ Rolle: Administrator                    │
+│                                         │
+│ [Passwort ändern]                       │
+│ [API-Keys verwalten]                    │
+│ [Audit-Log anzeigen]                    │
+│                                         │
+│ Benutzer:                               │
+│ • admin (Administrator)                 │
+│ • operator (Operator) [Bearb.] [Lösch.] │
+│ [+ Benutzer hinzufügen]                 │
 └─────────────────────────────────────────┘
 ```
 
-## API Endpoints
+## API-Endpunkte
 
-### Authentication
+### Authentifizierung
 
-All API endpoints require authentication via:
-- Session cookies (web interface)
-- API key in header: `X-API-Key: <key>`
-- JWT bearer token: `Authorization: Bearer <token>`
+Alle API-Endpunkte erfordern Authentifizierung via:
 
-### Core Endpoints
+- Session-Cookies (Web-Oberfläche)
+- API-Key im Header: `X-API-Key: <key>`
+- JWT Bearer-Token: `Authorization: Bearer <token>`
+
+### Kern-Endpunkte
 
 #### Jobs
 
 ```http
 GET /api/v1/jobs
 ```
-List all jobs with pagination and filtering.
 
-**Query Parameters**:
-- `status`: filter by status (running, queued, completed, failed)
-- `limit`: items per page (default: 50)
-- `offset`: pagination offset
-- `sort`: sort field (created, updated, name)
+Liste alle Jobs mit Seitennummerierung und Filterung.
 
-**Response**:
+**Query-Parameter**:
+
+- `status`: Filter nach Status (running, queued, completed, failed)
+- `limit`: Einträge pro Seite (Standard: 50)
+- `offset`: Seitennummerierungs-Offset
+- `sort`: Sortierfeld (created, updated, name)
+
+**Antwort**:
+
 ```json
 {
   "jobs": [
@@ -306,9 +328,11 @@ List all jobs with pagination and filtering.
 ```http
 POST /api/v1/jobs
 ```
-Create a new imaging job.
 
-**Request Body**:
+Neuen Imaging-Job erstellen.
+
+**Request-Body**:
+
 ```json
 {
   "name": "my_disk_image",
@@ -322,7 +346,8 @@ Create a new imaging job.
 }
 ```
 
-**Response**:
+**Antwort**:
+
 ```json
 {
   "id": "job_123457",
@@ -336,19 +361,22 @@ Create a new imaging job.
 ```http
 GET /api/v1/jobs/{job_id}
 ```
-Get detailed job information.
+
+Detaillierte Job-Informationen abrufen.
 
 ---
 
 ```http
 PATCH /api/v1/jobs/{job_id}
 ```
-Update job (pause, resume, cancel, change priority).
 
-**Request Body**:
+Job aktualisieren (pausieren, fortsetzen, abbrechen, Priorität ändern).
+
+**Request-Body**:
+
 ```json
 {
-  "action": "pause"  // or "resume", "cancel"
+  "action": "pause"  // oder "resume", "cancel"
 }
 ```
 
@@ -357,18 +385,21 @@ Update job (pause, resume, cancel, change priority).
 ```http
 DELETE /api/v1/jobs/{job_id}
 ```
-Cancel and remove job.
+
+Job abbrechen und entfernen.
 
 ---
 
-#### Archives
+#### Archive
 
 ```http
 GET /api/v1/archives
 ```
-List completed ISO images.
 
-**Response**:
+Abgeschlossene ISO-Images auflisten.
+
+**Antwort**:
+
 ```json
 {
   "archives": [
@@ -397,30 +428,35 @@ List completed ISO images.
 ```http
 GET /api/v1/archives/{archive_id}
 ```
-Get archive details.
+
+Archiv-Details abrufen.
 
 ---
 
 ```http
 GET /api/v1/archives/{archive_id}/download
 ```
-Download ISO file.
+
+ISO-Datei herunterladen.
 
 ---
 
 ```http
 POST /api/v1/archives/{archive_id}/verify
 ```
-Verify ISO integrity against checksums.
+
+ISO-Integrität gegen Checksummen verifizieren.
 
 ---
 
 ```http
 PATCH /api/v1/archives/{archive_id}
 ```
-Update metadata.
 
-**Request Body**:
+Metadaten aktualisieren.
+
+**Request-Body**:
+
 ```json
 {
   "metadata": {
@@ -436,18 +472,21 @@ Update metadata.
 ```http
 DELETE /api/v1/archives/{archive_id}
 ```
-Delete archive.
+
+Archiv löschen.
 
 ---
 
-#### Devices
+#### Geräte
 
 ```http
 GET /api/v1/devices
 ```
-List available optical drives.
 
-**Response**:
+Verfügbare optische Laufwerke auflisten.
+
+**Antwort**:
+
 ```json
 {
   "devices": [
@@ -469,7 +508,8 @@ List available optical drives.
 ```http
 POST /api/v1/devices/{device}/eject
 ```
-Eject media from drive.
+
+Medium aus Laufwerk auswerfen.
 
 ---
 
@@ -478,9 +518,11 @@ Eject media from drive.
 ```http
 GET /api/v1/system/status
 ```
-Get system status and resource usage.
 
-**Response**:
+Systemstatus und Ressourcennutzung abrufen.
+
+**Antwort**:
+
 ```json
 {
   "status": "healthy",
@@ -505,14 +547,16 @@ Get system status and resource usage.
 ```http
 GET /api/v1/system/config
 ```
-Get current configuration.
+
+Aktuelle Konfiguration abrufen.
 
 ---
 
 ```http
 PATCH /api/v1/system/config
 ```
-Update configuration.
+
+Konfiguration aktualisieren.
 
 ---
 
@@ -521,23 +565,27 @@ Update configuration.
 ```http
 GET /api/v1/logs
 ```
-Retrieve application logs.
 
-**Query Parameters**:
-- `level`: filter by level (debug, info, warning, error)
-- `since`: ISO timestamp
-- `limit`: number of entries
+Anwendungs-Logs abrufen.
+
+**Query-Parameter**:
+
+- `level`: Filter nach Level (debug, info, warning, error)
+- `since`: ISO-Zeitstempel
+- `limit`: Anzahl der Einträge
 
 ---
 
-### WebSocket Endpoints
+### WebSocket-Endpunkte
 
-```
+```http
 ws://server/api/v1/ws/jobs
 ```
-Real-time job updates.
 
-**Message Format**:
+Echtzeit-Job-Updates.
+
+**Nachrichten-Format**:
+
 ```json
 {
   "type": "job_update",
@@ -551,37 +599,37 @@ Real-time job updates.
 }
 ```
 
-## Security Considerations
+## Sicherheitsüberlegungen
 
-### Authentication & Authorization
+### Authentifizierung & Autorisierung
 
-1. **User Roles**:
-   - `admin`: Full system access
-   - `operator`: Create/manage jobs, view archives
-   - `viewer`: Read-only access
+1. **Benutzerrollen**:
+   - `admin`: Voller Systemzugriff
+   - `operator`: Jobs erstellen/verwalten, Archive anzeigen
+   - `viewer`: Nur-Lese-Zugriff
 
-2. **Password Policy**:
-   - Minimum 12 characters
-   - Must include uppercase, lowercase, numbers
-   - Hashed with bcrypt (cost factor 12)
-   - Forced rotation every 90 days
+2. **Passwort-Richtlinie**:
+   - Mindestens 12 Zeichen
+   - Muss Groß-, Kleinbuchstaben und Zahlen enthalten
+   - Gehashed mit bcrypt (Kostenfaktor 12)
+   - Erzwungene Rotation alle 90 Tage
 
-3. **API Keys**:
-   - Generated with cryptographically secure random
-   - Can be scoped to specific permissions
-   - Expirable
-   - Revocable
+3. **API-Keys**:
+   - Generiert mit kryptographisch sicherem Zufallsgenerator
+   - Können auf spezifische Berechtigungen beschränkt werden
+   - Ablaufbar
+   - Widerrufbar
 
-4. **Session Management**:
-   - HTTPOnly, Secure, SameSite cookies
-   - 30-minute timeout with activity extension
-   - Maximum 24-hour lifetime
-   - Concurrent session limits
+4. **Session-Verwaltung**:
+   - HTTPOnly, Secure, SameSite Cookies
+   - 30-Minuten Timeout mit Aktivitätsverlängerung
+   - Maximale 24-Stunden Lebensdauer
+   - Limits für gleichzeitige Sessions
 
-### Network Security
+### Netzwerk-Sicherheit
 
 ```nginx
-# Nginx configuration
+# Nginx-Konfiguration
 server {
     listen 443 ssl http2;
     server_name disk2iso.local;
@@ -591,14 +639,14 @@ server {
     ssl_protocols TLSv1.3 TLSv1.2;
     ssl_ciphers HIGH:!aNULL:!MD5;
     
-    # Security headers
+    # Sicherheits-Header
     add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
     add_header X-Frame-Options "SAMEORIGIN" always;
     add_header X-Content-Type-Options "nosniff" always;
     add_header X-XSS-Protection "1; mode=block" always;
     add_header Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline';" always;
     
-    # Rate limiting
+    # Rate-Limiting
     limit_req_zone $binary_remote_addr zone=api:10m rate=10r/s;
     limit_req zone=api burst=20 nodelay;
     
@@ -612,18 +660,19 @@ server {
 }
 ```
 
-### Input Validation
+### Eingabe-Validierung
 
-- All user inputs sanitized and validated
-- Path traversal prevention
-- SQL injection protection (parameterized queries)
-- XSS prevention (output encoding)
-- CSRF tokens for state-changing operations
-- File upload restrictions (size, type)
+- Alle Benutzereingaben werden bereinigt und validiert
+- Path-Traversal-Prävention
+- SQL-Injection-Schutz (parametrisierte Queries)
+- XSS-Prävention (Output-Encoding)
+- CSRF-Tokens für zustandsändernde Operationen
+- Datei-Upload-Beschränkungen (Größe, Typ)
 
-### Audit Logging
+### Audit-Logging
 
-All security-relevant events logged:
+Alle sicherheitsrelevanten Ereignisse werden protokolliert:
+
 ```json
 {
   "timestamp": "2025-12-31T14:21:04Z",
@@ -638,83 +687,84 @@ All security-relevant events logged:
 }
 ```
 
-Events tracked:
-- Login/logout attempts
-- Password changes
-- API key generation/revocation
-- Configuration changes
-- Job creation/deletion
-- Archive deletion
-- Permission changes
+Verfolgte Ereignisse:
 
-### File System Security
+- Login/Logout-Versuche
+- Passwort-Änderungen
+- API-Key-Generierung/-Widerruf
+- Konfigurations-Änderungen
+- Job-Erstellung/-Löschung
+- Archiv-Löschung
+- Berechtigungs-Änderungen
 
-- Output directory permissions: `755` (rwxr-xr-x)
-- ISO files: `644` (rw-r--r--)
-- Config files: `600` (rw-------)
-- Service runs as dedicated user `disk2iso`
-- No world-writable files
-- AppArmor/SELinux profiles
+### Dateisystem-Sicherheit
 
-### Backup & Recovery
+- Ausgabe-Verzeichnis-Berechtigungen: `755` (rwxr-xr-x)
+- ISO-Dateien: `644` (rw-r--r--)
+- Konfigurations-Dateien: `600` (rw-------)
+- Service läuft als dedizierter Benutzer `disk2iso`
+- Keine weltweit beschreibbaren Dateien
+- AppArmor/SELinux-Profile
+
+### Backup & Wiederherstellung
 
 ```bash
-# Automated backup script
+# Automatisiertes Backup-Skript
 #!/bin/bash
 BACKUP_DIR="/backup/disk2iso"
 DATE=$(date +%Y%m%d_%H%M%S)
 
-# Backup database
+# Datenbank sichern
 sqlite3 /opt/disk2iso/data/disk2iso.db ".backup ${BACKUP_DIR}/db_${DATE}.db"
 
-# Backup configuration
+# Konfiguration sichern
 tar -czf ${BACKUP_DIR}/config_${DATE}.tar.gz /opt/disk2iso/config/
 
-# Keep only last 30 days
+# Nur letzte 30 Tage behalten
 find ${BACKUP_DIR} -type f -mtime +30 -delete
 ```
 
-## Minimal CLI Usage
+## Minimale CLI-Nutzung
 
-While the web interface is primary, CLI tools are available for:
+Während die Web-Oberfläche primär ist, sind CLI-Tools verfügbar für:
 
-### Emergency Operations
+### Notfall-Operationen
 
 ```bash
-# Check service status
+# Service-Status prüfen
 disk2iso status
 
-# Emergency stop all jobs
+# Notfall-Stopp aller Jobs
 disk2iso stop --all
 
-# Manual job creation (bypassing web)
+# Manuelle Job-Erstellung (Web umgehen)
 disk2iso create --device /dev/sr0 --output /backup/emergency.iso
 
-# Verify ISO
+# ISO verifizieren
 disk2iso verify /path/to/image.iso
 ```
 
-### System Administration
+### System-Administration
 
 ```bash
-# User management
-disk2iso user add <username> --role operator
-disk2iso user reset-password <username>
+# Benutzerverwaltung
+disk2iso user add <benutzername> --role operator
+disk2iso user reset-password <benutzername>
 disk2iso user list
 
-# Configuration
+# Konfiguration
 disk2iso config get
-disk2iso config set storage.output_dir /new/path
+disk2iso config set storage.output_dir /neuer/pfad
 
-# Backup/Restore
+# Backup/Wiederherstellung
 disk2iso backup --output /backup/disk2iso_backup.tar.gz
 disk2iso restore --input /backup/disk2iso_backup.tar.gz
 ```
 
-### Automation & Scripting
+### Automatisierung & Skripting
 
 ```bash
-# API interaction via curl
+# API-Interaktion via curl
 curl -X POST https://disk2iso.local/api/v1/jobs \
   -H "X-API-Key: ${API_KEY}" \
   -H "Content-Type: application/json" \
@@ -724,7 +774,7 @@ curl -X POST https://disk2iso.local/api/v1/jobs \
     "options": {"verify": true}
   }'
 
-# Batch operations
+# Stapelverarbeitung
 for device in /dev/sr*; do
   if disk2iso device has-media $device; then
     disk2iso create --device $device --auto-name
@@ -732,88 +782,95 @@ for device in /dev/sr*; do
 done
 ```
 
-### Monitoring Integration
+### Monitoring-Integration
 
 ```bash
-# Prometheus metrics export
+# Prometheus-Metriken exportieren
 disk2iso metrics --format prometheus > /var/lib/prometheus/disk2iso.prom
 
-# Health check for monitoring systems
+# Health-Check für Monitoring-Systeme
 disk2iso health && echo "OK" || echo "FAIL"
 
-# Log streaming
+# Log-Streaming
 disk2iso logs --follow --level error | logger -t disk2iso
 ```
 
-## Technology Stack
+## Technologie-Stack
 
 ### Backend
+
 - **Framework**: Flask 3.x (Python 3.11+)
-- **WSGI Server**: Gunicorn with gevent workers
-- **Database**: SQLite 3 (or PostgreSQL for multi-instance)
-- **Task Queue**: Redis + RQ (Redis Queue)
+- **WSGI-Server**: Gunicorn mit gevent-Workern
+- **Datenbank**: SQLite 3 (oder PostgreSQL für Multi-Instanz)
+- **Task-Queue**: Redis + RQ (Redis Queue)
 - **Cache**: Redis
 
 ### Frontend
-- **Template Engine**: Jinja2
-- **CSS Framework**: Tailwind CSS or Bootstrap 5
-- **JavaScript**: Vanilla JS + Alpine.js for reactivity
-- **Real-time**: Server-Sent Events (SSE) or WebSockets
+
+- **Template-Engine**: Jinja2
+- **CSS-Framework**: Tailwind CSS oder Bootstrap 5
+- **JavaScript**: Vanilla JS + Alpine.js für Reaktivität
+- **Echtzeit**: Server-Sent Events (SSE) oder WebSockets
 
 ### DevOps
+
 - **Container**: LXC/LXD
-- **Reverse Proxy**: Nginx
-- **Process Manager**: systemd
-- **Logging**: Python logging + logrotate
-- **Monitoring**: Prometheus metrics endpoint
+- **Reverse-Proxy**: Nginx
+- **Prozess-Manager**: systemd
+- **Logging**: Python-Logging + logrotate
+- **Monitoring**: Prometheus-Metriken-Endpunkt
 
-## Development Roadmap
+## Entwicklungs-Roadmap
 
-### Phase 1: Core Web Interface (v2.0)
-- [ ] Basic dashboard with job listing
-- [ ] Job creation and management
-- [ ] Archive browsing
-- [ ] Device detection and selection
-- [ ] User authentication
+### Phase 1: Kern-Web-Oberfläche (v2.0)
 
-### Phase 2: Advanced Features (v2.1)
-- [ ] Real-time progress updates
-- [ ] Batch operations
-- [ ] Advanced filtering and search
-- [ ] Notification system
-- [ ] API documentation (Swagger/OpenAPI)
+- [ ] Basis-Dashboard mit Job-Auflistung
+- [ ] Job-Erstellung und -Verwaltung
+- [ ] Archiv-Durchsuchung
+- [ ] Geräteerkennung und -auswahl
+- [ ] Benutzer-Authentifizierung
 
-### Phase 3: Enterprise Features (v2.2)
-- [ ] Multi-user support with RBAC
-- [ ] Audit logging and compliance
-- [ ] LDAP/Active Directory integration
-- [ ] High availability setup
-- [ ] Prometheus metrics
+### Phase 2: Erweiterte Features (v2.1)
 
-### Phase 4: Extensions (v2.3+)
-- [ ] Webhook integrations
-- [ ] Cloud storage backends (S3, Azure Blob)
-- [ ] Mobile app (React Native)
-- [ ] Advanced scheduling
-- [ ] Disk image mounting/browsing
+- [ ] Echtzeit-Fortschritts-Updates
+- [ ] Stapeloperationen
+- [ ] Erweiterte Filterung und Suche
+- [ ] Benachrichtigungssystem
+- [ ] API-Dokumentation (Swagger/OpenAPI)
 
-## Deployment Example
+### Phase 3: Enterprise-Features (v2.2)
+
+- [ ] Multi-User-Unterstützung mit RBAC
+- [ ] Audit-Logging und Compliance
+- [ ] LDAP/Active Directory-Integration
+- [ ] Hochverfügbarkeits-Setup
+- [ ] Prometheus-Metriken
+
+### Phase 4: Erweiterungen (v2.3+)
+
+- [ ] Webhook-Integrationen
+- [ ] Cloud-Storage-Backends (S3, Azure Blob)
+- [ ] Mobile-App (React Native)
+- [ ] Erweiterte Zeitplanung
+- [ ] Disk-Image-Mounting/-Durchsuchung
+
+## Deployment-Beispiel
 
 ```bash
-# Complete deployment script
+# Vollständiges Deployment-Skript
 #!/bin/bash
 set -e
 
-# Variables
+# Variablen
 CONTAINER_NAME="disk2iso"
 APP_DIR="/opt/disk2iso"
 OUTPUT_DIR="/storage/isos"
 
-# Create LXC container
+# LXC-Container erstellen
 lxc-create -n ${CONTAINER_NAME} -t download -- \
   -d debian -r bookworm -a amd64
 
-# Configure container
+# Container konfigurieren
 cat >> /var/lib/lxc/${CONTAINER_NAME}/config <<EOF
 lxc.cgroup2.memory.max = 2G
 lxc.cgroup2.cpu.max = 200000 100000
@@ -821,57 +878,57 @@ lxc.mount.entry = /dev/sr0 dev/sr0 none bind,optional,create=file
 lxc.mount.entry = ${OUTPUT_DIR} opt/disk2iso/output none bind,create=dir
 EOF
 
-# Start container
+# Container starten
 lxc-start -n ${CONTAINER_NAME}
 
-# Install application
+# Anwendung installieren
 lxc-attach -n ${CONTAINER_NAME} -- bash <<'SETUP'
-# Update system
+# System aktualisieren
 apt-get update && apt-get upgrade -y
 
-# Install dependencies
+# Abhängigkeiten installieren
 apt-get install -y python3 python3-pip python3-venv \
   ddrescue cdrdao cdrtools genisoimage \
   nginx redis-server git
 
-# Create application user
+# Anwendungsbenutzer erstellen
 useradd -r -s /bin/bash -d /opt/disk2iso disk2iso
 
-# Clone repository
+# Repository klonen
 git clone https://github.com/DirkGoetze/disk2iso.git /opt/disk2iso
 chown -R disk2iso:disk2iso /opt/disk2iso
 
-# Setup Python environment
+# Python-Umgebung einrichten
 su - disk2iso -c "
   python3 -m venv /opt/disk2iso/venv
   source /opt/disk2iso/venv/bin/activate
   pip install -r /opt/disk2iso/requirements.txt
 "
 
-# Configure services
+# Services konfigurieren
 systemctl enable redis-server
 systemctl enable nginx
 systemctl enable disk2iso
 
-# Start services
+# Services starten
 systemctl start redis-server
 systemctl start disk2iso
 systemctl start nginx
 
-echo "Deployment complete!"
+echo "Deployment abgeschlossen!"
 SETUP
 
-echo "Access the web interface at: https://$(lxc-info -n ${CONTAINER_NAME} -iH)"
+echo "Zugriff auf die Web-Oberfläche unter: https://$(lxc-info -n ${CONTAINER_NAME} -iH)"
 ```
 
-## Conclusion
+## Fazit
 
-This Web-First architecture transforms disk2iso from a CLI-only tool into a modern, accessible web application suitable for both individual users and enterprise deployments. The LXC containerization ensures portability and isolation, while the comprehensive API enables integration with existing workflows and automation systems.
+Diese Web-First-Architektur verwandelt disk2iso von einem reinen CLI-Tool in eine moderne, zugängliche Webanwendung, die sowohl für einzelne Benutzer als auch für Unternehmens-Deployments geeignet ist. Die LXC-Containerisierung gewährleistet Portabilität und Isolation, während die umfassende API die Integration in bestehende Workflows und Automatisierungssysteme ermöglicht.
 
-The design prioritizes security, usability, and maintainability, with clear separation of concerns between the web interface, API, and core imaging functionality. The minimal CLI remains available for edge cases and automation, but the web interface provides the primary user experience.
+Das Design priorisiert Sicherheit, Benutzerfreundlichkeit und Wartbarkeit mit klarer Trennung der Belange zwischen Web-Oberfläche, API und Kern-Imaging-Funktionalität. Die minimale CLI bleibt für Sonderfälle und Automatisierung verfügbar, aber die Web-Oberfläche bietet die primäre Benutzererfahrung.
 
 ---
 
-**Last Updated**: 2025-12-31  
+**Zuletzt aktualisiert**: 2025-12-31  
 **Version**: 2.0  
-**Author**: DirkGoetze
+**Autor**: DirkGoetze
