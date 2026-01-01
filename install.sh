@@ -366,9 +366,32 @@ Möchten Sie libdvd-pkg jetzt installieren?"
 
 # libdvdcss2 Installation (Helper)
 wizard_install_libdvdcss2() {
-    # Aktiviere contrib
-    if ! grep -qE '^\s*deb\s+.*debian.*\bcontrib\b' /etc/apt/sources.list; then
-        sed -i 's/\(deb.*debian.*main\)\(\s\|$\)/\1 contrib\2/' /etc/apt/sources.list
+    # Aktiviere contrib (prüfe sowohl sources.list als auch sources.list.d/)
+    local needs_contrib=true
+    
+    # Prüfe alte sources.list
+    if [[ -f /etc/apt/sources.list ]] && grep -qE '^\s*deb\s+.*debian.*\bcontrib\b' /etc/apt/sources.list; then
+        needs_contrib=false
+    fi
+    
+    # Prüfe neue sources.list.d/ Dateien
+    if [[ -d /etc/apt/sources.list.d ]] && grep -qrE '^\s*deb\s+.*debian.*\bcontrib\b' /etc/apt/sources.list.d/; then
+        needs_contrib=false
+    fi
+    
+    # Füge contrib hinzu falls notwendig
+    if $needs_contrib; then
+        if [[ -f /etc/apt/sources.list ]] && [[ -s /etc/apt/sources.list ]]; then
+            # Alte Methode: /etc/apt/sources.list bearbeiten
+            sed -i 's/\(deb.*debian.*main\)\(\s\|$\)/\1 contrib\2/' /etc/apt/sources.list
+        elif [[ -f /etc/apt/sources.list.d/debian.sources ]]; then
+            # Neue DEB822-Format (Debian 12+)
+            if ! grep -q "Components:.*contrib" /etc/apt/sources.list.d/debian.sources; then
+                sed -i 's/Components: main/Components: main contrib/' /etc/apt/sources.list.d/debian.sources
+            fi
+        else
+            print_warning "Konnte contrib nicht aktivieren - bitte manuell hinzufügen"
+        fi
         apt-get update -qq
     fi
     
