@@ -86,6 +86,67 @@ check_bluray_dependencies() {
 }
 
 # ============================================================================
+# MAKEMKV HELPER FUNCTIONS
+# ============================================================================
+
+# Funktion: Prüfe MakeMKV Installation und Lizenz-Status
+# Rückgabe: 0 = OK, 1 = Fehler/abgelaufen
+check_makemkv_status() {
+    # Prüfe ob makemkvcon verfügbar ist
+    if ! command -v makemkvcon >/dev/null 2>&1; then
+        return 1
+    fi
+    
+    # Teste mit einfachem Befehl ob Lizenz gültig ist
+    local test_output
+    test_output=$(makemkvcon -r --robot info dev:/dev/sr0 2>&1)
+    
+    # Prüfe auf Lizenz-Fehler
+    if echo "$test_output" | grep -qi "evaluation period.*expired\|registration.*required\|invalid.*key"; then
+        return 2  # Beta abgelaufen
+    fi
+    
+    return 0  # Alles OK
+}
+
+# Funktion: Zeige Benachrichtigung für MakeMKV Beta-Key Update
+notify_makemkv_beta_expired() {
+    local beta_key_url="https://forum.makemkv.com/forum/viewtopic.php?f=5&t=1053"
+    local purchase_url="https://www.makemkv.com/buy/"
+    
+    log_message "WARNUNG: MakeMKV Beta-Key abgelaufen oder ungültig"
+    log_message "Option 1: Beta-Key aktualisieren - $beta_key_url"
+    log_message "Option 2: Vollversion erwerben (\$60 USD) - $purchase_url"
+    
+    # Desktop-Benachrichtigung (falls verfügbar)
+    if command -v notify-send >/dev/null 2>&1; then
+        notify-send "disk2iso - MakeMKV Beta abgelaufen" \
+            "Testphase verlängern: Neuen Beta-Key holen\nVollversion: \$60 USD einmalig" \
+            -u critical -t 30000 2>/dev/null &
+    fi
+    
+    # Interaktiver Dialog (falls zenity verfügbar)
+    if command -v zenity >/dev/null 2>&1 && [[ -n "$DISPLAY" ]]; then
+        zenity --question \
+            --title="disk2iso - MakeMKV Lizenz" \
+            --text="MakeMKV Beta-Key ist abgelaufen.\n\nWas möchten Sie tun?" \
+            --ok-label="Beta verlängern (kostenlos)" \
+            --cancel-label="Vollversion kaufen (\$60)" \
+            --width=400 2>/dev/null
+        
+        if [[ $? -eq 0 ]]; then
+            # Beta-Key holen
+            xdg-open "$beta_key_url" 2>/dev/null &
+            log_message "Browser geöffnet: $beta_key_url"
+        else
+            # Vollversion kaufen
+            xdg-open "$purchase_url" 2>/dev/null &
+            log_message "Browser geöffnet: $purchase_url"
+        fi
+    fi
+}
+
+# ============================================================================
 # BLURAY COPY - MAKEMKV (Methode 1 - Entschlüsselt)
 # ============================================================================
 
@@ -94,6 +155,20 @@ check_bluray_dependencies() {
 # KEIN Fallback - Methode wird zu Beginn gewählt
 copy_bluray_makemkv() {
     log_message "$MSG_METHOD_MAKEMKV"
+    
+    # Prüfe MakeMKV-Status
+    local makemkv_status
+    check_makemkv_status
+    makemkv_status=$?
+    
+    if [[ $makemkv_status -eq 1 ]]; then
+        log_message "FEHLER: MakeMKV ist nicht installiert"
+        return 1
+    elif [[ $makemkv_status -eq 2 ]]; then
+        notify_makemkv_beta_expired
+        log_message "FEHLER: MakeMKV Lizenz abgelaufen - Blu-ray-Backup nicht möglich"
+        return 1
+    fi
     
     # Erstelle temporäres Verzeichnis für BD-Struktur
     local temp_bd="${temp_pathname}/bluray_backup"

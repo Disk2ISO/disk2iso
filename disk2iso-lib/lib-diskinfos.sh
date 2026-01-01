@@ -41,7 +41,25 @@ detect_disc_type() {
         fi
     fi
     
-    # Mounte Disc temporär um Struktur zu prüfen
+    # Prüfe Verzeichnisstruktur mit isoinfo (funktioniert auch bei verschlüsselten Discs)
+    if command -v isoinfo >/dev/null 2>&1; then
+        local iso_listing
+        iso_listing=$(isoinfo -l -i "$CD_DEVICE" 2>/dev/null)
+        
+        # Prüfe auf Video-DVD (VIDEO_TS Verzeichnis)
+        if echo "$iso_listing" | grep -q "Directory listing of /VIDEO_TS"; then
+            disc_type="dvd-video"
+            return 0
+        fi
+        
+        # Prüfe auf Blu-ray (BDMV Verzeichnis)
+        if echo "$iso_listing" | grep -q "Directory listing of /BDMV"; then
+            disc_type="bd-video"
+            return 0
+        fi
+    fi
+    
+    # Fallback: Mounte Disc temporär um Struktur zu prüfen (wenn isoinfo fehlschlägt)
     local mount_point=$(get_tmp_mount)
     
     if mount -o ro "$CD_DEVICE" "$mount_point" 2>/dev/null; then
