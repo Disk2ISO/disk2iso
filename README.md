@@ -15,8 +15,9 @@
 - 🔄 **Intelligente Methoden-Wahl** - Beste Kopiermethode basierend auf Disc-Typ und verfügbaren Tools
 - ✅ **MD5-Checksummen** - Automatische Integritätsprüfung
 - 🔧 **Systemd-Integration** - Automatischer Betrieb als Service
+- 📡 **MQTT/Home Assistant** - Echtzeit-Status, Push-Benachrichtigungen, Dashboard
 - 🌍 **Mehrsprachig** - Modulares Sprachsystem (Deutsch & Englisch)
-- 🎨 **Whiptail-Wizard** - Komfortable grafische Installation (8 Seiten)
+- 🎨 **Whiptail-Wizard** - Komfortable grafische Installation (9 Seiten)
 
 ## 🚀 Quick Start
 
@@ -41,6 +42,7 @@ sudo systemctl start disk2iso
 | 📀 DVD-Video | Entschlüsselte Backups | dvdbackup/ddrescue | lib-dvd.sh |
 | 🎬 Blu-ray Video | Robustes Kopieren | ddrescue/dd | lib-bluray.sh |
 | 💾 Data-CD/DVD/BD | 1:1 ISO-Images | dd/ddrescue | Kern |
+| 📡 MQTT-Integration | Home Assistant Status | mosquitto-clients | lib-mqtt.sh |
 
 ## 📦 Installation
 
@@ -210,15 +212,16 @@ Contributions sind willkommen! Bitte:
 
 ---
 
-**Version:** 2.0.0 | **Status:** Production Ready | **Platform:** Debian Linux
+**Version:** 1.0.0 | **Status:** Production Ready | **Platform:** Debian Linux
 
 ## ✨ Features
 
-- ✓ **Modulare Architektur** - Optionale Unterstützung für Audio-CD, Video-DVD, Blu-ray
+- ✓ **Modulare Architektur** - Optionale Unterstützung für Audio-CD, Video-DVD, Blu-ray, MQTT
 - ✓ **Automatische Medien-Erkennung** - 6 spezialisierte Disc-Typen
 - ✓ **Intelligente Methoden-Auswahl** - Beste Kopiermethode pro Medientyp
 - ✓ **MD5-Checksummen** - Automatische Integritätsprüfung
 - ✓ **Service-Modus** - systemd-Integration für automatischen Betrieb
+- ✓ **MQTT-Integration** - Home Assistant Echtzeit-Status und Benachrichtigungen
 - ✓ **Dezentrale Dependency-Checks** - Module prüfen eigene Abhängigkeiten
 - ✓ **Debug-Modi** - Umfangreiche Entwickler-Unterstützung
 
@@ -275,6 +278,12 @@ Contributions sind willkommen! Bitte:
 - **makemkvcon** - Blu-ray-Entschlüsselung (empfohlen)
 - **genisoimage** - ISO-Erstellung aus BDMV (empfohlen)
 - **gddrescue** - Fallback-Methode (optional)
+
+**MQTT/Home Assistant Integration (lib-mqtt.sh):**
+
+- **mosquitto-clients** - MQTT-Publishing (mosquitto_pub)
+- MQTT Broker (z.B. Mosquitto in Home Assistant)
+- Home Assistant mit MQTT-Integration
 
 ## 🚀 Installation
 
@@ -438,13 +447,14 @@ Im Service-Modus:
 ```txt
 disk2iso/
 ├── disk2iso.sh              # Hauptskript mit modularem Loading
-├── install.sh               # Installations-Script (modular)
+├── install.sh               # Installations-Script (modular, 9 Seiten)
 ├── uninstall.sh             # Deinstallations-Script
 └── disk2iso-lib/            # Bibliotheken
     ├── config.sh            # Konfiguration + Sprach-Einstellung
     ├── lib-bluray.sh        # Blu-ray Funktionen (OPTIONAL) - Definiert BD_DIR
     ├── lib-cd.sh            # Audio-CD Funktionen (OPTIONAL) - Definiert AUDIO_DIR
     ├── lib-dvd.sh           # Video-DVD Funktionen (OPTIONAL) - Definiert DVD_DIR
+    ├── lib-mqtt.sh          # MQTT/Home Assistant (OPTIONAL)
     ├── lib-common.sh        # Daten-Disc Kopierfunktionen (KERN) - Definiert DATA_DIR
     ├── lib-diskinfos.sh     # Disc-Typ-Erkennung (KERN)
     ├── lib-drivestat.sh     # Laufwerk-Status (KERN)
@@ -455,7 +465,8 @@ disk2iso/
         ├── lib-common.de    # Deutsche Meldungen für Kern-Funktionen
         ├── lib-cd.de        # Deutsche Meldungen für Audio-CD
         ├── lib-dvd.de       # Deutsche Meldungen für Video-DVD
-        └── lib-bluray.de    # Deutsche Meldungen für Blu-ray
+        ├── lib-bluray.de    # Deutsche Meldungen für Blu-ray
+        └── lib-mqtt.de      # Deutsche Meldungen für MQTT
 ```
 
 ### Modulare Architektur
@@ -471,6 +482,7 @@ disk2iso/
 - `lib-cd.sh` - Nur wenn Audio-CD Support gewählt
 - `lib-dvd.sh` - Nur wenn Video-DVD Support gewählt
 - `lib-bluray.sh` - Nur wenn Blu-ray Support gewählt
+- `lib-mqtt.sh` - Nur wenn MQTT-Integration aktiviert
 
 **Pfad-Verwaltung:**
 
@@ -616,6 +628,7 @@ Bei Problemen oder Fragen:
 - [x] Modulare Architektur mit optionalen Features
 - [x] Dezentrale Dependency-Checks pro Modul
 - [x] MakeMKV Integration für Blu-ray
+- [x] MQTT-Integration für Home Assistant
 - [ ] CD-Text Unterstützung
 - [ ] Web-Interface für Monitoring und Konfiguration
 - [ ] Weitere Sprachen (EN, FR, ES)
@@ -626,7 +639,7 @@ Bei Problemen oder Fragen:
 
 ---
 
-**Version:** 2.0.0  
+**Version:** 1.0.0  
 **Autor:** Dirk  
 **Status:** Production Ready  
-**Letzte Aktualisierung:** 30.12.2025
+**Letzte Aktualisierung:** 03.01.2026
