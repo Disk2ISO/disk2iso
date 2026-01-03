@@ -16,10 +16,13 @@ Automatische Installation mit systemd-Integration für permanenten Betrieb
 ### [4. Verwendung](Verwendung.md)
 Bedienung, Konfiguration und praktische Beispiele
 
-### [5. Entwickler-Dokumentation](Entwickler.md)
+### [5. MQTT & Home Assistant Integration](MQTT-HomeAssistant.md)
+Echtzeit-Status, Benachrichtigungen und Dashboard-Integration
+
+### [6. Entwickler-Dokumentation](Entwickler.md)
 Technische Details, Modulstruktur und API-Referenz
 
-### [6. Deinstallation](Deinstallation.md)
+### [7. Deinstallation](Deinstallation.md)
 Vollständige Entfernung von disk2iso
 
 ---
@@ -76,6 +79,14 @@ disk2iso ist ein modulares Bash-basiertes Tool zur automatischen Archivierung op
 - **Erweiterbar**: Einfaches Hinzufügen neuer Sprachen
 - **Fallback**: Englisch bei fehlenden Übersetzungen
 
+#### 📡 MQTT-Integration (Modul: lib-mqtt.sh)
+- **Home Assistant Support**: Native Integration über MQTT
+- **Echtzeit-Status**: Live-Updates im Dashboard
+- **Push-Benachrichtigungen**: Bei Medium-Wechsel, Abschluss, Fehler
+- **Fortschrittsanzeige**: Prozent, MB, ETA
+- **Availability-Tracking**: Online/Offline Status
+- **Konfigurierbar**: Broker, Auth, Topics
+
 ### Systemarchitektur
 
 ```
@@ -97,7 +108,8 @@ disk2iso ist ein modulares Bash-basiertes Tool zur automatischen Archivierung op
                └── Optionale Module (bei Installation wählbar)
                    ├── lib-cd.sh         (Audio-CD Ripping)
                    ├── lib-dvd.sh        (Video-DVD Backup)
-                   └── lib-bluray.sh     (Blu-ray Backup)
+                   ├── lib-bluray.sh     (Blu-ray Backup)
+                   └── lib-mqtt.sh       (MQTT/Home Assistant Integration)
 ```
 
 ### Ausgabe-Struktur
@@ -142,6 +154,7 @@ disk2iso funktioniert auch mit minimaler Installation:
 | lib-cd.sh | audio-cd | → data/ (dd/ddrescue) |
 | lib-dvd.sh | dvd-video | → data/ (dd/ddrescue) |
 | lib-bluray.sh | bd-video | → data/ (dd/ddrescue) |
+| lib-mqtt.sh | - | Kein MQTT (nur lokales Logging) |
 
 **Resultat**: Immer ein ISO-Image, auch wenn spezialisierte Module fehlen.
 
@@ -187,9 +200,10 @@ disk2iso funktioniert auch mit minimaler Installation:
 **Siehe auch**:
 - [Installation als Service](Installation-Service.md) - Automatischer Betrieb
 - [Verwendung](Verwendung.md) - Praktische Anleitung
+- [MQTT & Home Assistant](MQTT-HomeAssistant.md) - Integration & Dashboard
 - [Entwickler-Dokumentation](Entwickler.md) - Technische Details
 - [Deinstallation](Deinstallation.md) - Vollständige Entfernung
 
 ---
 
-**Version**: 2.0.0 | **Letzte Aktualisierung**: 01.01.2026
+**Version**: 1.0.0 | **Letzte Aktualisierung**: 03.01.2026

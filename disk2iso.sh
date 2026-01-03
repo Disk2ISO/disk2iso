@@ -134,6 +134,22 @@ else
     log_message "$MSG_BLURAY_NOT_INSTALLED"
 fi
 
+# MQTT Support (optional)
+MQTT_SUPPORT=false
+if [[ -f "${SCRIPT_DIR}/disk2iso-lib/lib-mqtt.sh" ]]; then
+    source "${SCRIPT_DIR}/disk2iso-lib/lib-mqtt.sh"
+    
+    # mqtt_init prüft selbst ob MQTT_ENABLED=true
+    if mqtt_init; then
+        MQTT_SUPPORT=true
+        log_message "MQTT Support aktiviert"
+    else
+        log_message "MQTT Support deaktiviert oder nicht verfügbar"
+    fi
+else
+    log_message "MQTT Modul nicht installiert"
+fi
+
 # ============================================================================
 # HAUPTLOGIK - VEREINFACHT (nur Daten-Discs)
 # ============================================================================
@@ -221,8 +237,16 @@ copy_disc_to_iso() {
     
     log_message "$MSG_START_COPY_PROCESS $disc_label -> $iso_filename"
     
+    # MQTT: Kopiervorgang gestartet
+    if [[ "$MQTT_SUPPORT" == "true" ]]; then
+        mqtt_publish_state "copying" "$disc_label" "$disc_type"
+    fi
+    
     # Wähle Kopiermethode basierend auf Disc-Typ und verfügbaren Tools
     local method=$(select_copy_method "$disc_type")
+    
+    # Speichere Methode für MQTT-Attribute
+    COPY_METHOD="$method"
     
     # Kopiere mit gewählter Methode (KEIN Fallback bei Fehler)
     local copy_success=false
@@ -285,10 +309,22 @@ copy_disc_to_iso() {
         fi
         
         log_message "$MSG_COPY_SUCCESS_FINAL $iso_filename"
+        
+        # MQTT: Erfolgreich abgeschlossen
+        if [[ "$MQTT_SUPPORT" == "true" ]]; then
+            mqtt_publish_complete "$iso_basename"
+        fi
+        
         cleanup_disc_operation "success"
         return 0
     else
         log_message "$MSG_COPY_FAILED_FINAL $disc_label"
+        
+        # MQTT: Fehler
+        if [[ "$MQTT_SUPPORT" == "true" ]]; then
+            mqtt_publish_error "Kopiervorgang fehlgeschlagen"
+        fi
+        
         cleanup_disc_operation "failure"
         return 1
     fi
@@ -329,12 +365,22 @@ monitor_cdrom() {
             # Kopiere Disc als ISO
             copy_disc_to_iso
             
+            # MQTT: Warte auf Medium-Entfernung
+            if [[ "$MQTT_SUPPORT" == "true" ]]; then
+                mqtt_publish_state "waiting"
+            fi
+            
             # Warte bis Medium entfernt wurde (OHNE ständig zu prüfen während Kopiervorgang läuft)
             log_message "$MSG_WAITING_FOR_REMOVAL"
             sleep 5  # Kurze Pause vor erster Prüfung
             while is_disc_inserted; do
                 sleep 5  # Längere Pause zwischen Prüfungen (statt 2 Sekunden)
             done
+            
+            # MQTT: Zurück zu idle
+            if [[ "$MQTT_SUPPORT" == "true" ]]; then
+                mqtt_publish_state "idle"
+            fi
         else
             # Warte bis Medium eingelegt wird
             log_message "$MSG_WAITING_FOR_MEDIUM"
@@ -428,6 +474,11 @@ main() {
 # Signal-Handler für sauberes Service-Beenden
 cleanup_service() {
     log_message "$MSG_SERVICE_STOPPING"
+    
+    # MQTT: Offline setzen
+    if [[ "$MQTT_SUPPORT" == "true" ]]; then
+        mqtt_cleanup
+    fi
     
     # Töte alle laufenden Kopierprozesse (dvdbackup, ddrescue, etc.)
     pkill -P $$ 2>/dev/null  # Töte alle Child-Prozesse

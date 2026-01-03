@@ -5,12 +5,13 @@
 #
 # Beschreibung:
 #   Wizard-basierte Installation von disk2iso
-#   - 8-Seiten Installations-Wizard mit whiptail
+#   - 9-Seiten Installations-Wizard mit whiptail
 #   - Modulare Paket-Installation (Audio-CD, Video-DVD, Video-BD)
+#   - MQTT-Integration für Home Assistant
 #   - Optionale systemd Service-Konfiguration
 #
 # Version: 1.0.0
-# Datum: 01.01.2026
+# Datum: 03.01.2026
 ################################################################################
 
 set -e
@@ -35,6 +36,12 @@ INSTALL_AUDIO_CD=false
 INSTALL_VIDEO_DVD=false
 INSTALL_VIDEO_BD=true  # Standard: aktiviert
 INSTALL_SERVICE=false
+INSTALL_MQTT=false
+
+# MQTT-Konfigurationsvariablen
+MQTT_BROKER=""
+MQTT_USER=""
+MQTT_PASSWORD=""
 
 # ============================================================================
 # UTILITY FUNCTIONS
@@ -158,14 +165,15 @@ Funktionen:
 • Automatische Erkennung eingelegter Discs
 • Unterstützung für Audio-CDs, Video-DVDs und Blu-rays
 • MusicBrainz-Integration für Audio-CD Metadaten
+• MQTT-Integration für Home Assistant
 • Optional als systemd-Service für Autostart
 
-Der Wizard führt Sie durch die Installation in 8 einfachen Schritten.
+Der Wizard führt Sie durch die Installation in 9 einfachen Schritten.
 
 Möchten Sie fortfahren?"
 
     if use_whiptail; then
-        if whiptail --title "disk2iso Installation - Seite 1/8" \
+        if whiptail --title "disk2iso Installation - Seite 1/9" \
             --yesno "$info" 20 70 \
             --yes-button "Installation" \
             --no-button "Abbrechen"; then
@@ -211,8 +219,8 @@ wizard_page_base_packages() {
                 sleep 0.5
             done
             echo "100"
-        } | whiptail --title "disk2iso Installation - Seite 2/8" \
-            --gauge "Installiere Basis-Pakete..." 8 70 0
+        } | whiptail --title "disk2iso Installation - Seite 4/9" \
+            --gauge "Installiere Audio-CD Modul..." 8 70 0
     else
         print_header "INSTALLATION BASIS-PAKETE"
         for pkg_info in "${packages[@]}"; do
@@ -226,7 +234,7 @@ wizard_page_base_packages() {
 wizard_page_module_selection() {
     if use_whiptail; then
         local choices
-        choices=$(whiptail --title "disk2iso Installation - Seite 3/8" \
+        choices=$(whiptail --title "disk2iso Installation - Seite 3/9" \
             --checklist "Welche Module möchten Sie installieren?\n\nNavigieren: ↑/↓  Auswählen: Leertaste  Weiter: Enter" \
             18 70 3 \
             "AUDIO_CD" "Audio-CD Ripping (cdparanoia, lame, MusicBrainz)" ON \
@@ -332,7 +340,7 @@ wizard_page_install_video_dvd() {
             
             sleep 0.5
             echo "100"
-        } | whiptail --title "disk2iso Installation - Seite 5/8" \
+        } | whiptail --title "disk2iso Installation - Seite 5/9" \
             --gauge "Installiere Video-DVD Modul..." 8 70 0
         
         # libdvdcss2 Setup
@@ -440,7 +448,7 @@ wizard_page_install_video_bd() {
             echo "Blu-ray Modul konfiguriert (nutzt ddrescue)"
             echo "XXX"
             sleep 0.5
-        } | whiptail --title "disk2iso Installation - Seite 6/8" \
+        } | whiptail --title "disk2iso Installation - Seite 6/9" \
             --gauge "Konfiguriere Video-Blu-ray Modul..." 8 70 0
     else
         print_header "VIDEO-BLU-RAY MODUL"
@@ -448,7 +456,7 @@ wizard_page_install_video_bd() {
     fi
 }
 
-# Seite 7: Service-Installation
+# Seite 8: Service-Installation
 wizard_page_service_setup() {
     if use_whiptail; then
         local info="Möchten Sie disk2iso als systemd-Service installieren?
@@ -464,7 +472,7 @@ Ohne Service:
 • disk2iso -o <ausgabe-verzeichnis>
 • Mehr Kontrolle über Zeitpunkt der Ausführung"
 
-        if whiptail --title "disk2iso Installation - Seite 7/8" \
+        if whiptail --title "disk2iso Installation - Seite 8/9" \
             --yesno "$info" 20 70 \
             --yes-button "Installieren" \
             --no-button "Überspringen" \
@@ -479,7 +487,7 @@ Ohne Service:
     fi
 }
 
-# Seite 8: Abschluss
+# Seite 9: Abschluss
 wizard_page_complete() {
     local manual_usage="disk2iso -o /pfad/zum/ausgabe/verzeichnis"
     local service_usage="systemctl status disk2iso"
@@ -500,7 +508,7 @@ Der Service überwacht automatisch das Laufwerk und erstellt ISOs.
 Möchten Sie den Service jetzt starten?"
 
         if use_whiptail; then
-            if whiptail --title "disk2iso Installation - Seite 8/8" \
+            if whiptail --title "disk2iso Installation - Seite 9/9" \
                 --yesno "$info" 20 70 \
                 --yes-button "Starten" \
                 --no-button "Beenden"; then
@@ -530,7 +538,7 @@ Dokumentation:
 • Hilfe: disk2iso --help"
 
         if use_whiptail; then
-            whiptail --title "disk2iso Installation - Seite 8/8" \
+            whiptail --title "disk2iso Installation - Seite 9/9" \
                 --msgbox "$info" 18 70
         else
             echo "$info"
@@ -594,6 +602,9 @@ configure_service() {
     # Aktualisiere config.sh mit gewähltem Ausgabeverzeichnis
     sed -i "s|DEFAULT_OUTPUT_DIR=.*|DEFAULT_OUTPUT_DIR=\"$output_dir\"|" "$INSTALL_DIR/disk2iso-lib/config.sh"
     
+    # Konfiguriere MQTT falls aktiviert
+    configure_mqtt
+    
     # Erstelle Service-Datei
     cat > "$SERVICE_FILE" <<EOF
 [Unit]
@@ -622,6 +633,43 @@ EOF
     # Service aktivieren
     systemctl daemon-reload
     systemctl enable disk2iso.service >/dev/null 2>&1
+}
+
+configure_mqtt() {
+    if ! $INSTALL_MQTT; then
+        return 0
+    fi
+    
+    print_success "Konfiguriere MQTT-Integration..."
+    
+    # Escape Sonderzeichen für sed
+    local escaped_broker=$(echo "$MQTT_BROKER" | sed 's/[\/&]/\\&/g')
+    local escaped_user=$(echo "$MQTT_USER" | sed 's/[\/&]/\\&/g')
+    local escaped_password=$(echo "$MQTT_PASSWORD" | sed 's/[\/&]/\\&/g')
+    
+    # Aktualisiere config.sh
+    sed -i "s|^MQTT_ENABLED=.*|MQTT_ENABLED=true|" "$INSTALL_DIR/disk2iso-lib/config.sh"
+    sed -i "s|^MQTT_BROKER=.*|MQTT_BROKER=\"$escaped_broker\"|" "$INSTALL_DIR/disk2iso-lib/config.sh"
+    sed -i "s|^MQTT_USER=.*|MQTT_USER=\"$escaped_user\"|" "$INSTALL_DIR/disk2iso-lib/config.sh"
+    sed -i "s|^MQTT_PASSWORD=.*|MQTT_PASSWORD=\"$escaped_password\"|" "$INSTALL_DIR/disk2iso-lib/config.sh"
+    
+    # Kopiere Home Assistant Beispiel-Konfiguration
+    if [[ -f "$INSTALL_DIR/disk2iso-lib/docu/homeassistant-configuration.yaml" ]]; then
+        # Ermittle Zielverzeichnis (Service-Output oder /tmp)
+        local config_dest
+        if $INSTALL_SERVICE && [[ -n "${output_dir:-}" ]]; then
+            config_dest="$output_dir/homeassistant-configuration.yaml"
+        else
+            config_dest="/tmp/homeassistant-configuration.yaml"
+        fi
+        
+        cp "$INSTALL_DIR/disk2iso-lib/docu/homeassistant-configuration.yaml" "$config_dest"
+        chmod 644 "$config_dest"
+        
+        print_success "Home Assistant Beispiel-Konfiguration erstellt:"
+        print_info "  $config_dest"
+        print_info "  Kopiere den Inhalt in deine configuration.yaml"
+    fi
 }
 
 # ============================================================================
@@ -663,11 +711,14 @@ main() {
     # disk2iso Dateien installieren
     install_disk2iso_files
     
-    # Wizard Seite 7: Service Setup
+    # Wizard Seite 7: MQTT-Integration
+    wizard_page_mqtt_setup
+    
+    # Wizard Seite 8: Service Setup
     wizard_page_service_setup
     configure_service
     
-    # Wizard Seite 8: Abschluss
+    # Wizard Seite 9: Abschluss
     wizard_page_complete
 }
 
