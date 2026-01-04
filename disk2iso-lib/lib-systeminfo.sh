@@ -242,3 +242,83 @@ wait_for_medium_change() {
     log_message "$MSG_TIMEOUT_WAITING_FOR_MEDIUM"
     return 1
 }
+
+# ============================================================================
+# MEDIUM CHANGE DETECTION - LXC SAFE
+# ============================================================================
+
+# Funktion: Warte auf Medium-Wechsel (LXC-Container-optimiert)
+# Verwendet Label-basierte Erkennung statt Identifier-Vergleich
+# Prüft ob Disk bereits konvertiert wurde (verhindert Duplikate)
+# Parameter: $1 = Device-Pfad (z.B. /dev/sr0)
+#            $2 = Timeout in Sekunden (optional, default: 300 = 5 Minuten)
+# Rückgabe: 0 = neues Medium erkannt, 1 = Timeout oder Fehler
+wait_for_medium_change_lxc_safe() {
+    local device="$1"
+    local timeout="${2:-300}"
+    local poll_interval=5
+    local elapsed=0
+    
+    log_message "$MSG_CONTAINER_MANUAL_EJECT"
+    log_message "$MSG_WAITING_FOR_MEDIUM_CHANGE"
+    
+    while [[ $elapsed -lt $timeout ]]; do
+        sleep "$poll_interval"
+        elapsed=$((elapsed + poll_interval))
+        
+        # Prüfe ob überhaupt eine Disk eingelegt ist
+        if ! is_disc_inserted; then
+            # Keine Disk → weiter warten
+            if (( elapsed % 30 == 0 )); then
+                log_message "$MSG_STILL_WAITING $elapsed $MSG_SECONDS_OF $timeout $MSG_SECONDS"
+            fi
+            continue
+        fi
+        
+        # Disk erkannt → Ermittle Typ und Label
+        # WICHTIG: Temporäre Variablen verwenden, um globale nicht zu überschreiben
+        local temp_disc_type="$disc_type"
+        local temp_disc_label="$disc_label"
+        
+        detect_disc_type
+        get_disc_label
+        
+        # Prüfe ob ISO mit diesem Label bereits existiert
+        local target_dir=$(get_type_subfolder "$disc_type")
+        local potential_iso="${target_dir}/${disc_label}.iso"
+        
+        # Auch Duplikate mit _1, _2, etc. prüfen
+        local iso_exists=false
+        if [[ -f "$potential_iso" ]]; then
+            iso_exists=true
+        else
+            # Prüfe auf Duplikate mit Counter (_1, _2, ...)
+            local counter=1
+            while [[ -f "${target_dir}/${disc_label}_${counter}.iso" ]]; do
+                iso_exists=true
+                break
+            done
+        fi
+        
+        if $iso_exists; then
+            # Disk wurde bereits konvertiert → weiter warten
+            log_message "$MSG_DISC_ALREADY_CONVERTED ${disc_label}.iso (warte auf neue Disk...)"
+            
+            # Stelle ursprüngliche Werte wieder her
+            disc_type="$temp_disc_type"
+            disc_label="$temp_disc_label"
+            
+            if (( elapsed % 30 == 0 )); then
+                log_message "$MSG_STILL_WAITING $elapsed $MSG_SECONDS_OF $timeout $MSG_SECONDS"
+            fi
+        else
+            # Neue Disk gefunden! (ISO existiert noch nicht)
+            log_message "$MSG_NEW_MEDIUM_DETECTED (${disc_type}: ${disc_label})"
+            return 0
+        fi
+    done
+    
+    # Timeout erreicht
+    log_message "$MSG_TIMEOUT_WAITING_FOR_MEDIUM"
+    return 1
+}
