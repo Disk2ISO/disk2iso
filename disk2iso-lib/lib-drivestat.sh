@@ -1,6 +1,6 @@
 #!/bin/bash
 ################################################################################
-# disk2iso v1.0.0 - Drive Status Library
+# disk2iso v1.1.0 - Drive Status Library
 # Filepath: disk2iso-lib/lib-drivestat.sh
 #
 # Beschreibung:

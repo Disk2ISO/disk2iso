@@ -125,7 +125,7 @@ Die ersten 7 Seiten sind identisch zur [Script-Installation](Installation-Script
 │  ✅ Installation erfolgreich abgeschlossen!               │
 │                                                           │
 │  Installiert:                                             │
-│  • Ausgabe-Verzeichnis: /srv/disk2iso                    │
+│  • Ausgabe-Verzeichnis: /media/iso                        │
 │  • Module: Audio-CD, Video-DVD                           │
 │  • Laufwerk: /dev/sr0                                     │
 │  • Service: disk2iso.service (aktiv)                     │
@@ -592,4 +592,4 @@ sudo systemctl start disk2iso@sr1.service
 
 ---
 
-**Version**: 2.0.0 | **Letzte Aktualisierung**: 01.01.2026
+**Version**: 1.1.0 | **Letzte Aktualisierung**: 04.01.2026

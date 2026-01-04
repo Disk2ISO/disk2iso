@@ -30,8 +30,9 @@ mqtt:
 # Binary Sensor (Optional)
 # ============================================================================
 
-binary_sensor:
-  - platform: mqtt
+mqtt:
+  binary_sensor:
+    # Optional Aktivitätssensor
     name: "Disk2ISO Aktiv"
     unique_id: "disk2iso_active"
     state_topic: "homeassistant/sensor/disk2iso/state"

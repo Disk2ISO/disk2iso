@@ -1,6 +1,6 @@
 #!/bin/bash
 ################################################################################
-# disk2iso v1.0.0 - DVD Library
+# disk2iso v1.1.0 - DVD Library
 # Filepath: disk2iso-lib/lib-dvd.sh
 #
 # Beschreibung:

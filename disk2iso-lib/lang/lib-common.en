@@ -98,3 +98,9 @@ readonly MSG_PROGRESS_MB="MB"
 readonly MSG_PROGRESS_PERCENT="%"
 readonly MSG_REMAINING="Remaining"
 readonly MSG_COPIED="copied"
+
+# ============================================================================
+# TEMPORARY FILES
+# ============================================================================
+
+readonly MSG_WARNING_TEMP_DIR_DELETE_FAILED="⚠ Temp directory could not be deleted, trying with elevated privileges"

@@ -1,6 +1,6 @@
 #!/bin/bash
 ################################################################################
-# disk2iso v1.0.0 - Configuration
+# disk2iso v1.1.0 - Configuration
 # Filepath: disk2iso-lib/config.sh
 #
 # Beschreibung:

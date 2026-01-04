@@ -1,6 +1,6 @@
 #!/bin/bash
 ################################################################################
-# disk2iso v1.0.0 - File Management Library
+# disk2iso v1.1.0 - File Management Library
 # Filepath: disk2iso-lib/lib-files.sh
 #
 # Beschreibung:

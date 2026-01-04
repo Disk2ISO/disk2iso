@@ -1,6 +1,6 @@
 #!/bin/bash
 ################################################################################
-# disk2iso v1.0.0 - Deinstallations-Script
+# disk2iso v1.1.0 - Deinstallations-Script
 # Filepath: uninstall.sh
 #
 # Beschreibung:

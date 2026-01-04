@@ -1,6 +1,6 @@
 #!/bin/bash
 ################################################################################
-# disk2iso v1.0.0 - Installation Script
+# disk2iso v1.1.0 - Installation Script
 # Filepath: install.sh
 #
 # Beschreibung:
@@ -203,22 +203,22 @@ wizard_page_base_packages() {
     
     if use_whiptail; then
         {
+            echo "0"
             for pkg_info in "${packages[@]}"; do
                 IFS=':' read -r package description <<< "$pkg_info"
                 current=$((current + 1))
                 percent=$((current * 100 / total))
                 
-                echo "$percent"
                 echo "XXX"
                 echo "Installiere $description ($current/$total)..."
                 echo "XXX"
+                echo "$percent"
                 
                 if ! dpkg -l 2>/dev/null | grep -q "^ii  $package "; then
                     apt-get install -y -qq "$package" >/dev/null 2>&1 || true
                 fi
                 sleep 0.5
             done
-            echo "100"
         } | whiptail --title "disk2iso Installation - Seite 4/9" \
             --gauge "Installiere Audio-CD Modul..." 8 70 0
     else
@@ -290,22 +290,22 @@ wizard_page_install_audio_cd() {
     
     if use_whiptail; then
         {
+            echo "0"
             for pkg_info in "${packages[@]}"; do
                 IFS=':' read -r package description <<< "$pkg_info"
                 current=$((current + 1))
                 percent=$((current * 100 / total))
                 
-                echo "$percent"
                 echo "XXX"
                 echo "Installiere $description ($current/$total)..."
                 echo "XXX"
+                echo "$percent"
                 
                 if ! dpkg -l 2>/dev/null | grep -q "^ii  $package "; then
                     apt-get install -y -qq "$package" >/dev/null 2>&1 || true
                 fi
                 sleep 0.3
             done
-            echo "100"
         } | whiptail --title "disk2iso Installation - Seite 4/8" \
             --gauge "Installiere Audio-CD Modul..." 8 70 0
     else
@@ -329,10 +329,11 @@ wizard_page_install_video_dvd() {
     
     if use_whiptail; then
         {
-            echo "50"
+            echo "0"
             echo "XXX"
             echo "Installiere dvdbackup..."
             echo "XXX"
+            echo "50"
             
             if ! dpkg -l 2>/dev/null | grep -q "^ii  dvdbackup "; then
                 apt-get install -y -qq dvdbackup >/dev/null 2>&1 || true
@@ -406,16 +407,17 @@ wizard_install_libdvdcss2() {
     # Installiere libdvd-pkg (nicht-interaktiv)
     if use_whiptail; then
         {
-            echo "50"
+            echo "0"
             echo "XXX"
             echo "Installiere libdvd-pkg..."
             echo "XXX"
+            echo "50"
             DEBIAN_FRONTEND=noninteractive apt-get install -y -qq libdvd-pkg >/dev/null 2>&1 || true
             
-            echo "80"
             echo "XXX"
             echo "Konfiguriere libdvdcss2..."
             echo "XXX"
+            echo "80"
             DEBIAN_FRONTEND=noninteractive dpkg-reconfigure libdvd-pkg >/dev/null 2>&1 || true
             
             sleep 0.5
@@ -437,16 +439,17 @@ wizard_page_install_video_bd() {
     # Blu-ray nutzt bereits installiertes ddrescue und genisoimage
     if use_whiptail; then
         {
-            echo "50"
+            echo "0"
             echo "XXX"
             echo "Prüfe Blu-ray Dependencies..."
             echo "XXX"
+            echo "50"
             sleep 0.5
             
-            echo "100"
             echo "XXX"
             echo "Blu-ray Modul konfiguriert (nutzt ddrescue)"
             echo "XXX"
+            echo "100"
             sleep 0.5
         } | whiptail --title "disk2iso Installation - Seite 6/9" \
             --gauge "Konfiguriere Video-Blu-ray Modul..." 8 70 0
@@ -508,16 +511,17 @@ Hinweis: Kann später in /opt/disk2iso/disk2iso-lib/config.sh aktiviert werden."
             
             # mosquitto-clients installieren
             {
-                echo "50"
+                echo "0"
                 echo "XXX"
                 echo "Installiere mosquitto-clients..."
                 echo "XXX"
+                echo "50"
                 apt-get install -y -qq mosquitto-clients >/dev/null 2>&1 || true
                 
-                echo "100"
                 echo "XXX"
                 echo "MQTT-Integration konfiguriert"
                 echo "XXX"
+                echo "100"
                 sleep 0.5
             } | whiptail --title "MQTT Installation" \
                 --gauge "Installiere MQTT-Unterstützung..." 8 70 0
@@ -582,12 +586,25 @@ Ohne Service:
             --no-button "Überspringen" \
             --defaultno; then
             INSTALL_SERVICE=true
+            
+            # Ausgabeverzeichnis abfragen
+            SERVICE_OUTPUT_DIR=$(whiptail --title "Ausgabeverzeichnis für ISOs" \
+                --inputbox "Geben Sie das Verzeichnis ein, in dem die ISOs gespeichert werden sollen:\n\nHinweis: Es werden automatisch Unterordner erstellt:\n  • audio/   (Audio-CDs)\n  • dvd/     (Video-DVDs)\n  • bd/      (Blu-rays)\n  • data/    (Daten-Discs)\n  • .log/    (Log-Dateien)\n  • .temp/   (Temporäre Dateien)" \
+                18 70 "/media/iso" 3>&1 1>&2 2>&3)
+            
+            if [ -z "$SERVICE_OUTPUT_DIR" ]; then
+                SERVICE_OUTPUT_DIR="/media/iso"
+            fi
         else
             INSTALL_SERVICE=false
         fi
     else
         INSTALL_SERVICE=false
-        ask_yes_no "disk2iso als systemd Service installieren?" "n" && INSTALL_SERVICE=true
+        if ask_yes_no "disk2iso als systemd Service installieren?" "n"; then
+            INSTALL_SERVICE=true
+            read -p "Ausgabe-Verzeichnis für ISOs [/media/iso]: " input_dir
+            SERVICE_OUTPUT_DIR=${input_dir:-/media/iso}
+        fi
     fi
 }
 
@@ -686,13 +703,8 @@ configure_service() {
         return 0
     fi
     
-    # Ausgabe-Verzeichnis
-    local output_dir="/srv/iso"
-    
-    if ! use_whiptail; then
-        read -p "Ausgabe-Verzeichnis für ISOs [$output_dir]: " input_dir
-        output_dir=${input_dir:-$output_dir}
-    fi
+    # Verwende das in wizard_page_service_setup() abgefragte Verzeichnis
+    local output_dir="${SERVICE_OUTPUT_DIR:-/media/iso}"
     
     # Erstelle Ausgabe-Verzeichnis mit vollständiger Struktur
     print_success "Erstelle Verzeichnisstruktur in $output_dir..."
@@ -748,14 +760,22 @@ configure_mqtt() {
     
     # Escape Sonderzeichen für sed
     local escaped_broker=$(echo "$MQTT_BROKER" | sed 's/[\/&]/\\&/g')
-    local escaped_user=$(echo "$MQTT_USER" | sed 's/[\/&]/\\&/g')
-    local escaped_password=$(echo "$MQTT_PASSWORD" | sed 's/[\/&]/\\&/g')
     
     # Aktualisiere config.sh
     sed -i "s|^MQTT_ENABLED=.*|MQTT_ENABLED=true|" "$INSTALL_DIR/disk2iso-lib/config.sh"
     sed -i "s|^MQTT_BROKER=.*|MQTT_BROKER=\"$escaped_broker\"|" "$INSTALL_DIR/disk2iso-lib/config.sh"
-    sed -i "s|^MQTT_USER=.*|MQTT_USER=\"$escaped_user\"|" "$INSTALL_DIR/disk2iso-lib/config.sh"
-    sed -i "s|^MQTT_PASSWORD=.*|MQTT_PASSWORD=\"$escaped_password\"|" "$INSTALL_DIR/disk2iso-lib/config.sh"
+    
+    # Nur Username/Passwort setzen wenn auch angegeben
+    if [[ -n "${MQTT_USER:-}" ]] && [[ -n "${MQTT_PASSWORD:-}" ]]; then
+        local escaped_user=$(echo "$MQTT_USER" | sed 's/[\/&]/\\&/g')
+        local escaped_password=$(echo "$MQTT_PASSWORD" | sed 's/[\/&]/\\&/g')
+        sed -i "s|^MQTT_USER=.*|MQTT_USER=\"$escaped_user\"|" "$INSTALL_DIR/disk2iso-lib/config.sh"
+        sed -i "s|^MQTT_PASSWORD=.*|MQTT_PASSWORD=\"$escaped_password\"|" "$INSTALL_DIR/disk2iso-lib/config.sh"
+    else
+        # Explizit leer lassen für keine Authentifizierung
+        sed -i "s|^MQTT_USER=.*|MQTT_USER=\"\"|" "$INSTALL_DIR/disk2iso-lib/config.sh"
+        sed -i "s|^MQTT_PASSWORD=.*|MQTT_PASSWORD=\"\"|" "$INSTALL_DIR/disk2iso-lib/config.sh"
+    fi
     
     # Kopiere Home Assistant Beispiel-Konfiguration
     if [[ -f "$INSTALL_DIR/disk2iso-lib/docu/homeassistant-configuration.yaml" ]]; then

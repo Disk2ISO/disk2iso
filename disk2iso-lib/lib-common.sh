@@ -1,6 +1,6 @@
 #!/bin/bash
 ################################################################################
-# disk2iso v1.0.0 - Common Functions Library
+# disk2iso v1.1.0 - Common Functions Library
 # Filepath: disk2iso-lib/lib-common.sh
 #
 # Beschreibung:
@@ -315,7 +315,7 @@ cleanup_disc_operation() {
         # Lösche Temp-Verzeichnis (mit force)
         rm -rf "$temp_pathname" 2>/dev/null || {
             # Fallback: Versuche mit sudo falls Permission-Fehler
-            log_message "⚠ Temp-Verzeichnis konnte nicht gelöscht werden, versuche mit erhöhten Rechten"
+            log_message "$MSG_WARNING_TEMP_DIR_DELETE_FAILED"
             sudo rm -rf "$temp_pathname" 2>/dev/null || true
         }
     fi

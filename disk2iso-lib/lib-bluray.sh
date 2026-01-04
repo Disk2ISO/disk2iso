@@ -1,6 +1,6 @@
 #!/bin/bash
 ################################################################################
-# disk2iso v1.0.0 - Blu-ray Library
+# disk2iso v1.1.0 - Blu-ray Library
 # Filepath: disk2iso-lib/lib-bluray.sh
 #
 # Beschreibung:

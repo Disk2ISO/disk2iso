@@ -1,6 +1,6 @@
 #!/bin/bash
 ################################################################################
-# disk2iso v1.0.0 - Disk Information Library
+# disk2iso v1.1.0 - Disk Information Library
 # Filepath: disk2iso-lib/lib-diskinfos.sh
 #
 # Beschreibung:

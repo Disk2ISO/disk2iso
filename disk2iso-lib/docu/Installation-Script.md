@@ -75,7 +75,7 @@ Der Installer ist als **interaktiver Assistent** mit 8 Seiten implementiert (whi
 
 ```
 ┌───────────────────────────────────────────────────────────┐
-│  Willkommen zur Installation von disk2iso v2.0!          │
+│  Willkommen zur Installation von disk2iso v1.1!          │
 │                                                           │
 │  Dieses Werkzeug archiviert optische Medien automatisch  │
 │  als ISO-Images beim Einlegen in das Laufwerk.           │
@@ -146,32 +146,7 @@ Der Installer ist als **interaktiver Assistent** mit 8 Seiten implementiert (whi
 - **Tab**: Zwischen Modulen und OK wechseln
 - **Enter**: Bestätigen
 
-### Seite 4: Ausgabe-Verzeichnis
-
-```
-┌───────────────────────────────────────────────────────────┐
-│  Geben Sie das Ziel-Verzeichnis für ISOs an:             │
-│                                                           │
-│  /srv/disk2iso                                            │
-│                                                           │
-│  Struktur:                                                │
-│  • /srv/disk2iso/audio/  (nur mit lib-cd.sh)            │
-│  • /srv/disk2iso/dvd/    (nur mit lib-dvd.sh)           │
-│  • /srv/disk2iso/bd/     (nur mit lib-bluray.sh)        │
-│  • /srv/disk2iso/data/   (immer)                         │
-│  • /srv/disk2iso/.log/   (immer, versteckt)              │
-│                                                           │
-│  [OK] [Abbrechen]                                         │
-└───────────────────────────────────────────────────────────┘
-```
-
-**Standardwert**: `/srv/disk2iso`  
-**Tipps**:
-- Pfad mit genügend Speicherplatz (Blu-ray: bis 100GB)
-- Externe Festplatte möglich (z.B. `/media/archiv`)
-- NFS/CIFS-Mount möglich (Netzwerk-Speicher)
-
-### Seite 5: Laufwerks-Erkennung
+### Seite 4: Laufwerks-Erkennung
 
 ```
 ┌───────────────────────────────────────────────────────────┐
@@ -268,12 +243,11 @@ Der Installer ist als **interaktiver Assistent** mit 8 Seiten implementiert (whi
 │  ✅ Installation erfolgreich abgeschlossen!               │
 │                                                           │
 │  Installiert:                                             │
-│  • Ausgabe-Verzeichnis: /srv/disk2iso                    │
 │  • Module: Audio-CD, Video-DVD                           │
 │  • Laufwerk: /dev/sr0                                     │
 │                                                           │
 │  Starten:                                                 │
-│  sudo disk2iso                                            │
+│  sudo disk2iso -o /pfad/zum/ausgabeverzeichnis            │
 │                                                           │
 │  Hilfe:                                                   │
 │  disk2iso --help                                          │
@@ -537,4 +511,4 @@ sudo usermod -a -G disk $USER
 
 ---
 
-**Version**: 2.0.0 | **Letzte Aktualisierung**: 01.01.2026
+**Version**: 1.1.0 | **Letzte Aktualisierung**: 04.01.2026

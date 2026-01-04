@@ -630,7 +630,7 @@ cd ~/disk2iso-1.0.2
 | ❌ **Kein Fortschritt** | `progress_percent: 0` bleibt | lib-dvd.sh muss `mqtt_publish_progress()` aufrufen |
 | ❌ **Falscher Service-Name** | Keine Push-Benachrichtigung | `notify.mobile_app_*` in automations.yaml korrigieren |
 | ❌ **MQTT nicht aktiviert** | Keine MQTT-Logs | `MQTT_ENABLED=true` in config.sh setzen |
-| ❌ **Speicherplatz voll** | `No space left on device` | `/srv/iso/.temp/` aufräumen oder `DEFAULT_OUTPUT_DIR` ändern |
+| ❌ **Speicherplatz voll** | `No space left on device` | `/media/iso/.temp/` aufräumen oder `DEFAULT_OUTPUT_DIR` ändern |
 | ❌ **Falsche Broker IP** | `Connection timeout` | `MQTT_BROKER` in config.sh prüfen |
 
 ---
