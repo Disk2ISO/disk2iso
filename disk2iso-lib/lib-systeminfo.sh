@@ -296,7 +296,6 @@ wait_for_medium_change_lxc_safe() {
         fi
         
         # Prüfe ob eine Datei mit diesem Label bereits existiert
-        # Nutze gleiche Logik wie get_iso_filename() - prüfe bis erste Lücke gefunden wird
         local iso_exists=false
         local potential_iso="${target_dir}/${disc_label}.iso"
         
@@ -304,11 +303,12 @@ wait_for_medium_change_lxc_safe() {
             iso_exists=true
         else
             # Prüfe auch auf nummerierte Duplikate (_1, _2, _3, ...)
-            # Wenn Lücken existieren (z.B. _1 fehlt aber _2 existiert), brechen wir ab
+            # Breche bei erster Lücke ab (wie get_iso_filename())
             local counter=1
             while [[ -f "${target_dir}/${disc_label}_${counter}.iso" ]]; do
                 iso_exists=true
-                counter=$((counter + 1))
+                # Erste Duplikat gefunden - reicht für unsere Prüfung
+                break
             done
         fi
         
