@@ -365,6 +365,9 @@ monitor_cdrom() {
             # Kopiere Disc als ISO
             copy_disc_to_iso
             
+            # Kurze Pause damit "completed" Status in HA sichtbar wird
+            sleep 3
+            
             # MQTT: Warte auf Medium-Entfernung
             if [[ "$MQTT_SUPPORT" == "true" ]]; then
                 mqtt_publish_state "waiting"

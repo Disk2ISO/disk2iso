@@ -157,6 +157,11 @@ copy_video_dvd() {
             # Formatierte Ausgabe mit tatsächlichen Werten
             if [[ $dvd_size_mb -gt 0 ]]; then
                 log_message "$MSG_PROGRESS: ${copied_mb} $MSG_PROGRESS_MB / ${dvd_size_mb} $MSG_PROGRESS_MB (${percent}%) - $MSG_REMAINING: ${eta}"
+                
+                # MQTT: Fortschritt senden
+                if [[ "$MQTT_SUPPORT" == "true" ]] && declare -f mqtt_publish_progress >/dev/null 2>&1; then
+                    mqtt_publish_progress "$percent" "$copied_mb" "$dvd_size_mb" "$eta"
+                fi
             else
                 log_message "$MSG_PROGRESS: ${copied_mb} $MSG_PROGRESS_MB $MSG_COPIED - $MSG_REMAINING: ${eta}"
             fi
@@ -285,6 +290,11 @@ copy_video_dvd_ddrescue() {
                 fi
                 
                 log_message "$MSG_DVD_PROGRESS: ${copied_mb} $MSG_PROGRESS_MB / ${total_mb} $MSG_PROGRESS_MB (${percent}%) - $MSG_REMAINING: ${eta}"
+                
+                # MQTT: Fortschritt senden
+                if [[ "$MQTT_SUPPORT" == "true" ]] && declare -f mqtt_publish_progress >/dev/null 2>&1; then
+                    mqtt_publish_progress "$percent" "$copied_mb" "$total_mb" "$eta"
+                fi
             else
                 log_message "$MSG_DVD_PROGRESS: ${copied_mb} $MSG_PROGRESS_MB $MSG_COPIED"
             fi

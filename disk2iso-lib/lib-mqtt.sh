@@ -136,26 +136,32 @@ mqtt_publish() {
         retain_flag="-r"
     fi
     
-    # Auth-Parameter
-    local auth_params=""
-    if [[ -n "${MQTT_USER:-}" ]]; then
-        auth_params="-u ${MQTT_USER}"
-        if [[ -n "${MQTT_PASSWORD:-}" ]]; then
-            auth_params="${auth_params} -P ${MQTT_PASSWORD}"
-        fi
+    # Publish mit oder ohne Authentifizierung
+    if [[ -n "${MQTT_USER:-}" ]] && [[ -n "${MQTT_PASSWORD:-}" ]]; then
+        # Mit Authentifizierung
+        mosquitto_pub \
+            -h "${MQTT_BROKER}" \
+            -p "${MQTT_PORT}" \
+            -i "${MQTT_CLIENT_ID}" \
+            -q "${MQTT_QOS}" \
+            ${retain_flag} \
+            -u "${MQTT_USER}" \
+            -P "${MQTT_PASSWORD}" \
+            -t "${topic}" \
+            -m "${payload}" \
+            2>/dev/null
+    else
+        # Ohne Authentifizierung
+        mosquitto_pub \
+            -h "${MQTT_BROKER}" \
+            -p "${MQTT_PORT}" \
+            -i "${MQTT_CLIENT_ID}" \
+            -q "${MQTT_QOS}" \
+            ${retain_flag} \
+            -t "${topic}" \
+            -m "${payload}" \
+            2>/dev/null
     fi
-    
-    # Publish
-    mosquitto_pub \
-        -h "${MQTT_BROKER}" \
-        -p "${MQTT_PORT}" \
-        -i "${MQTT_CLIENT_ID}" \
-        -q "${MQTT_QOS}" \
-        ${retain_flag} \
-        ${auth_params} \
-        -t "${topic}" \
-        -m "${payload}" \
-        2>/dev/null
     
     local exit_code=$?
     
