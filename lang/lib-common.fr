@@ -1,0 +1,112 @@
+#!/bin/bash
+################################################################################
+# disk2iso - Fichier de langue française pour lib-common.sh
+# Filepath: disk2iso-lib/lang/lib-common.fr
+#
+# Description:
+#   Messages pour les fonctions de base (copie de disques de données)
+#
+################################################################################
+
+# ============================================================================
+# SYSTÈME
+# ============================================================================
+
+readonly MSG_CORE_MODULES_LOADED="Fonctions de base chargées"
+readonly MSG_AUDIO_CD_SUPPORT_ENABLED="✓ Support Audio-CD activé"
+readonly MSG_AUDIO_CD_SUPPORT_DISABLED="✗ Support Audio-CD désactivé (outils manquants)"
+readonly MSG_AUDIO_CD_NOT_INSTALLED="✗ Support Audio-CD non installé"
+readonly MSG_VIDEO_DVD_SUPPORT_ENABLED="✓ Support Vidéo-DVD activé"
+readonly MSG_VIDEO_DVD_SUPPORT_DISABLED="✗ Support Vidéo-DVD désactivé (outils manquants)"
+readonly MSG_VIDEO_DVD_NOT_INSTALLED="✗ Support Vidéo-DVD non installé"
+readonly MSG_BLURAY_SUPPORT_ENABLED="✓ Support Blu-ray activé"
+readonly MSG_BLURAY_SUPPORT_DISABLED="✗ Support Blu-ray désactivé (outils manquants)"
+readonly MSG_BLURAY_NOT_INSTALLED="✗ Support Blu-ray non installé"
+
+readonly MSG_WARNING_AUDIO_CD_NO_SUPPORT="ATTENTION: Audio-CD détecté, mais aucun support installé"
+readonly MSG_FALLBACK_DATA_DISC="Repli: Copier comme disque de données"
+readonly MSG_START_COPY_PROCESS="Démarrage de la copie:"
+readonly MSG_ERROR_AUDIO_CD_NOT_AVAILABLE="ERREUR: Support Audio-CD non disponible"
+readonly MSG_ERROR_VIDEO_DVD_NOT_AVAILABLE="ERREUR: Support Vidéo-DVD non disponible"
+readonly MSG_ERROR_BLURAY_NOT_AVAILABLE="ERREUR: Support Blu-ray non disponible"
+
+# Erreurs de dépendances
+readonly MSG_ERROR_CRITICAL_TOOLS_MISSING="ERREUR: Outils critiques manquants:"
+readonly MSG_INSTALLATION_CORE_TOOLS="Installation: apt-get install coreutils util-linux eject"
+
+# ============================================================================
+# FLUX DE TRAVAIL
+# ============================================================================
+
+readonly MSG_DISK2ISO_STARTED="disk2iso démarré"
+readonly MSG_OUTPUT_DIRECTORY="Répertoire de sortie:"
+readonly MSG_DRIVE_MONITORING_STARTED="Surveillance du lecteur démarrée"
+readonly MSG_MEDIUM_DETECTED="Média inséré détecté"
+readonly MSG_DISC_TYPE_DETECTED="Type de disque détecté:"
+readonly MSG_VOLUME_LABEL="Étiquette de volume:"
+readonly MSG_UNMOUNTING_DISC="Démontage du disque pour accès direct..."
+readonly MSG_DISC_EJECTED="✓ Média éjecté"
+readonly MSG_EJECT_FAILED="⚠ Échec de l'éjection - veuillez retirer manuellement"
+readonly MSG_WAITING_FOR_REMOVAL="En attente du retrait du média..."
+readonly MSG_WAITING_FOR_MEDIUM="En attente du média..."
+readonly MSG_DRIVE_DETECTED="Lecteur détecté:"
+readonly MSG_SEARCHING_USB_DRIVE="Recherche du lecteur USB... (Tentative"
+readonly MSG_OF_ATTEMPTS="/"
+readonly MSG_ERROR_NO_DRIVE_FOUND="ERREUR: Aucun lecteur détecté après"
+readonly MSG_ATTEMPTS="tentatives"
+readonly MSG_DRIVE_NOT_AVAILABLE="Lecteur non disponible:"
+readonly MSG_COPY_SUCCESS_FINAL="Copie réussie:"
+readonly MSG_COPY_FAILED_FINAL="Copie échouée:"
+readonly MSG_SERVICE_STOPPING="Arrêt du service"
+
+# ============================================================================
+# ESPACE DISQUE
+# ============================================================================
+
+readonly MSG_WARNING_DISK_SPACE_CHECK_FAILED="ATTENTION: Impossible de déterminer l'espace disque"
+readonly MSG_DISK_SPACE_INFO="Espace disque:"
+readonly MSG_DISK_SPACE_MB_AVAILABLE="Mo disponibles,"
+readonly MSG_DISK_SPACE_MB_REQUIRED="Mo requis"
+readonly MSG_ERROR_INSUFFICIENT_DISK_SPACE="ERREUR: Espace disque insuffisant! Requis:"
+readonly MSG_DISK_SPACE_MB_AVAILABLE_SHORT="Mo, Disponible:"
+
+# ============================================================================
+# DÉPENDANCES
+# ============================================================================
+
+readonly MSG_OPTIONAL_TOOLS_INFO="INFO: Outils optionnels pour de meilleures performances:"
+readonly MSG_INSTALL_GENISOIMAGE_GDDRESCUE="Installation: apt-get install genisoimage gddrescue"
+
+# ============================================================================
+# MÉTHODES
+# ============================================================================
+
+readonly MSG_METHOD_DDRESCUE="Méthode: Copie robuste"
+readonly MSG_METHOD_DD="Méthode: Copie standard"
+
+# ============================================================================
+# PROCESSUS DE COPIE (DISQUE DE DONNÉES)
+# ============================================================================
+
+readonly MSG_ISO_VOLUME_DETECTED="Volume ISO détecté:"
+readonly MSG_ISO_BLOCKS="blocs"
+readonly MSG_ISO_BLOCKS_SIZE="blocs de"
+readonly MSG_ISO_BYTES="octets"
+
+readonly MSG_COPYING_COMPLETE_DISC="Copie du disque complet (isoinfo non disponible)"
+readonly MSG_DATA_PROGRESS="Progression disque de données:"
+readonly MSG_DATA_DISC_SUCCESS_DDRESCUE="✓ Disque de données copié avec succès"
+readonly MSG_ERROR_DDRESCUE_FAILED="ERREUR: ddrescue a échoué"
+
+readonly MSG_PROGRESS="Progression:"
+readonly MSG_PROGRESS_OF="Mo /"
+readonly MSG_PROGRESS_MB="Mo"
+readonly MSG_PROGRESS_PERCENT="%"
+
+# ============================================================================
+# FICHIERS TEMPORAIRES
+# ============================================================================
+
+readonly MSG_WARNING_TEMP_DIR_DELETE_FAILED="⚠ Impossible de supprimer le répertoire temporaire, tentative avec droits élevés"
+readonly MSG_REMAINING="Restant"
+readonly MSG_COPIED="copié"

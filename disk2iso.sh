@@ -69,14 +69,17 @@ source "${SCRIPT_DIR}/lib/lib-drivestat.sh"
 source "${SCRIPT_DIR}/lib/lib-systeminfo.sh"
 source "${SCRIPT_DIR}/lib/lib-common.sh"
 
+# Lade Sprachdateien für Hauptskript
+load_module_language "disk2iso"
+
 # Prüfe Kern-Abhängigkeiten (kritisch - Abbruch bei Fehler)
 if ! check_common_dependencies; then
-    echo "ABBRUCH: Kritische Abhängigkeiten fehlen"
+    log_message "$MSG_ABORT_CRITICAL_DEPENDENCIES"
     exit 1
 fi
 
 if ! check_systeminfo_dependencies; then
-    echo "ABBRUCH: System-Info Abhängigkeiten fehlen"
+    log_message "$MSG_ABORT_SYSTEMINFO_DEPENDENCIES"
     exit 1
 fi
 
@@ -142,12 +145,12 @@ if [[ -f "${SCRIPT_DIR}/lib/lib-mqtt.sh" ]]; then
     # mqtt_init prüft selbst ob MQTT_ENABLED=true
     if mqtt_init; then
         MQTT_SUPPORT=true
-        log_message "MQTT Support aktiviert"
+        log_message "$MSG_MQTT_SUPPORT_ENABLED"
     else
-        log_message "MQTT Support deaktiviert oder nicht verfügbar"
+        log_message "$MSG_MQTT_SUPPORT_DISABLED"
     fi
 else
-    log_message "MQTT Modul nicht installiert"
+    log_message "$MSG_MQTT_MODULE_NOT_INSTALLED"
 fi
 
 # ============================================================================
@@ -401,38 +404,90 @@ monitor_cdrom() {
 # Hauptfunktion
 # Prüft Abhängigkeiten und startet Überwachung
 main() {
+    # Prüfe ob als systemd-Service gestartet
+    local is_service=false
+    if [[ -n "${INVOCATION_ID:-}" ]] || [[ "$PPID" == "1" ]] || systemctl is-active --quiet disk2iso 2>/dev/null; then
+        is_service=true
+    fi
+    
     # Parse Kommandozeilenparameter
     while [[ $# -gt 0 ]]; do
         case $1 in
-            -o|--output)
-                OUTPUT_DIR="$2"
-                shift 2
+            --help|-h)
+                echo "disk2iso - Automatische ISO-Erstellung von optischen Medien"
+                echo ""
+                echo "HINWEIS: disk2iso läuft ausschließlich als systemd-Service!"
+                echo ""
+                echo "Verwendung:"
+                echo "  sudo systemctl start disk2iso     - Service starten"
+                echo "  sudo systemctl stop disk2iso      - Service stoppen"
+                echo "  sudo systemctl status disk2iso    - Service-Status anzeigen"
+                echo "  sudo journalctl -u disk2iso -f   - Live-Logs anzeigen"
+                echo ""
+                echo "Konfiguration: /opt/disk2iso/lib/config.sh"
+                echo "Ausgabeverzeichnis: Siehe config.sh (DEFAULT_OUTPUT_DIR)"
+                echo ""
+                exit 0
+                ;;
+            --status)
+                echo "disk2iso Service Status:"
+                systemctl status disk2iso --no-pager 2>/dev/null || echo "Service nicht installiert oder läuft nicht"
+                exit 0
                 ;;
             *)
-                echo "Unbekannter Parameter: $1"
-                echo "Verwendung: $0 [-o|--output <Ausgabeverzeichnis>]"
+                echo "FEHLER: Unbekannter Parameter: $1"
+                echo "Verwendung: $0 [--help | --status]"
+                echo ""
+                echo "HINWEIS: disk2iso läuft nur als systemd-Service!"
+                echo "Starten mit: sudo systemctl start disk2iso"
                 exit 1
                 ;;
         esac
     done
     
-    # Nutze DEFAULT_OUTPUT_DIR wenn kein Parameter angegeben
-    if [[ -z "$OUTPUT_DIR" ]]; then
-        OUTPUT_DIR="$DEFAULT_OUTPUT_DIR"
+    # Verhindere manuelle Ausführung (außer als Service)
+    if [[ "$is_service" == "false" ]]; then
+        echo "==============================================================================="
+        echo "  FEHLER: disk2iso kann nicht manuell ausgeführt werden!"
+        echo "==============================================================================="
+        echo ""
+        echo "disk2iso läuft ausschließlich als systemd-Service."
+        echo ""
+        echo "Service starten:"
+        echo "  sudo systemctl start disk2iso"
+        echo ""
+        echo "Service-Status prüfen:"
+        echo "  sudo systemctl status disk2iso"
+        echo ""
+        echo "Live-Logs anzeigen:"
+        echo "  sudo journalctl -u disk2iso -f"
+        echo ""
+        echo "Web-Interface (falls installiert):"
+        echo "  http://localhost:5000"
+        echo ""
+        echo "Konfiguration ändern:"
+        echo "  sudo nano /opt/disk2iso/lib/config.sh"
+        echo ""
+        echo "==============================================================================="
+        exit 1
     fi
+    
+    # Ab hier: Nur noch Service-Modus
+    
+    # Ausgabeverzeichnis kommt IMMER aus config.sh
+    OUTPUT_DIR="$DEFAULT_OUTPUT_DIR"
     
     # Prüfe ob OUTPUT_DIR existiert
     if [[ ! -d "$OUTPUT_DIR" ]]; then
-        echo "FEHLER: Ausgabeverzeichnis existiert nicht: $OUTPUT_DIR"
-        echo "Führe 'sudo ./install.sh' aus, um das Verzeichnis anzulegen"
-        echo "Oder nutze: $0 -o <anderes-verzeichnis>"
+        log_message "$MSG_ERROR_OUTPUT_DIR_NOT_EXIST_MAIN $OUTPUT_DIR"
+        log_message "$MSG_CONFIG_OUTPUT_DIR"
         exit 1
     fi
     
     # Prüfe Schreibrechte
     if [[ ! -w "$OUTPUT_DIR" ]]; then
-        echo "FEHLER: Keine Schreibrechte für: $OUTPUT_DIR"
-        echo "Führe aus: sudo chmod -R 777 $OUTPUT_DIR"
+        log_message "$MSG_ERROR_NO_WRITE_PERMISSION $OUTPUT_DIR"
+        log_message "$MSG_FIX_PERMISSIONS $OUTPUT_DIR"
         exit 1
     fi
     
@@ -440,7 +495,7 @@ main() {
     log_message "$MSG_OUTPUT_DIRECTORY $OUTPUT_DIR"
     
     # Prüfe ob ein Optisches-Device angeschlossen ist (mit Retry für USB-Laufwerke)
-    local max_attempts=5
+    local max_attempts="$USB_DRIVE_DETECTION_ATTEMPTS"
     local attempt=1
     
     while [[ $attempt -le $max_attempts ]]; do
@@ -451,7 +506,7 @@ main() {
         
         if [[ $attempt -lt $max_attempts ]]; then
             log_message "$MSG_SEARCHING_USB_DRIVE $attempt$MSG_OF_ATTEMPTS$max_attempts)"
-            sleep 10
+            sleep "$USB_DRIVE_DETECTION_DELAY"
             ((attempt++))
         else
             log_message "$MSG_ERROR_NO_DRIVE_FOUND $max_attempts $MSG_ATTEMPTS"

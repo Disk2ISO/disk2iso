@@ -1371,6 +1371,18 @@ gunicorn>=20.0.0
 - Erweiterte Log-Filterung
 
 ### Mittelfristig
+- **Mehrsprachigkeit / Internationalisierung (i18n)**
+  - Flask-Babel Integration für Backend
+  - Template-Übersetzungen (Deutsch, Englisch, Französisch, Spanisch)
+  - Sprachauswahl im Web-Interface
+  - Konsistenz mit Backend-Sprachsystem (lang/*.de/en/fr/es)
+  - Vorgehensweise:
+    1. Flask-Babel installieren und konfigurieren
+    2. Translations-Verzeichnisstruktur anlegen (`www/translations/`)
+    3. Bestehende Templates auf `{{ _('text') }}` Syntax umstellen
+    4. Übersetzungsdateien (.po) für alle Sprachen erstellen
+    5. Sprachumschalter in Navigation implementieren
+  - **Status**: Für nächste Sitzung vorbereitet (07.01.2026)
 - Benutzerauthentifizierung und -verwaltung
 - API für externe Integrationen
 - Dashboard mit Statistiken und Graphen
@@ -1397,15 +1409,16 @@ gunicorn>=20.0.0
 
 ## Änderungsprotokoll
 
-| Datum | Version | Änderungen | Autor |
-|-------|---------|------------|-------|
-| 2026-01-04 | 1.0 | Initiale Version des Umsetzungsplans | DirkGoetze |
+| Datum      | Version | Änderungen                               | Autor      |
+|------------|---------|------------------------------------------|------------|
+| 2026-01-04 | 1.0     | Initiale Version des Umsetzungsplans    | DirkGoetze |
+| 2026-01-07 | 1.1     | i18n/Mehrsprachigkeit als Todo ergänzt  | DirkGoetze |
 
 ---
 
 ## Zusammenfassung
 
-Dieser Umsetzungsplan bietet eine strukturierte Roadmap für die Entwicklung des disk2iso Web-Servers. Die Implementierung erfolgt in 7 klar definierten Phasen, von der Grundeinrichtung bis zum vollständigen Testing. 
+Dieser Umsetzungsplan bietet eine strukturierte Roadmap für die Entwicklung des disk2iso Web-Servers. Die Implementierung erfolgt in 7 klar definierten Phasen, von der Grundeinrichtung bis zum vollständigen Testing.
 
 **Geschätzte Gesamtdauer**: 20-29 Arbeitsstunden
 

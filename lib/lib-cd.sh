@@ -26,12 +26,13 @@ readonly AUDIO_DIR="audio"
 
 # Funktion: Ermittle Pfad für Audio-CDs
 # Rückgabe: Vollständiger Pfad zu audio/ oder Fallback zu data/
+# Nutzt ensure_subfolder aus lib-folders.sh für konsistente Ordner-Verwaltung
 get_path_audio() {
     if [[ "$AUDIO_CD_SUPPORT" == true ]] && [[ -n "$AUDIO_DIR" ]]; then
-        echo "${OUTPUT_DIR}/${AUDIO_DIR}"
+        ensure_subfolder "$AUDIO_DIR"
     else
         # Fallback auf data/ wenn Audio-Modul nicht geladen
-        echo "${OUTPUT_DIR}/data"
+        ensure_subfolder "data"
     fi
 }
 
@@ -382,8 +383,10 @@ copy_audio_cd() {
     # Nutze globales temp_pathname (wird von init_filenames erstellt)
     # Falls nicht vorhanden (standalone-Aufruf), erstelle eigenes Verzeichnis
     if [[ -z "$temp_pathname" ]]; then
-        temp_pathname="${OUTPUT_DIR}/temp/disk2iso_audio_$$"
-        mkdir -p "$temp_pathname"
+        local temp_base
+        temp_base=$(ensure_subfolder "temp") || return 1
+        temp_pathname="${temp_base}/disk2iso_audio_$$"
+        mkdir -p "$temp_pathname" || return 1
     fi
     
     # Lade Album-Cover falls verfügbar (nach temp_pathname Sicherstellung)
@@ -472,8 +475,8 @@ copy_audio_cd() {
         
         local mp3_file="${album_dir}/${mp3_filename}"
         
-        # lame Optionen: -V2 (VBR ~190 kbps), --quiet
-        local lame_opts="-V2 --quiet"
+        # lame Optionen: VBR Qualität aus Konfiguration, --quiet
+        local lame_opts="-V${MP3_QUALITY} --quiet"
         
         # Füge ID3-Tags hinzu
         if [[ -n "$cd_artist" ]]; then

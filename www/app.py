@@ -5,7 +5,7 @@ Version: 1.2.0
 Description: Flask-basierte Web-Oberfläche für disk2iso Monitoring
 """
 
-from flask import Flask, render_template, jsonify, request
+from flask import Flask, render_template, jsonify, request, Response
 import os
 import sys
 import json
@@ -34,8 +34,15 @@ def get_config():
     """Liest Konfiguration aus config.sh"""
     config = {
         "output_dir": "/media/iso",
+        "mp3_quality": 2,
+        "ddrescue_retries": 1,
+        "usb_detection_attempts": 5,
+        "usb_detection_delay": 10,
         "mqtt_enabled": False,
         "mqtt_broker": "",
+        "mqtt_port": 1883,
+        "mqtt_user": "",
+        "mqtt_password": "",
     }
     
     try:
@@ -45,10 +52,39 @@ def get_config():
                     line = line.strip()
                     if line.startswith('DEFAULT_OUTPUT_DIR='):
                         config['output_dir'] = line.split('=', 1)[1].strip('"')
+                    elif line.startswith('MP3_QUALITY='):
+                        try:
+                            config['mp3_quality'] = int(line.split('=', 1)[1].strip())
+                        except:
+                            pass
+                    elif line.startswith('DDRESCUE_RETRIES='):
+                        try:
+                            config['ddrescue_retries'] = int(line.split('=', 1)[1].strip())
+                        except:
+                            pass
+                    elif line.startswith('USB_DRIVE_DETECTION_ATTEMPTS='):
+                        try:
+                            config['usb_detection_attempts'] = int(line.split('=', 1)[1].strip())
+                        except:
+                            pass
+                    elif line.startswith('USB_DRIVE_DETECTION_DELAY='):
+                        try:
+                            config['usb_detection_delay'] = int(line.split('=', 1)[1].strip())
+                        except:
+                            pass
                     elif line.startswith('MQTT_ENABLED='):
                         config['mqtt_enabled'] = 'true' in line.lower()
                     elif line.startswith('MQTT_BROKER='):
                         config['mqtt_broker'] = line.split('=', 1)[1].strip('"')
+                    elif line.startswith('MQTT_PORT='):
+                        try:
+                            config['mqtt_port'] = int(line.split('=', 1)[1].strip())
+                        except:
+                            pass
+                    elif line.startswith('MQTT_USER='):
+                        config['mqtt_user'] = line.split('=', 1)[1].strip('"')
+                    elif line.startswith('MQTT_PASSWORD='):
+                        config['mqtt_password'] = line.split('=', 1)[1].strip('"')
     except Exception as e:
         print(f"Fehler beim Lesen der Konfiguration: {e}", file=sys.stderr)
     
@@ -197,6 +233,17 @@ def index():
         current_time=datetime.now().strftime('%Y-%m-%d %H:%M:%S')
     )
 
+@app.route('/config')
+def config_page():
+    """Konfigurations-Seite"""
+    config = get_config()
+    version = get_version()
+    
+    return render_template('config.html',
+        version=version,
+        config=config
+    )
+
 @app.route('/api/status')
 def api_status():
     """API-Endpoint für Status-Abfrage (AJAX)"""
@@ -219,6 +266,73 @@ def api_status():
 def api_history():
     """API-Endpoint für Aktivitäts-History"""
     return jsonify(get_history())
+
+@app.route('/api/config', methods=['GET', 'POST'])
+def api_config():
+    """API-Endpoint für Konfigurations-Verwaltung"""
+    if request.method == 'GET':
+        # Konfiguration lesen
+        return jsonify(get_config())
+    
+    elif request.method == 'POST':
+        # Konfiguration speichern
+        try:
+            data = request.get_json()
+            
+            if not data:
+                return jsonify({'success': False, 'message': 'Keine Daten empfangen'}), 400
+            
+            # Validierung
+            required_fields = ['output_dir', 'mp3_quality', 'ddrescue_retries', 
+                             'usb_detection_attempts', 'usb_detection_delay']
+            for field in required_fields:
+                if field not in data:
+                    return jsonify({'success': False, 'message': f'Feld fehlt: {field}'}), 400
+            
+            # Lese aktuelle config.sh
+            if not CONFIG_FILE.exists():
+                return jsonify({'success': False, 'message': 'config.sh nicht gefunden'}), 404
+            
+            with open(CONFIG_FILE, 'r') as f:
+                lines = f.readlines()
+            
+            # Aktualisiere Werte
+            new_lines = []
+            for line in lines:
+                if line.strip().startswith('DEFAULT_OUTPUT_DIR='):
+                    new_lines.append(f'DEFAULT_OUTPUT_DIR="{data["output_dir"]}"\n')
+                elif line.strip().startswith('MP3_QUALITY='):
+                    new_lines.append(f'MP3_QUALITY={data["mp3_quality"]}\n')
+                elif line.strip().startswith('DDRESCUE_RETRIES='):
+                    new_lines.append(f'DDRESCUE_RETRIES={data["ddrescue_retries"]}\n')
+                elif line.strip().startswith('USB_DRIVE_DETECTION_ATTEMPTS='):
+                    new_lines.append(f'USB_DRIVE_DETECTION_ATTEMPTS={data["usb_detection_attempts"]}\n')
+                elif line.strip().startswith('USB_DRIVE_DETECTION_DELAY='):
+                    new_lines.append(f'USB_DRIVE_DETECTION_DELAY={data["usb_detection_delay"]}\n')
+                elif line.strip().startswith('MQTT_ENABLED='):
+                    new_lines.append(f'MQTT_ENABLED={"true" if data.get("mqtt_enabled", False) else "false"}\n')
+                elif line.strip().startswith('MQTT_BROKER='):
+                    new_lines.append(f'MQTT_BROKER="{data.get("mqtt_broker", "")}"\n')
+                elif line.strip().startswith('MQTT_PORT='):
+                    new_lines.append(f'MQTT_PORT={data.get("mqtt_port", 1883)}\n')
+                elif line.strip().startswith('MQTT_USER='):
+                    new_lines.append(f'MQTT_USER="{data.get("mqtt_user", "")}"\n')
+                elif line.strip().startswith('MQTT_PASSWORD='):
+                    new_lines.append(f'MQTT_PASSWORD="{data.get("mqtt_password", "")}"\n')
+                else:
+                    new_lines.append(line)
+            
+            # Schreibe aktualisierte config.sh
+            with open(CONFIG_FILE, 'w') as f:
+                f.writelines(new_lines)
+            
+            return jsonify({
+                'success': True, 
+                'message': 'Konfiguration gespeichert. Service wird neu gestartet...'
+            })
+            
+        except Exception as e:
+            return jsonify({'success': False, 'message': f'Fehler beim Speichern: {str(e)}'}), 500
 
 @app.route('/health')
 def health():

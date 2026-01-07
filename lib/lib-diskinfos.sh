@@ -103,11 +103,7 @@ detect_disc_type() {
     fi
     
     # Fallback: Ermittle Disc-Größe für CD/DVD/BD Unterscheidung
-    local volume_size=""
-    
-    if command -v isoinfo >/dev/null 2>&1; then
-        volume_size=$(isoinfo -d -i "$CD_DEVICE" 2>/dev/null | grep "Volume size is:" | awk '{print $4}')
-    fi
+    get_disc_size
     
     # Wenn isoinfo keine Größe liefert (z.B. bei UDF), versuche Blockgerät-Größe
     if [[ -z "$volume_size" ]] || [[ ! "$volume_size" =~ ^[0-9]+$ ]]; then

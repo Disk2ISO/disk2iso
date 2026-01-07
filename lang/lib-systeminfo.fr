@@ -1,0 +1,34 @@
+#!/bin/bash
+################################################################################
+# disk2iso - Fichier de langue française pour lib-systeminfo.sh
+# Filepath: disk2iso-lib/lang/lib-systeminfo.fr
+#
+# Version: 1.2.0
+# Date: 06.01.2026
+################################################################################
+
+# Détection de conteneur
+MSG_CONTAINER_DETECTED="✓ Environnement conteneur détecté:"
+MSG_NATIVE_ENVIRONMENT_DETECTED="✓ Environnement matériel natif détecté"
+
+# Espace disque
+MSG_DISK_SPACE_INFO="Espace disque:"
+MSG_DISK_SPACE_MB_AVAILABLE="Mo disponibles,"
+MSG_DISK_SPACE_MB_REQUIRED="Mo requis"
+MSG_DISK_SPACE_MB_AVAILABLE_SHORT="Mo disponibles"
+MSG_WARNING_DISK_SPACE_CHECK_FAILED="⚠ Vérification de l'espace disque échouée (continuation)"
+MSG_ERROR_INSUFFICIENT_DISK_SPACE="✗ Espace disque insuffisant! Requis:"
+
+# Changement de média
+MSG_CONTAINER_MANUAL_EJECT="⚠ Environnement conteneur: Veuillez éjecter manuellement le média et insérer un nouveau"
+MSG_WAITING_FOR_MEDIUM_CHANGE="En attente du changement de média..."
+MSG_WARNING_NO_MEDIUM_IDENTIFIER="⚠ Impossible de déterminer l'identifiant du média (attente de n'importe quel média)"
+MSG_NEW_MEDIUM_DETECTED="✓ Nouveau média détecté"
+MSG_STILL_WAITING="Toujours en attente:"
+MSG_SECONDS_OF="secondes sur"
+MSG_SECONDS="secondes"
+MSG_TIMEOUT_WAITING_FOR_MEDIUM="✗ Délai d'attente dépassé pour le changement de média"
+
+# Erreurs de dépendances système
+MSG_ERROR_SYSTEM_TOOLS_MISSING="ERREUR: Outils système manquants:"
+MSG_INSTALLATION_SYSTEM_TOOLS="Installation: apt-get install lsblk findmnt"

@@ -4,17 +4,15 @@ Diese Installation von disk2iso befindet sich in `/opt/disk2iso`.
 
 ## 🚀 Verwendung
 
-### Manuell ausführen
-```bash
-disk2iso -o /pfad/zum/ausgabe/verzeichnis
-```
+### Service-Betrieb
 
-### Als Service (falls installiert)
+disk2iso läuft ausschließlich als systemd-Service:
+
 ```bash
 # Status prüfen
 systemctl status disk2iso
 
-# Logs ansehen
+# Logs ansehen (Live)
 journalctl -u disk2iso -f
 
 # Service neustarten
@@ -25,6 +23,31 @@ sudo systemctl stop disk2iso
 
 # Service starten
 sudo systemctl start disk2iso
+```
+
+### Web-Interface
+
+Zugriff im Browser auf `http://localhost:5000` (falls installiert):
+
+```bash
+# Web-Server starten
+sudo systemctl start disk2iso-web
+
+# Web-Server Status
+systemctl status disk2iso-web
+```
+
+### Konfiguration
+
+Ausgabeverzeichnis und andere Einstellungen in `/opt/disk2iso/lib/config.sh`:
+
+```bash
+# Ausgabeverzeichnis ändern
+sudo nano /opt/disk2iso/lib/config.sh
+# DEFAULT_OUTPUT_DIR="/media/iso"  # anpassen
+
+# Service neu starten nach Änderung
+sudo systemctl restart disk2iso
 ```
 
 ## 🔄 Updates durchführen

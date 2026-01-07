@@ -22,6 +22,7 @@ readonly MSG_ERROR_NO_VIDEO_METHOD="ERROR: No Video-DVD/BD method available"
 # ============================================================================
 
 readonly MSG_METHOD_DVDBACKUP="Method: Decrypted copying"
+readonly MSG_ERROR_CREATE_DVD_TEMP="ERROR: Cannot create DVD temp directory:"
 readonly MSG_DVD_SIZE="DVD size:"
 readonly MSG_EXTRACT_DVD_STRUCTURE="Copying DVD contents..."
 readonly MSG_ERROR_DVDBACKUP_FAILED="ERROR: dvdbackup failed"

@@ -1,0 +1,28 @@
+#!/bin/bash
+################################################################################
+# disk2iso - English Language File for disk2iso.sh (Main Script)
+# Filepath: disk2iso-lib/lang/disk2iso.en
+#
+# Description:
+#   Message texts for main script
+#
+################################################################################
+
+# ============================================================================
+# SYSTEM START
+# ============================================================================
+
+readonly MSG_ABORT_CRITICAL_DEPENDENCIES="ABORT: Critical dependencies missing"
+readonly MSG_ABORT_SYSTEMINFO_DEPENDENCIES="ABORT: System-Info dependencies missing"
+readonly MSG_MQTT_SUPPORT_ENABLED="MQTT support enabled"
+readonly MSG_MQTT_SUPPORT_DISABLED="MQTT support disabled or not available"
+readonly MSG_MQTT_MODULE_NOT_INSTALLED="MQTT module not installed"
+
+# ============================================================================
+# OUTPUT DIRECTORY
+# ============================================================================
+
+readonly MSG_ERROR_OUTPUT_DIR_NOT_EXIST_MAIN="ERROR: Output directory does not exist:"
+readonly MSG_CONFIG_OUTPUT_DIR="Configure DEFAULT_OUTPUT_DIR in /opt/disk2iso/lib/config.sh"
+readonly MSG_ERROR_NO_WRITE_PERMISSION="ERROR: No write permission for:"
+readonly MSG_FIX_PERMISSIONS="Run: sudo chmod -R 777"

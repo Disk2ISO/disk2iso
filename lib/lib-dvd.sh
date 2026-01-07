@@ -24,12 +24,13 @@ readonly DVD_DIR="dvd"
 
 # Funktion: Ermittle Pfad für Video-DVDs
 # Rückgabe: Vollständiger Pfad zu dvd/ oder Fallback zu data/
+# Nutzt ensure_subfolder aus lib-folders.sh für konsistente Ordner-Verwaltung
 get_path_dvd() {
     if [[ "$VIDEO_DVD_SUPPORT" == true ]] && [[ -n "$DVD_DIR" ]]; then
-        echo "${OUTPUT_DIR}/${DVD_DIR}"
+        ensure_subfolder "$DVD_DIR"
     else
         # Fallback auf data/ wenn DVD-Modul nicht geladen
-        echo "${OUTPUT_DIR}/data"
+        ensure_subfolder "data"
     fi
 }
 
@@ -89,19 +90,19 @@ check_video_dvd_dependencies() {
 copy_video_dvd() {
     log_message "$MSG_METHOD_DVDBACKUP"
     
-    # Erstelle temporäres Verzeichnis für DVD-Struktur
+    # Erstelle temporäres Verzeichnis für DVD-Struktur (unter temp_pathname)
     local temp_dvd="${temp_pathname}/dvd_rip"
-    mkdir -p "$temp_dvd"
+    mkdir -p "$temp_dvd" || {
+        log_message "$MSG_ERROR_CREATE_DVD_TEMP $temp_dvd"
+        return 1
+    }
     
     # Ermittle DVD-Größe für Fortschrittsanzeige
     local dvd_size_mb=0
-    if command -v isoinfo >/dev/null 2>&1; then
-        local volume_blocks
-        volume_blocks=$(isoinfo -d -i "$CD_DEVICE" 2>/dev/null | grep "Volume size is:" | awk '{print $4}')
-        if [[ -n "$volume_blocks" ]] && [[ "$volume_blocks" =~ ^[0-9]+$ ]]; then
-            dvd_size_mb=$((volume_blocks * 2048 / 1024 / 1024))
-            log_message "$MSG_DVD_SIZE: ${dvd_size_mb} $MSG_PROGRESS_MB"
-        fi
+    get_disc_size
+    if [[ $total_bytes -gt 0 ]]; then
+        dvd_size_mb=$((total_bytes / 1024 / 1024))
+        log_message "$MSG_DVD_SIZE: ${dvd_size_mb} $MSG_PROGRESS_MB"
     fi
     
     # Prüfe Speicherplatz (DVD-Größe + 5% Puffer)
@@ -135,36 +136,12 @@ copy_video_dvd() {
                 copied_mb=$(du -sm "$temp_dvd" 2>/dev/null | awk '{print $1}')
             fi
             
-            local percent=0
-            local eta="--:--:--"
+            # Konvertiere MB zu Bytes für zentrale Funktion
+            local current_bytes=$((copied_mb * 1024 * 1024))
+            local total_bytes=$((dvd_size_mb * 1024 * 1024))
             
-            if [[ $dvd_size_mb -gt 0 ]] && [[ $copied_mb -gt 0 ]]; then
-                percent=$((copied_mb * 100 / dvd_size_mb))
-                if [[ $percent -gt 100 ]]; then percent=100; fi
-                
-                # Berechne geschätzte Restzeit
-                local total_elapsed=$((current_time - start_time))
-                if [[ $percent -gt 0 ]]; then
-                    local estimated_total=$((total_elapsed * 100 / percent))
-                    local remaining=$((estimated_total - total_elapsed))
-                    local hours=$((remaining / 3600))
-                    local minutes=$(((remaining % 3600) / 60))
-                    local seconds=$((remaining % 60))
-                    eta=$(printf "%02d:%02d:%02d" $hours $minutes $seconds)
-                fi
-            fi
-            
-            # Formatierte Ausgabe mit tatsächlichen Werten
-            if [[ $dvd_size_mb -gt 0 ]]; then
-                log_message "$MSG_PROGRESS: ${copied_mb} $MSG_PROGRESS_MB / ${dvd_size_mb} $MSG_PROGRESS_MB (${percent}%) - $MSG_REMAINING: ${eta}"
-                
-                # MQTT: Fortschritt senden
-                if [[ "$MQTT_SUPPORT" == "true" ]] && declare -f mqtt_publish_progress >/dev/null 2>&1; then
-                    mqtt_publish_progress "$percent" "$copied_mb" "$dvd_size_mb" "$eta"
-                fi
-            else
-                log_message "$MSG_PROGRESS: ${copied_mb} $MSG_PROGRESS_MB $MSG_COPIED - $MSG_REMAINING: ${eta}"
-            fi
+            # Nutze zentrale Fortschrittsberechnung
+            calculate_and_log_progress "$current_bytes" "$total_bytes" "$start_time" "DVD"
             
             last_log_time=$current_time
         fi
@@ -220,15 +197,9 @@ copy_video_dvd_ddrescue() {
     local mapfile="${iso_filename}.mapfile"
     
     # Ermittle Disc-Größe mit isoinfo
-    local volume_size=""
-    local total_bytes=0
-    
-    if command -v isoinfo >/dev/null 2>&1; then
-        volume_size=$(isoinfo -d -i "$CD_DEVICE" 2>/dev/null | grep "Volume size is:" | awk '{print $4}')
-        if [[ -n "$volume_size" ]] && [[ "$volume_size" =~ ^[0-9]+$ ]]; then
-            total_bytes=$((volume_size * 2048))
-            log_message "$MSG_ISO_VOLUME_DETECTED $volume_size $MSG_ISO_BLOCKS ($(( total_bytes / 1024 / 1024 )) $MSG_PROGRESS_MB)"
-        fi
+    get_disc_size
+    if [[ $total_bytes -gt 0 ]]; then
+        log_message "$MSG_ISO_VOLUME_DETECTED $volume_size $MSG_ISO_BLOCKS ($(( total_bytes / 1024 / 1024 )) $MSG_PROGRESS_MB)"
     fi
     
     # Prüfe Speicherplatz (ISO-Größe + 5% Puffer)
@@ -262,42 +233,13 @@ copy_video_dvd_ddrescue() {
         
         # Log alle 60 Sekunden
         if [[ $elapsed -ge 60 ]]; then
-            local copied_mb=0
+            local current_bytes=0
             if [[ -f "$iso_filename" ]]; then
-                local file_size=$(stat -c %s "$iso_filename" 2>/dev/null)
-                if [[ -n "$file_size" ]]; then
-                    copied_mb=$((file_size / 1024 / 1024))
-                fi
+                current_bytes=$(stat -c %s "$iso_filename" 2>/dev/null || echo 0)
             fi
             
-            local percent=0
-            local eta="--:--:--"
-            
-            if [[ $total_bytes -gt 0 ]] && [[ $copied_mb -gt 0 ]]; then
-                local total_mb=$((total_bytes / 1024 / 1024))
-                percent=$((copied_mb * 100 / total_mb))
-                if [[ $percent -gt 100 ]]; then percent=100; fi
-                
-                # Berechne geschätzte Restzeit
-                local total_elapsed=$((current_time - start_time))
-                if [[ $percent -gt 0 ]]; then
-                    local estimated_total=$((total_elapsed * 100 / percent))
-                    local remaining=$((estimated_total - total_elapsed))
-                    local hours=$((remaining / 3600))
-                    local minutes=$(((remaining % 3600) / 60))
-                    local seconds=$((remaining % 60))
-                    eta=$(printf "%02d:%02d:%02d" $hours $minutes $seconds)
-                fi
-                
-                log_message "$MSG_DVD_PROGRESS: ${copied_mb} $MSG_PROGRESS_MB / ${total_mb} $MSG_PROGRESS_MB (${percent}%) - $MSG_REMAINING: ${eta}"
-                
-                # MQTT: Fortschritt senden
-                if [[ "$MQTT_SUPPORT" == "true" ]] && declare -f mqtt_publish_progress >/dev/null 2>&1; then
-                    mqtt_publish_progress "$percent" "$copied_mb" "$total_mb" "$eta"
-                fi
-            else
-                log_message "$MSG_DVD_PROGRESS: ${copied_mb} $MSG_PROGRESS_MB $MSG_COPIED"
-            fi
+            # Nutze zentrale Fortschrittsberechnung
+            calculate_and_log_progress "$current_bytes" "$total_bytes" "$start_time" "$MSG_DVD_PROGRESS"
             
             last_log_time=$current_time
         fi

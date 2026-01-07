@@ -244,25 +244,29 @@ Der Installer ist als **interaktiver Assistent** mit 8 Seiten implementiert (whi
 │                                                           │
 │  Installiert:                                             │
 │  • Module: Audio-CD, Video-DVD                           │
-│  • Laufwerk: /dev/sr0                                     │
+│  • Service: disk2iso.service                             │
 │                                                           │
-│  Starten:                                                 │
-│  sudo disk2iso -o /pfad/zum/ausgabeverzeichnis            │
+│  Service starten:                                         │
+│  sudo systemctl start disk2iso                           │
 │                                                           │
-│  Hilfe:                                                   │
-│  disk2iso --help                                          │
+│  Status prüfen:                                           │
+│  sudo systemctl status disk2iso                          │
+│                                                           │
+│  Logs ansehen:                                            │
+│  sudo journalctl -u disk2iso -f                          │
 │                                                           │
 │  Dokumentation:                                           │
-│  /opt/disk2iso/disk2iso-lib/docu/Handbuch.md            │
+│  /opt/disk2iso/doc/Handbuch.md                           │
 │                                                           │
 │  [OK]                                                     │
 └───────────────────────────────────────────────────────────┘
 ```
 
 **Nach der Installation**:
-1. Testen: `sudo disk2iso --test`
-2. Disc einlegen und starten: `sudo disk2iso`
-3. Konfiguration anpassen: `/opt/disk2iso/disk2iso-lib/config.sh`
+1. Service aktiviert: `sudo systemctl enable disk2iso`
+2. Service starten: `sudo systemctl start disk2iso`
+3. Konfiguration anpassen: `/opt/disk2iso/lib/config.sh`
+4. Medium einlegen → automatische Archivierung
 
 ---
 
@@ -344,24 +348,29 @@ sudo ln -s /opt/disk2iso/disk2iso.sh /usr/local/bin/disk2iso
 
 ```bash
 # Ausgabe-Verzeichnis
-sudo mkdir -p /srv/disk2iso/{audio,dvd,bd,data,log,temp}
+sudo mkdir -p /srv/disk2iso/{audio,dvd,bd,data,.log,.temp}
 sudo chmod 755 /srv/disk2iso
 
 # Optional: Eigentümer ändern
 sudo chown -R $USER:$USER /srv/disk2iso
 ```
 
-### 6. Testen
+### 6. Service konfigurieren und starten
 
 ```bash
-# Script starten (erfordert -o Parameter)
-sudo disk2iso -o /srv/disk2iso
+# Konfiguration bearbeiten
+sudo nano /opt/disk2iso/lib/config.sh
+# DEFAULT_OUTPUT_DIR="/srv/disk2iso"
 
-# Im Hintergrund
-sudo disk2iso -o /srv/disk2iso &
+# Service aktivieren und starten
+sudo systemctl enable disk2iso
+sudo systemctl start disk2iso
 
-# Mit Debug
-DEBUG=1 sudo disk2iso -o /srv/disk2iso
+# Status prüfen
+sudo systemctl status disk2iso
+
+# Logs ansehen
+sudo journalctl -u disk2iso -f
 ```
 
 ---

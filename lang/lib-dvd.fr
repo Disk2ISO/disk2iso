@@ -1,0 +1,40 @@
+#!/bin/bash
+################################################################################
+# disk2iso - Fichier de langue française pour lib-dvd.sh
+# Filepath: disk2iso-lib/lang/lib-dvd.fr
+#
+# Description:
+#   Messages pour les fonctions Vidéo-DVD
+#
+################################################################################
+
+# ============================================================================
+# DÉPENDANCES
+# ============================================================================
+
+readonly MSG_VIDEO_SUPPORT_AVAILABLE="Support Vidéo-DVD/BD disponible avec:"
+readonly MSG_EXTENDED_METHODS_AVAILABLE="Méthodes étendues disponibles après installation:"
+readonly MSG_INSTALLATION_DVD="Installation: apt-get install dvdbackup genisoimage gddrescue libdvdcss2"
+readonly MSG_ERROR_NO_VIDEO_METHOD="ERREUR: Aucune méthode Vidéo-DVD/BD disponible"
+
+# ============================================================================
+# MÉTHODE DVDBACKUP
+# ============================================================================
+
+readonly MSG_METHOD_DVDBACKUP="Méthode: Copie déchiffrée"
+readonly MSG_ERROR_CREATE_DVD_TEMP="ERREUR: Impossible de créer le répertoire temporaire DVD:"
+readonly MSG_DVD_SIZE="Taille du DVD:"
+readonly MSG_EXTRACT_DVD_STRUCTURE="Copie du contenu DVD..."
+readonly MSG_ERROR_DVDBACKUP_FAILED="ERREUR: dvdbackup a échoué"
+readonly MSG_DVD_STRUCTURE_EXTRACTED="✓ Contenu DVD copié (100%)"
+readonly MSG_ERROR_NO_VIDEO_TS="ERREUR: Aucun dossier VIDEO_TS trouvé"
+readonly MSG_CREATE_DECRYPTED_ISO="Création du fichier ISO..."
+readonly MSG_DECRYPTED_DVD_SUCCESS="✓ ISO Vidéo-DVD créé avec succès"
+readonly MSG_ERROR_GENISOIMAGE_FAILED="ERREUR: genisoimage a échoué"
+
+# ============================================================================
+# MÉTHODE DDRESCUE
+# ============================================================================
+
+readonly MSG_VIDEO_DVD_DDRESCUE_SUCCESS="✓ Vidéo-DVD copié avec succès"
+readonly MSG_DVD_PROGRESS="Progression Vidéo-DVD:"

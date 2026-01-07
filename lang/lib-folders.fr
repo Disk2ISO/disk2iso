@@ -1,0 +1,28 @@
+#!/bin/bash
+################################################################################
+# disk2iso - Fichier de langue française pour lib-folders.sh
+# Filepath: disk2iso-lib/lang/lib-folders.fr
+#
+# Description:
+#   Messages pour la gestion des répertoires
+#
+################################################################################
+
+# ============================================================================
+# OPÉRATIONS DE RÉPERTOIRE
+# ============================================================================
+
+readonly MSG_TEMP_DIR_CREATED="Répertoire temporaire créé"
+readonly MSG_TEMP_DIR_CLEANED="Répertoire temporaire nettoyé"
+readonly MSG_LOG_DIR_CREATED="Répertoire de log assuré"
+readonly MSG_OUTPUT_DIR_CREATED="Répertoire de sortie assuré"
+readonly MSG_ALBUM_DIR_CREATED="Répertoire d'album créé"
+readonly MSG_BACKUP_DIR_CREATED="Répertoire de sauvegarde créé"
+readonly MSG_ERROR_BACKUP_DIR_FAILED="ERREUR: Impossible de créer le répertoire de sauvegarde"
+readonly MSG_ERROR_ENSURE_SUBFOLDER_NO_NAME="ERREUR: ensure_subfolder nécessite un nom de dossier"
+readonly MSG_SUBFOLDER_CREATED="Sous-dossier créé:"
+readonly MSG_ERROR_CREATE_SUBFOLDER="ERREUR: Impossible de créer le sous-dossier:"
+readonly MSG_ERROR_CREATE_TEMP_SUBFOLDER="ERREUR: Impossible de créer le sous-dossier temporaire:"
+readonly MSG_ERROR_LOG_DIR_NOT_EXIST="ERREUR: Le répertoire de log n'existe pas:"
+readonly MSG_ERROR_OUTPUT_DIR_NOT_EXIST="ERREUR: Le répertoire de sortie n'existe pas:"
+readonly MSG_WARNING_TYPE_DIR_NOT_EXIST="ATTENTION: Le répertoire de type n'existe pas:"

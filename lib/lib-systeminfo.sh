@@ -37,8 +37,8 @@ check_systeminfo_dependencies() {
     command -v blkid >/dev/null 2>&1 || missing+=("blkid")
     
     if [[ ${#missing[@]} -gt 0 ]]; then
-        echo "FEHLER: System-Tools fehlen: ${missing[*]}"
-        echo "Installation: apt-get install coreutils util-linux"
+        log_message "$MSG_ERROR_SYSTEM_TOOLS_MISSING ${missing[*]}"
+        log_message "$MSG_INSTALLATION_SYSTEM_TOOLS"
         return 1
     fi
     

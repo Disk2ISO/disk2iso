@@ -22,6 +22,42 @@ _TEMP_BASE_CREATED=false
 load_module_language "folders"
 
 # ============================================================================
+# GENERIC HELPER FUNCTIONS
+# ============================================================================
+
+# Generischer Helper: Stelle sicher dass ein Unterordner existiert
+# Parameter: $1 = Unterordner-Name (relativ zu OUTPUT_DIR)
+# Rückgabe: Vollständiger Pfad zum Unterordner
+# Nutzt Lazy Initialization - erstellt Ordner nur einmal pro Name
+ensure_subfolder() {
+    local subfolder="$1"
+    
+    # Validierung
+    if [[ -z "$subfolder" ]]; then
+        log_message "$MSG_ERROR_ENSURE_SUBFOLDER_NO_NAME"
+        return 1
+    fi
+    
+    # Stelle sicher dass OUTPUT_DIR existiert
+    get_out_folder || return 1
+    
+    # Vollständiger Pfad
+    local full_path="${OUTPUT_DIR}/${subfolder}"
+    
+    # Prüfe/Erstelle Ordner (idempotent)
+    if [[ ! -d "$full_path" ]]; then
+        if mkdir -p "$full_path" 2>/dev/null; then
+            log_message "$MSG_SUBFOLDER_CREATED $full_path"
+        else
+            log_message "$MSG_ERROR_CREATE_SUBFOLDER $full_path"
+            return 1
+        fi
+    fi
+    
+    echo "$full_path"
+}
+
+# ============================================================================
 # TEMP FOLDER MANAGEMENT
 # Quelle: lib-diskinfos.sh
 # ============================================================================
@@ -31,26 +67,18 @@ load_module_language "folders"
 # Setzt globale Variable: temp_pathname
 # Nutzt Lazy Initialization für temp_base und TEMP_DIR Konstante
 get_temp_pathname() {
-    # Stelle sicher dass OUTPUT_DIR existiert
-    get_out_folder
+    # Nutze ensure_subfolder für temp_base (Konstante aus lib-common.sh)
+    local temp_base
+    temp_base=$(ensure_subfolder "$TEMP_DIR") || return 1
     
-    # Nutze Konstante aus lib-common.sh
-    local temp_base="${OUTPUT_DIR}/${TEMP_DIR}"
-    
-    # Lazy Initialization: temp_base nur einmal prüfen
-    if [[ "$_TEMP_BASE_CREATED" == false ]]; then
-        if [[ ! -d "$temp_base" ]]; then
-            log_message "FEHLER: Temp-Verzeichnis existiert nicht: $temp_base"
-            return 1
-        fi
-        _TEMP_BASE_CREATED=true
-    fi
+    # Markiere als erstellt (für Lazy Initialization Flag)
+    _TEMP_BASE_CREATED=true
     
     # Generiere eindeutigen Unterordner basierend auf iso_basename
     local basename_without_ext="${iso_basename%.iso}"
     temp_pathname="${temp_base}/${basename_without_ext}_$$"
     mkdir -p "$temp_pathname" 2>/dev/null || {
-        log_message "FEHLER: Kann Temp-Unterordner nicht erstellen: $temp_pathname"
+        log_message "$MSG_ERROR_CREATE_TEMP_SUBFOLDER $temp_pathname"
         return 1
     }
     
@@ -72,14 +100,9 @@ cleanup_temp_pathname() {
 # Gibt den Pfad zurück
 # Rückgabe: Mount-Point Pfad
 get_tmp_mount() {
-    # Stelle sicher dass OUTPUT_DIR existiert
-    get_out_folder
-    
-    # Nutze Konstante aus lib-common.sh
-    local mount_base="${OUTPUT_DIR}/${MOUNTPOINTS_DIR}"
-    
-    # mount_base wird bei jedem Aufruf erstellt (mehrere parallele Mounts möglich)
-    mkdir -p "$mount_base"
+    # Nutze ensure_subfolder für mount_base (Konstante aus lib-common.sh)
+    local mount_base
+    mount_base=$(ensure_subfolder "$MOUNTPOINTS_DIR") || return 1
     
     # Generiere eindeutigen Mount-Point Namen
     local mount_point="${mount_base}/mount_$$_${RANDOM}"
@@ -100,7 +123,7 @@ get_log_folder() {
     if [[ "$_LOG_DIR_CREATED" == false ]]; then
         local log_dir="$(dirname "$log_filename")"
         if [[ ! -d "$log_dir" ]]; then
-            log_message "FEHLER: Log-Verzeichnis existiert nicht: $log_dir"
+            log_message "$MSG_ERROR_LOG_DIR_NOT_EXIST $log_dir"
             return 1
         fi
         log_message "$MSG_LOG_DIR_CREATED: $log_dir"
@@ -115,7 +138,7 @@ get_out_folder() {
     # Lazy Initialization: OUTPUT_DIR nur einmal prüfen
     if [[ "$_OUTPUT_DIR_CREATED" == false ]]; then
         if [[ ! -d "$OUTPUT_DIR" ]]; then
-            log_message "FEHLER: Ausgabeverzeichnis existiert nicht: $OUTPUT_DIR"
+            log_message "$MSG_ERROR_OUTPUT_DIR_NOT_EXIST $OUTPUT_DIR"
             return 1
         fi
         log_message "$MSG_OUTPUT_DIR_CREATED: $OUTPUT_DIR"
@@ -153,7 +176,7 @@ get_type_subfolder() {
     
     # Prüfe ob Verzeichnis existiert
     if [[ ! -d "$full_path" ]]; then
-        log_message "WARNUNG: Typ-Verzeichnis existiert nicht: $full_path"
+        log_message "$MSG_WARNING_TYPE_DIR_NOT_EXIST $full_path"
         # Versuche es anzulegen (Fallback)
         mkdir -p "$full_path" 2>/dev/null || return 1
     fi

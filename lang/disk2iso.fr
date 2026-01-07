@@ -1,0 +1,28 @@
+#!/bin/bash
+################################################################################
+# disk2iso - Fichier de langue française pour disk2iso.sh (script principal)
+# Filepath: disk2iso-lib/lang/disk2iso.fr
+#
+# Description:
+#   Messages pour le script principal
+#
+################################################################################
+
+# ============================================================================
+# DÉMARRAGE SYSTÈME
+# ============================================================================
+
+readonly MSG_ABORT_CRITICAL_DEPENDENCIES="ARRÊT: Dépendances critiques manquantes"
+readonly MSG_ABORT_SYSTEMINFO_DEPENDENCIES="ARRÊT: Dépendances System-Info manquantes"
+readonly MSG_MQTT_SUPPORT_ENABLED="Support MQTT activé"
+readonly MSG_MQTT_SUPPORT_DISABLED="Support MQTT désactivé ou non disponible"
+readonly MSG_MQTT_MODULE_NOT_INSTALLED="Module MQTT non installé"
+
+# ============================================================================
+# RÉPERTOIRE DE SORTIE
+# ============================================================================
+
+readonly MSG_ERROR_OUTPUT_DIR_NOT_EXIST_MAIN="ERREUR: Le répertoire de sortie n'existe pas:"
+readonly MSG_CONFIG_OUTPUT_DIR="Configurez DEFAULT_OUTPUT_DIR dans /opt/disk2iso/lib/config.sh"
+readonly MSG_ERROR_NO_WRITE_PERMISSION="ERREUR: Pas de droits d'écriture pour:"
+readonly MSG_FIX_PERMISSIONS="Exécutez: sudo chmod -R 777"

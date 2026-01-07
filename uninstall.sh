@@ -14,12 +14,19 @@
 
 set -e
 
-# Farben für Output
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-BLUE='\033[0;34m'
-NC='\033[0m' # No Color
+# Ermittle Script-Verzeichnis (auch wenn via sudo ausgeführt)
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# Lade Installation Library (Shared Utilities)
+# Wenn noch nicht installiert, nutze lokale Kopie
+if [[ -f "/opt/disk2iso/lib/lib-install.sh" ]]; then
+    source "/opt/disk2iso/lib/lib-install.sh"
+elif [[ -f "$SCRIPT_DIR/lib/lib-install.sh" ]]; then
+    source "$SCRIPT_DIR/lib/lib-install.sh"
+else
+    echo "FEHLER: lib/lib-install.sh nicht gefunden!"
+    exit 1
+fi
 
 # Installationspfade
 INSTALL_DIR="/opt/disk2iso"
@@ -34,71 +41,10 @@ if [[ -f "$SERVICE_FILE" ]]; then
 fi
 
 # ============================================================================
-# UTILITY FUNCTIONS
-# ============================================================================
-
-print_header() {
-    echo -e "\n${BLUE}========================================${NC}"
-    echo -e "${BLUE}$1${NC}"
-    echo -e "${BLUE}========================================${NC}\n"
-}
-
-print_success() {
-    echo -e "${GREEN}✓${NC} $1"
-}
-
-print_error() {
-    echo -e "${RED}✗${NC} $1"
-}
-
-print_warning() {
-    echo -e "${YELLOW}⚠${NC} $1"
-}
-
-print_info() {
-    echo -e "${BLUE}ℹ${NC} $1"
-}
-
-# Whiptail-Wrapper
-use_whiptail() {
-    command -v whiptail >/dev/null 2>&1
-}
-
-ask_yes_no() {
-    local question="$1"
-    local default="${2:-n}"
-    
-    if use_whiptail; then
-        if [[ "$default" == "y" ]]; then
-            whiptail --title "disk2iso Deinstallation" --yesno "$question" 10 60 --defaultno
-        else
-            whiptail --title "disk2iso Deinstallation" --yesno "$question" 10 60
-        fi
-        return $?
-    else
-        local answer
-        if [[ "$default" == "y" ]]; then
-            read -p "$question [J/n]: " answer
-            answer=${answer:-j}
-        else
-            read -p "$question [j/N]: " answer
-            answer=${answer:-n}
-        fi
-        [[ "$answer" =~ ^[jJyY]$ ]]
-    fi
-}
-
-# ============================================================================
 # CHECKS
 # ============================================================================
 
-check_root() {
-    if [[ $EUID -ne 0 ]]; then
-        print_error "Dieses Script muss als root ausgeführt werden"
-        echo "Bitte verwenden Sie: sudo $0"
-        exit 1
-    fi
-}
+# check_root() ist bereits in lib/lib-install.sh definiert
 
 # ============================================================================
 # WIZARD FUNCTIONS
@@ -106,12 +52,6 @@ check_root() {
 
 # Seite 1: Warnhinweis
 wizard_page_warning() {
-    local service_status=""
-    if [[ -f "$SERVICE_FILE" ]] || [[ -f "$WEB_SERVICE_FILE" ]]; then
-        service_status="
-• Systemd-Service(s) wird/werden gestoppt und entfernt"
-    fi
-    
     local output_info=""
     if [[ -n "$OUTPUT_DIR" ]] && [[ -d "$OUTPUT_DIR" ]]; then
         output_info="
@@ -123,7 +63,8 @@ Hinweis: Das Ausgabeverzeichnis ($OUTPUT_DIR) wird im nächsten Schritt abgefrag
 
 Was wird entfernt:
 • disk2iso Script und Bibliotheken ($INSTALL_DIR)
-• Symlink in /usr/local/bin${service_status}
+• Symlink in /usr/local/bin
+• Systemd-Service(s) (disk2iso.service und ggf. disk2iso-web.service)
 
 Sie verlieren die Möglichkeit zur automatisierten ISO-Erstellung von optischen Medien.${output_info}
 
@@ -335,7 +276,7 @@ disk2iso wurde vollständig vom System entfernt.
 
 Entfernte Komponenten:
 • disk2iso Script und Bibliotheken
-• Systemd-Service(s) (falls vorhanden)
+• Systemd-Service(s) (disk2iso.service und ggf. disk2iso-web.service)
 • Symlink in /usr/local/bin"
 
     if [[ -n "$OUTPUT_DIR" ]] && [[ ! -d "$OUTPUT_DIR" ]]; then

@@ -27,8 +27,9 @@ readonly MOUNTPOINTS_DIR=".temp/mountpoints"
 
 # Funktion: Ermittle Pfad für Daten-Discs (DATA)
 # Rückgabe: Vollständiger Pfad zu data/
+# Nutzt ensure_subfolder aus lib-folders.sh für konsistente Ordner-Verwaltung
 get_path_data() {
-    echo "${OUTPUT_DIR}/${DATA_DIR}"
+    ensure_subfolder "$DATA_DIR"
 }
 
 # ============================================================================
@@ -50,8 +51,8 @@ check_common_dependencies() {
     command -v eject >/dev/null 2>&1 || missing+=("eject")
     
     if [[ ${#missing[@]} -gt 0 ]]; then
-        echo "FEHLER: Kritische Tools fehlen: ${missing[*]}"
-        echo "Installation: apt-get install coreutils util-linux eject"
+        log_message "$MSG_ERROR_CRITICAL_TOOLS_MISSING ${missing[*]}"
+        log_message "$MSG_INSTALLATION_CORE_TOOLS"
         return 1
     fi
     
@@ -72,7 +73,93 @@ check_common_dependencies() {
 # HELPER FUNCTIONS
 # ============================================================================
 
-# Hinweis: check_disk_space() wurde nach lib-systeminfo.sh verschoben
+# Funktion: Berechne und logge Kopierfortschritt (zentral für alle Methoden)
+# Parameter: $1 = Aktuell kopierte Bytes
+#            $2 = Gesamtgröße in Bytes
+#            $3 = Start-Zeit (Unix-Timestamp)
+#            $4 = Log-Präfix (z.B. "DATA", "DVD", "BLURAY")
+# Rückgabe: Setzt $percent und $eta als lokale Variablen
+calculate_and_log_progress() {
+    local current_bytes=$1
+    local total_bytes=$2
+    local start_time=$3
+    local log_prefix=$4
+    
+    # Konvertiere zu MB für Anzeige
+    local current_mb=$((current_bytes / 1024 / 1024))
+    local total_mb=$((total_bytes / 1024 / 1024))
+    
+    # Initialisiere Ausgabewerte
+    percent=0
+    eta="--:--:--"
+    
+    # Berechne Prozent und ETA wenn möglich
+    if [[ $total_bytes -gt 0 ]] && [[ $current_bytes -gt 0 ]]; then
+        percent=$((current_bytes * 100 / total_bytes))
+        if [[ $percent -gt 100 ]]; then percent=100; fi
+        
+        # Berechne geschätzte Restzeit
+        local current_time=$(date +%s)
+        local total_elapsed=$((current_time - start_time))
+        if [[ $percent -gt 0 ]]; then
+            local estimated_total=$((total_elapsed * 100 / percent))
+            local remaining=$((estimated_total - total_elapsed))
+            local hours=$((remaining / 3600))
+            local minutes=$(((remaining % 3600) / 60))
+            local seconds=$((remaining % 60))
+            eta=$(printf "%02d:%02d:%02d" $hours $minutes $seconds)
+        fi
+        
+        # Log-Nachricht mit Präfix
+        log_message "${log_prefix} $MSG_PROGRESS: ${current_mb} $MSG_PROGRESS_MB $MSG_PROGRESS_OF ${total_mb} $MSG_PROGRESS_MB (${percent}%) - $MSG_REMAINING: ${eta}"
+        
+        # MQTT: Fortschritt senden
+        if [[ "$MQTT_SUPPORT" == "true" ]] && declare -f mqtt_publish_progress >/dev/null 2>&1; then
+            mqtt_publish_progress "$percent" "$current_mb" "$total_mb" "$eta"
+        fi
+        
+        # systemd-notify: Status aktualisieren (wenn verfügbar)
+        if command -v systemd-notify >/dev/null 2>&1; then
+            systemd-notify --status="${log_prefix}: ${current_mb} MB / ${total_mb} MB (${percent}%)" 2>/dev/null
+        fi
+    else
+        # Fallback: Nur kopierte Größe
+        log_message "${log_prefix} $MSG_PROGRESS: ${current_mb} $MSG_PROGRESS_MB $MSG_COPIED"
+    fi
+}
+
+# Funktion: Ermittle Disc-Größe mit isoinfo
+# Rückgabe: Setzt globale Variablen $volume_size (Blöcke), $total_bytes und $block_size
+#           Return-Code: 0 = Größe ermittelt, 1 = Keine Größe verfügbar
+get_disc_size() {
+    block_size=2048  # Fallback-Wert für optische Medien
+    volume_size=""
+    total_bytes=0
+    
+    if command -v isoinfo >/dev/null 2>&1; then
+        local isoinfo_output
+        isoinfo_output=$(isoinfo -d -i "$CD_DEVICE" 2>/dev/null)
+        
+        # Lese Block Size dynamisch aus (falls verfügbar)
+        local detected_block_size
+        detected_block_size=$(echo "$isoinfo_output" | grep -i "Logical block size is:" | awk '{print $5}')
+        if [[ -n "$detected_block_size" ]] && [[ "$detected_block_size" =~ ^[0-9]+$ ]]; then
+            block_size=$detected_block_size
+        fi
+        
+        # Lese Volume Size aus
+        volume_size=$(echo "$isoinfo_output" | grep "Volume size is:" | awk '{print $4}')
+        if [[ -n "$volume_size" ]] && [[ "$volume_size" =~ ^[0-9]+$ ]]; then
+            total_bytes=$((volume_size * block_size))
+            return 0
+        fi
+    fi
+    
+    # Keine Größe ermittelt
+    volume_size=""
+    total_bytes=0
+    return 1
+}
 
 # ============================================================================
 # DATA DISC COPY - DDRESCUE (für Daten-Discs)
@@ -87,15 +174,9 @@ copy_data_disc_ddrescue() {
     local mapfile="${iso_filename}.mapfile"
     
     # Ermittle Disc-Größe mit isoinfo
-    local volume_size=""
-    local total_bytes=0
-    
-    if command -v isoinfo >/dev/null 2>&1; then
-        volume_size=$(isoinfo -d -i "$CD_DEVICE" 2>/dev/null | grep "Volume size is:" | awk '{print $4}')
-        if [[ -n "$volume_size" ]] && [[ "$volume_size" =~ ^[0-9]+$ ]]; then
-            total_bytes=$((volume_size * 2048))
-            log_message "$MSG_ISO_VOLUME_DETECTED $volume_size $MSG_ISO_BLOCKS ($(( total_bytes / 1024 / 1024 )) $MSG_PROGRESS_MB)"
-        fi
+    get_disc_size
+    if [[ $total_bytes -gt 0 ]]; then
+        log_message "$MSG_ISO_VOLUME_DETECTED $volume_size $MSG_ISO_BLOCKS_SIZE 2048 $MSG_ISO_BYTES ($(( total_bytes / 1024 / 1024 )) $MSG_PROGRESS_MB)"
     fi
     
     # Prüfe Speicherplatz (ISO-Größe + 5% Puffer)
@@ -110,10 +191,13 @@ copy_data_disc_ddrescue() {
     
     # Kopiere mit ddrescue
     # Starte ddrescue im Hintergrund
+    # -b: Blockgröße (dynamisch ermittelt)
+    # -r: Retry-Count aus Konfiguration
+    # -n: No-scrape (erster Durchlauf ohne Retry)
     if [[ $total_bytes -gt 0 ]]; then
-        ddrescue -b 2048 -s "$total_bytes" -n "$CD_DEVICE" "$iso_filename" "$mapfile" &>>"$log_filename" &
+        ddrescue -b "$block_size" -r "$DDRESCUE_RETRIES" -s "$total_bytes" "$CD_DEVICE" "$iso_filename" "$mapfile" &>>"$log_filename" &
     else
-        ddrescue -b 2048 -n "$CD_DEVICE" "$iso_filename" "$mapfile" &>>"$log_filename" &
+        ddrescue -b "$block_size" -r "$DDRESCUE_RETRIES" "$CD_DEVICE" "$iso_filename" "$mapfile" &>>"$log_filename" &
     fi
     local ddrescue_pid=$!
     
@@ -129,42 +213,13 @@ copy_data_disc_ddrescue() {
         
         # Log alle 60 Sekunden
         if [[ $elapsed -ge 60 ]]; then
-            local copied_mb=0
+            local current_bytes=0
             if [[ -f "$iso_filename" ]]; then
-                local file_size=$(stat -c %s "$iso_filename" 2>/dev/null)
-                if [[ -n "$file_size" ]]; then
-                    copied_mb=$((file_size / 1024 / 1024))
-                fi
+                current_bytes=$(stat -c %s "$iso_filename" 2>/dev/null || echo 0)
             fi
             
-            local percent=0
-            local eta="--:--:--"
-            
-            if [[ $total_bytes -gt 0 ]] && [[ $copied_mb -gt 0 ]]; then
-                local total_mb=$((total_bytes / 1024 / 1024))
-                percent=$((copied_mb * 100 / total_mb))
-                if [[ $percent -gt 100 ]]; then percent=100; fi
-                
-                # Berechne geschätzte Restzeit
-                local total_elapsed=$((current_time - start_time))
-                if [[ $percent -gt 0 ]]; then
-                    local estimated_total=$((total_elapsed * 100 / percent))
-                    local remaining=$((estimated_total - total_elapsed))
-                    local hours=$((remaining / 3600))
-                    local minutes=$(((remaining % 3600) / 60))
-                    local seconds=$((remaining % 60))
-                    eta=$(printf "%02d:%02d:%02d" $hours $minutes $seconds)
-                fi
-                
-                log_message "$MSG_DATA_PROGRESS: ${copied_mb} $MSG_PROGRESS_MB / ${total_mb} $MSG_PROGRESS_MB (${percent}%) - $MSG_REMAINING: ${eta}"
-                
-                # MQTT: Fortschritt senden
-                if [[ "$MQTT_SUPPORT" == "true" ]] && declare -f mqtt_publish_progress >/dev/null 2>&1; then
-                    mqtt_publish_progress "$percent" "$copied_mb" "$total_mb" "$eta"
-                fi
-            else
-                log_message "$MSG_DATA_PROGRESS: ${copied_mb} $MSG_PROGRESS_MB $MSG_COPIED"
-            fi
+            # Nutze zentrale Fortschrittsberechnung
+            calculate_and_log_progress "$current_bytes" "$total_bytes" "$start_time" "$MSG_DATA_PROGRESS"
             
             last_log_time=$current_time
         fi
@@ -194,36 +249,29 @@ copy_data_disc_ddrescue() {
 # Nutzt isoinfo (falls verfügbar) um exakte Volume-Größe zu ermitteln
 # Sendet Fortschritt via systemd-notify für Service-Betrieb
 copy_data_disc() {
-    local block_size=2048
-    local volume_size=""
-    local total_bytes=0
-    
     # Versuche Volume-Größe mit isoinfo zu ermitteln
-    if command -v isoinfo >/dev/null 2>&1; then
-        volume_size=$(isoinfo -d -i "$CD_DEVICE" 2>/dev/null | grep "Volume size is:" | awk '{print $4}')
+    get_disc_size
+    
+    if [[ $total_bytes -gt 0 ]]; then
+        log_message "$MSG_ISO_VOLUME_DETECTED $volume_size $MSG_ISO_BLOCKS_SIZE $block_size $MSG_ISO_BYTES ($(( total_bytes / 1024 / 1024 )) $MSG_PROGRESS_MB)"
         
-        if [[ -n "$volume_size" ]] && [[ "$volume_size" =~ ^[0-9]+$ ]]; then
-            total_bytes=$((volume_size * block_size))
-            log_message "$MSG_ISO_VOLUME_DETECTED $volume_size $MSG_ISO_BLOCKS_SIZE $block_size $MSG_ISO_BYTES ($(( total_bytes / 1024 / 1024 )) $MSG_PROGRESS_MB)"
-            
-            # Prüfe Speicherplatz (ISO-Größe + 5% Puffer)
-            local size_mb=$((total_bytes / 1024 / 1024))
-            local required_mb=$((size_mb + size_mb * 5 / 100))
-            if ! check_disk_space "$required_mb"; then
-                return 1
-            fi
-            
-            # Starte dd im Hintergrund
-            dd if="$CD_DEVICE" of="$iso_filename" bs="$block_size" count="$volume_size" conv=noerror,sync status=progress 2>>"$log_filename" &
-            local dd_pid=$!
-            
-            # Überwache Fortschritt und sende systemd-notify Status
-            monitor_copy_progress "$dd_pid" "$total_bytes"
-            
-            # Warte auf dd und hole Exit-Code
-            wait "$dd_pid"
-            return $?
+        # Prüfe Speicherplatz (ISO-Größe + 5% Puffer)
+        local size_mb=$((total_bytes / 1024 / 1024))
+        local required_mb=$((size_mb + size_mb * 5 / 100))
+        if ! check_disk_space "$required_mb"; then
+            return 1
         fi
+        
+        # Starte dd im Hintergrund
+        dd if="$CD_DEVICE" of="$iso_filename" bs="$block_size" count="$volume_size" conv=noerror,sync status=progress 2>>"$log_filename" &
+        local dd_pid=$!
+        
+        # Überwache Fortschritt und sende systemd-notify Status
+        monitor_copy_progress "$dd_pid" "$total_bytes"
+        
+        # Warte auf dd und hole Exit-Code
+        wait "$dd_pid"
+        return $?
     fi
     
     # Fallback: Kopiere komplette Disc (ohne Fortschrittsanzeige, da Größe unbekannt)
@@ -235,34 +283,22 @@ copy_data_disc() {
     fi
 }
 
-# Hilfsfunktion: Überwacht Kopierfortschritt und sendet systemd-notify
+# Hilfsfunktion: Überwacht Kopierfortschritt für dd-Methode
 monitor_copy_progress() {
     local dd_pid=$1
     local total_bytes=$2
-    local total_mb=$((total_bytes / 1024 / 1024))
-    
-    # Prüfe ob systemd-notify verfügbar ist
-    local has_systemd_notify=false
-    command -v systemd-notify >/dev/null 2>&1 && has_systemd_notify=true
+    local start_time=$(date +%s)
+    local last_log_mb=0
     
     while kill -0 "$dd_pid" 2>/dev/null; do
         if [[ -f "$iso_filename" ]]; then
             local current_bytes=$(stat -c%s "$iso_filename" 2>/dev/null || echo 0)
             local current_mb=$((current_bytes / 1024 / 1024))
-            local percent=0
-            
-            if [[ $total_bytes -gt 0 ]]; then
-                percent=$((current_bytes * 100 / total_bytes))
-            fi
-            
-            # Sende Status an systemd (wenn verfügbar)
-            if $has_systemd_notify; then
-                systemd-notify --status="Kopiere: ${current_mb} MB / ${total_mb} MB (${percent}%)" 2>/dev/null
-            fi
             
             # Log-Eintrag alle 500 MB
-            if (( current_mb % 500 == 0 )) && (( current_mb > 0 )); then
-                log_message "$MSG_PROGRESS ${current_mb} $MSG_PROGRESS_OF ${total_mb} $MSG_PROGRESS_MB (${percent}$MSG_PROGRESS_PERCENT)"
+            if (( current_mb >= last_log_mb + 500 )); then
+                calculate_and_log_progress "$current_bytes" "$total_bytes" "$start_time" "$MSG_DATA_PROGRESS"
+                last_log_mb=$current_mb
             fi
         fi
         
@@ -270,7 +306,7 @@ monitor_copy_progress() {
     done
     
     # Abschluss-Status
-    if $has_systemd_notify; then
+    if command -v systemd-notify >/dev/null 2>&1; then
         systemd-notify --status="Kopiervorgang abgeschlossen" 2>/dev/null
     fi
 }
@@ -327,7 +363,11 @@ cleanup_disc_operation() {
     
     # 3. Disc auswerfen (immer)
     if [[ -b "$CD_DEVICE" ]]; then
-        eject "$CD_DEVICE" 2>/dev/null
+        if eject "$CD_DEVICE" 2>/dev/null; then
+            log_message "$MSG_DISC_EJECTED"
+        else
+            log_message "$MSG_EJECT_FAILED"
+        fi
         
         # In Container-Umgebungen: Warte auf manuellen Medium-Wechsel
         if [[ "$status" == "success" ]]; then

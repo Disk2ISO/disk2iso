@@ -24,13 +24,8 @@ readonly LANGUAGE="de"
 # ============================================================================
 
 # Standard-Ausgabeverzeichnis (wird bei Installation konfiguriert)
-# Kann per -o Parameter überschrieben werden
+# Wird vom Service ausschließlich aus dieser Datei gelesen
 DEFAULT_OUTPUT_DIR="/srv/iso"
-
-# Proxmox Host für eject in LXC (optional, nur für LXC-Umgebungen)
-# Beispiel: PROXMOX_HOST="root@192.168.1.100"
-# Leer lassen für native Hardware
-PROXMOX_HOST=""
 
 # ============================================================================
 # MQTT KONFIGURATION (Home Assistant Integration)
@@ -52,6 +47,32 @@ MQTT_CLIENT_ID="disk2iso-${HOSTNAME}"
 # MQTT Publish-Einstellungen
 MQTT_QOS=0                  # Quality of Service (0, 1, 2)
 MQTT_RETAIN=true            # Retain-Flag (true/false)
+
+# ============================================================================
+# AUDIO-CD ENCODING EINSTELLUNGEN
+# ============================================================================
+
+# MP3 Qualität (lame -V Parameter)
+# 0 = beste Qualität (~245 kbps), 2 = hohe Qualität (~190 kbps), 4 = mittlere Qualität (~165 kbps)
+MP3_QUALITY=2
+
+# ============================================================================
+# KOPIER-PARAMETER
+# ============================================================================
+
+# ddrescue Einstellungen (für beschädigte Discs)
+DDRESCUE_RETRIES=1          # Wiederholungen bei Lesefehlern (-r Parameter)
+
+# Hinweis: Blockgröße wird dynamisch ermittelt (Standard: 2048 für optische Medien)
+# Hinweis: dd conv=noerror,sync bleibt hardcoded (wichtig für Datenintegrität)
+
+# ============================================================================
+# HARDWARE-ERKENNUNG
+# ============================================================================
+
+# USB-Laufwerk Erkennung
+USB_DRIVE_DETECTION_ATTEMPTS=5  # Anzahl Versuche
+USB_DRIVE_DETECTION_DELAY=10    # Sekunden zwischen Versuchen
 
 # ============================================================================
 # GLOBALE VARIABLEN

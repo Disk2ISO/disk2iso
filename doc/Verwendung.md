@@ -1,96 +1,22 @@
 # Verwendung
 
-Praktische Anleitung zur Nutzung von disk2iso im Script- und Service-Modus.
+Praktische Anleitung zur Nutzung von disk2iso im Service-Modus.
 
 ## Inhaltsverzeichnis
 
-1. [Script-Modus](#script-modus)
-2. [Service-Modus](#service-modus)
+1. [Service-Modus](#service-modus)
+2. [Web-Interface](#web-interface)
 3. [Konfiguration](#konfiguration)
 4. [Ausgabe-Struktur](#ausgabe-struktur)
 5. [Disc-Typen](#disc-typen)
-6. [Debug-Modus](#debug-modus)
+6. [Logs & Monitoring](#logs--monitoring)
 7. [Tipps & Best Practices](#tipps--best-practices)
 
 ---
 
-## Script-Modus
-
-### Grundlegende Verwendung
-
-```bash
-# Einfacher Start (erfordert Ausgabeverzeichnis)
-sudo disk2iso -o /srv/disk2iso
-
-# Oder mit langer Option
-sudo disk2iso --output /srv/disk2iso
-
-# Im Hintergrund
-sudo disk2iso -o /srv/disk2iso &
-```
-
-**Hinweis**: Das Ausgabeverzeichnis **muss** immer angegeben werden.
-
-### Parameter
-
-| Parameter | Beschreibung |
-|-----------|-------------|
-| `-o DIR`, `--output DIR` | Ausgabeverzeichnis (erforderlich) |
-
-**Keine weiteren Parameter** verfügbar.
-
-### Workflow
-
-1. **Script starten**:
-   ```bash
-   sudo disk2iso -o /srv/disk2iso
-   ```
-   
-   **Ausgabe**:
-   ```
-   disk2iso gestartet
-   Ausgabeverzeichnis: /srv/disk2iso
-   Laufwerk erkannt: /dev/sr0
-   Überwache Laufwerk...
-   ```
-
-2. **Disc einlegen**: Audio-CD, DVD oder Blu-ray
-
-3. **Automatische Erkennung**:
-   ```
-   [INFO] Disc eingelegt
-   [INFO] Erkenne Disc-Typ... audio-cd
-   [INFO] Label: Greatest_Hits_2023
-   [INFO] Starte Archivierung...
-   ```
-
-4. **Fortschritt**:
-   ```
-   [INFO] Track 1/14: Song Title
-   [=====>                    ] 25% (3.2 MB/s, ETA 2:15)
-   ```
-
-5. **Abschluss**:
-   ```
-   [SUCCESS] Archivierung abgeschlossen
-   [INFO] Ausgabe: /srv/disk2iso/audio/Artist/Album
-   [INFO] Disc wird ausgeworfen...
-   ```
-
-6. **Nächste Disc**: Automatisch zurück zu "Warte auf Disc..."
-
-### Beenden
-
-```bash
-# Mit Strg+C
-^C
-[INFO] SIGINT empfangen, beende...
-[INFO] Cleanup abgeschlossen
-```
-
----
-
 ## Service-Modus
+
+disk2iso läuft ausschließlich als systemd Service und arbeitet vollautomatisch im Hintergrund.
 
 ### Automatischer Betrieb
 
@@ -126,18 +52,52 @@ sudo journalctl -u disk2iso.service -b
 sudo journalctl -u disk2iso.service -p err
 ```
 
-### Temporär pausieren
+### Service-Steuerung
 
 ```bash
 # Service stoppen
 sudo systemctl stop disk2iso
 
-# Disc manuell bearbeiten (direkter Aufruf)
-sudo /opt/disk2iso/disk2iso.sh -o /srv/disk2iso
-
-# Service wieder starten
+# Service starten
 sudo systemctl start disk2iso
+
+# Service neu starten
+sudo systemctl restart disk2iso
+
+# Service-Status prüfen
+sudo systemctl status disk2iso
 ```
+
+---
+
+## Web-Interface
+
+Das Web-Interface bietet eine komfortable Übersicht über den aktuellen Status von disk2iso.
+
+### Starten
+
+```bash
+# Web-Service starten
+sudo systemctl start disk2iso-web
+
+# Web-Service Status
+sudo systemctl status disk2iso-web
+```
+
+### Zugriff
+
+Öffne in deinem Browser: `http://<server-ip>:5000`
+
+Das Dashboard zeigt:
+- **Live-Status**: Aktueller Kopiervorgang mit Fortschritt
+- **Service-Status**: disk2iso Service läuft/gestoppt
+- **Speicherplatz**: Verfügbarer Platz im Ausgabeverzeichnis
+- **ISO-Archive**: Anzahl gespeicherter ISOs
+- **MQTT-Status**: Wenn aktiviert
+
+### Automatische Updates
+
+Das Web-Interface aktualisiert sich automatisch alle 5 Sekunden über die API.
 
 ---
 
@@ -145,16 +105,14 @@ sudo systemctl start disk2iso
 
 ### Eingebaute Konfiguration
 
-disk2iso hat **keine editierbare config.sh** mit Benutzeroptionen. Alle Einstellungen sind fest im Code integriert:
+disk2iso wird über `/opt/disk2iso/lib/config.sh` konfiguriert:
 
 #### Ausgabe-Verzeichnis
 
-**Festgelegt bei Installation** (via install.sh) oder per Parameter:
+Festgelegt in `config.sh`:
 
 ```bash
-# Manuelle Ausführung mit anderem Ausgabeverzeichnis
-sudo disk2iso -o /media/usb/archiv
-sudo disk2iso --output /mnt/nas/media
+DEFAULT_OUTPUT_DIR="/srv/disk2iso"
 ```
 
 **Standard-Installation**: `/srv/disk2iso`
@@ -162,12 +120,6 @@ sudo disk2iso --output /mnt/nas/media
 #### Laufwerk
 
 **Automatische Erkennung**: `/dev/sr0` (erstes optisches Laufwerk)
-
-```bash
-# Anderes Laufwerk nutzen
-sudo disk2iso -d /dev/sr1
-sudo disk2iso --device /dev/sr1
-```
 
 #### Module
 
@@ -502,24 +454,47 @@ temp/
 
 ## Debug-Modus
 
-### Aktivieren
+### Service-Logs ansehen
 
-Per **Umgebungsvariable** (vor dem Aufruf):
+Im Service-Modus werden alle Ausgaben ins systemd-Journal geschrieben:
 
 ```bash
-# Debug-Modus (detaillierte Ausgabe)
-DEBUG=1 sudo disk2iso -o /srv/disk2iso
+# Aktuelle Logs ansehen
+sudo journalctl -u disk2iso -n 50
 
-# Verbose-Modus (zeigt gelesene Zeilen)
-VERBOSE=1 sudo disk2iso -o /srv/disk2iso
+# Logs live verfolgen
+sudo journalctl -u disk2iso -f
 
-# Strict-Modus (Entwicklung, beendet bei Fehlern)
-STRICT=1 sudo disk2iso -o /srv/disk2iso
+# Logs seit letztem Boot
+sudo journalctl -u disk2iso -b
+
+# Logs mit Zeitstempel
+sudo journalctl -u disk2iso --since "1 hour ago"
+```
+
+### Debug-Level erhöhen
+
+In `/opt/disk2iso/lib/config.sh`:
+
+```bash
+# DEBUG-Modus aktivieren (detaillierte Ausgabe)
+DEBUG=1
+
+# VERBOSE-Modus (zeigt alle ausgeführten Befehle)
+VERBOSE=1
+
+# STRICT-Modus (beendet bei Fehlern)
+STRICT=1
+```
+
+Service nach Änderung neu starten:
+```bash
+sudo systemctl restart disk2iso
 ```
 
 ### DEBUG=1
 
-**Normale Ausgabe**:
+**Normale Ausgabe** (im Journal):
 ```
 [INFO] Disc-Typ: audio-cd
 [INFO] Starte cdparanoia...

@@ -27,11 +27,16 @@ git clone <repository-url>
 cd disk2iso
 sudo ./install.sh
 
-# Manuelle Nutzung
-sudo disk2iso -o /pfad/zum/ausgabe/verzeichnis
-
-# Als Service
+# Service starten
 sudo systemctl start disk2iso
+sudo systemctl start disk2iso-web
+
+# Service-Status prüfen
+sudo systemctl status disk2iso
+sudo systemctl status disk2iso-web
+
+# Logs ansehen
+sudo journalctl -u disk2iso -f
 ```
 
 ## 💿 Unterstützte Medientypen
@@ -117,16 +122,7 @@ Jede ISO-Datei erhält automatisch:
 
 ## 🛠️ Verwendung
 
-### Manueller Modus
-```bash
-# Einzelne Disc
-sudo disk2iso -o /media/nas/images
-
-# Mit Debug-Ausgabe
-DEBUG=1 sudo disk2iso -o /media/nas/images
-```
-
-### Service-Modus
+### Service-Modus (Standard)
 ```bash
 # Service starten
 sudo systemctl start disk2iso
@@ -136,43 +132,62 @@ sudo systemctl status disk2iso
 
 # Logs verfolgen
 sudo journalctl -u disk2iso -f
+
+# Service neustarten
+sudo systemctl restart disk2iso
 ```
 
 Im Service-Modus: Medium einlegen → automatische Archivierung → Auto-Eject
+
+### Web-Interface
+```bash
+# Web-Server starten
+sudo systemctl start disk2iso-web
+
+# Browser öffnen: http://localhost:5000
+```
 
 ## 🗂️ Projekt-Struktur
 
 ```
 disk2iso/
-├── disk2iso.sh              # Hauptskript
-├── install.sh               # 8-Seiten Wizard
-├── uninstall.sh             # 4-Seiten Wizard
-└── disk2iso-lib/
-    ├── config.sh            # Konfiguration
-    ├── lib-common.sh        # Kern (Daten-Discs)
-    ├── lib-cd.sh            # Audio-CD (optional)
-    ├── lib-dvd.sh           # Video-DVD (optional)
-    ├── lib-bluray.sh        # Blu-ray (optional)
-    ├── lib-*.sh             # Weitere Kern-Module
-    ├── lang/*.de            # Deutsche Sprachdateien
-    └── docu/                # Ausführliche Dokumentation
+├── disk2iso.sh              # Hauptskript (Service-Modus)
+├── install.sh               # Installations-Wizard
+├── uninstall.sh             # Deinstallations-Wizard
+├── lib/
+│   ├── config.sh            # Konfiguration
+│   ├── lib-common.sh        # Kern (Daten-Discs)
+│   ├── lib-cd.sh            # Audio-CD (optional)
+│   ├── lib-dvd.sh           # Video-DVD (optional)
+│   ├── lib-bluray.sh        # Blu-ray (optional)
+│   ├── lib-install.sh       # Shared Installer-Funktionen
+│   └── lib-*.sh             # Weitere Kern-Module
+├── lang/
+│   ├── *.de                 # Deutsche Sprachdateien
+│   └── *.en                 # Englische Sprachdateien
+├── www/
+│   ├── app.py               # Flask Web-App
+│   └── templates/           # HTML Templates
+├── service/
+│   ├── disk2iso.service     # systemd Service
+│   └── disk2iso-web.service # Web-Interface Service
+└── doc/                     # Ausführliche Dokumentation
 ```
 
 ## ⚙️ Konfiguration
 
-Bearbeite `disk2iso-lib/config.sh`:
+Bearbeite `/opt/disk2iso/lib/config.sh`:
 
 ```bash
+DEFAULT_OUTPUT_DIR="/media/iso"  # Ausgabeverzeichnis
 LANGUAGE="de"                    # Sprache (de oder en)
+MQTT_ENABLED=false               # MQTT Integration
+MQTT_BROKER="192.168.20.10"      # MQTT Broker IP
 ```
 
-**Hinweis:** OUTPUT_DIR wird als Parameter übergeben (`-o /pfad`), nicht in config.sh konfiguriert.
-
-## 🧪 Debug-Modi
-
+**Wichtig:** Nach Änderungen Service neu starten:
 ```bash
-DEBUG=1 ./disk2iso.sh           # Zeigt alle ausgeführten Befehle
-STRICT=1 ./disk2iso.sh          # Stoppt bei erstem Fehler
+sudo systemctl restart disk2iso
 DEBUG=1 STRICT=1 ./disk2iso.sh  # Kombiniert
 ```
 
@@ -337,11 +352,19 @@ sudo systemctl start disk2iso
 
 ## 💻 Verwendung
 
-### Manueller Modus
+### Service-Modus (Standard)
+
+disk2iso läuft ausschließlich als systemd-Service:
 
 ```bash
-# Mit Ausgabeverzeichnis
-sudo ./disk2iso.sh -o /mnt/hdd/nas/images
+# Service steuern
+sudo systemctl start disk2iso
+sudo systemctl stop disk2iso
+sudo systemctl status disk2iso
+sudo systemctl restart disk2iso
+
+# Logs anzeigen
+sudo journalctl -u disk2iso -f
 ```
 
 **Automatisches Verhalten:**
@@ -356,43 +379,48 @@ sudo ./disk2iso.sh -o /mnt/hdd/nas/images
 5. MD5-Checksumme erstellen
 6. Medium auswerfen
 
-### Debug-Modi
+### Web-Interface
+
+Überwachung und Verwaltung im Browser:
 
 ```bash
-# Debug-Modus (zeigt jede ausgeführte Zeile):
-DEBUG=1 ./disk2iso.sh
+# Web-Server starten
+sudo systemctl start disk2iso-web
 
-# Strict-Modus (stoppt bei Fehlern):
-STRICT=1 ./disk2iso.sh
-
-# Kombiniert:
-DEBUG=1 STRICT=1 ./disk2iso.sh
-```
-
-### Service-Modus
-
-```bash
-sudo systemctl start disk2iso
-sudo systemctl status disk2iso
-sudo systemctl stop disk2iso
+# Browser öffnen
+http://localhost:5000
 ```
 
 ## 📋 Ausgabe
 
-- ISO-Dateien: `/mnt/hdd/nas/images/`
+Das Ausgabeverzeichnis wird in `/opt/disk2iso/lib/config.sh` konfiguriert (Variable `DEFAULT_OUTPUT_DIR`).
+
+Standard-Struktur:
+- ISO-Dateien: `${DEFAULT_OUTPUT_DIR}/[audio|dvd|bd|data]/`
 - MD5-Checksummen: Gleicher Ordner wie ISO-Dateien (`.md5`)
-- Log-Dateien: `/mnt/hdd/nas/images/logs/`
+- Log-Dateien: `${DEFAULT_OUTPUT_DIR}/.log/`
+- Temporäre Dateien: `${DEFAULT_OUTPUT_DIR}/.temp/`
 
 ## ⚙️ Konfiguration
 
-Bearbeite `disk2iso-lib/config.sh`:
+Bearbeite `/opt/disk2iso/lib/config.sh`:
 
 ```bash
+# Ausgabeverzeichnis
+DEFAULT_OUTPUT_DIR="/media/iso"
+
 # Sprach-Einstellung
 LANGUAGE="de"                   # Sprache für Meldungen (de oder en)
+
+# MQTT-Konfiguration (optional)
+MQTT_ENABLED=false
+MQTT_BROKER="192.168.20.10"
 ```
 
-**Hinweis:** OUTPUT_DIR wird per Kommandozeilen-Parameter übergeben (`-o /pfad`), nicht in der Konfigurationsdatei.
+**Wichtig:** Das Ausgabeverzeichnis wird ausschließlich aus der Konfigurationsdatei gelesen. Nach Änderungen muss der Service neu gestartet werden:
+
+```bash
+sudo systemctl restart disk2iso
 
 ### Mehrsprachigkeit
 
@@ -504,10 +532,10 @@ disk2iso/
 - Klare Trennung der Funktionalitäten
 - Konsistente lowercase Ordnerstruktur
 
-## � Verzeichnisstruktur der Ausgabe
+## 📂 Verzeichnisstruktur der Ausgabe
 
 ```text
-output_dir/                  # -o Parameter beim Start
+${DEFAULT_OUTPUT_DIR}/       # Konfiguriert in /opt/disk2iso/lib/config.sh
 ├── audio/                   # Audio-CDs (nur mit lib-cd.sh)
 │   ├── artist_album.iso
 │   ├── artist_album.md5

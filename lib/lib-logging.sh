@@ -24,9 +24,10 @@ readonly LOG_DIR=".log"
 # ============================================================================
 
 # Funktion: Ermittle Pfad für Log-Dateien
-# Rückgabe: Vollständiger Pfad zu log/
+# Rückgabe: Vollständiger Pfad zu .log/
+# Nutzt ensure_subfolder aus lib-folders.sh für konsistente Ordner-Verwaltung
 get_path_log() {
-    echo "${OUTPUT_DIR}/${LOG_DIR}"
+    ensure_subfolder "$LOG_DIR"
 }
 
 # ============================================================================
@@ -58,7 +59,7 @@ load_module_language() {
         else
             # Keine Sprachdatei gefunden - Module funktionieren trotzdem
             if declare -f log_message >/dev/null 2>&1; then
-                log_message "WARNUNG: Keine Sprachdatei gefunden für: lib-${module_name}.${LANGUAGE}"
+                # Keine Warnung ausgeben - Bootstrap-Phase, log_message könnte $MSG_* verwenden
             fi
         fi
     fi
@@ -80,12 +81,20 @@ fi
 
 # Funktion für Logging (verwendet aktuelles log_filename)
 # Parameter: $1 = Nachricht zum Loggen
-# Ausgabe: Konsole + Optional log_filename (falls gesetzt)
+# Ausgabe: Nur log_filename (falls gesetzt) und systemd Journal
+# KEINE Konsolen-Ausgabe mehr - nur Service-Modus
 log_message() {
     local message="$(date '+%Y-%m-%d %H:%M:%S') - $1"
-    echo "$message"
+    
+    # Schreibe in Log-Datei (falls gesetzt)
     if [[ -n "$log_filename" ]]; then
         echo "$message" >> "$log_filename"
+    fi
+    
+    # Schreibe auch ins systemd Journal (erscheint in journalctl)
+    # Nutze logger falls verfügbar, sonst nur Datei
+    if command -v logger >/dev/null 2>&1; then
+        logger -t "disk2iso" "$1"
     fi
 }
 
