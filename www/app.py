@@ -304,6 +304,24 @@ def archive_page():
         version=version
     )
 
+@app.route('/logs')
+def logs_page():
+    """Log-Viewer-Seite"""
+    version = get_version()
+    
+    return render_template('logs.html',
+        version=version
+    )
+
+@app.route('/system')
+def system_page():
+    """System-Übersicht-Seite"""
+    version = get_version()
+    
+    return render_template('system.html',
+        version=version
+    )
+
 @app.route('/api/status')
 def api_status():
     """API-Endpoint für Status-Abfrage (AJAX)"""
@@ -407,6 +425,467 @@ def api_config():
             
         except Exception as e:
             return jsonify({'success': False, 'message': f'Fehler beim Speichern: {str(e)}'}), 500
+
+@app.route('/api/logs/current')
+def api_logs_current():
+    """API-Endpoint für aktuelles Log"""
+    try:
+        config = get_config()
+        output_dir = Path(config['output_dir'])
+        log_dir = output_dir / '.log'
+        
+        # Finde die neueste Log-Datei
+        log_files = []
+        if log_dir.exists():
+            log_files = sorted(log_dir.glob('*.log'), key=lambda p: p.stat().st_mtime, reverse=True)
+        
+        if not log_files:
+            return jsonify({
+                'success': True,
+                'logs': 'Keine Log-Dateien gefunden.',
+                'lines': 0
+            })
+        
+        # Lese die neueste Log-Datei (letzte 500 Zeilen)
+        latest_log = log_files[0]
+        with open(latest_log, 'r', encoding='utf-8', errors='replace') as f:
+            lines = f.readlines()
+            # Zeige die letzten 500 Zeilen
+            recent_lines = lines[-500:] if len(lines) > 500 else lines
+            log_content = ''.join(recent_lines)
+        
+        return jsonify({
+            'success': True,
+            'logs': log_content,
+            'lines': len(recent_lines),
+            'filename': latest_log.name
+        })
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'message': f'Fehler beim Lesen des Logs: {str(e)}',
+            'logs': '',
+            'lines': 0
+        })
+
+@app.route('/api/logs/system')
+def api_logs_system():
+    """API-Endpoint für System-Log (journalctl)"""
+    try:
+        # Lese die letzten 200 Zeilen aus journalctl für disk2iso Service
+        result = subprocess.run(
+            ['journalctl', '-u', 'disk2iso', '-n', '200', '--no-pager'],
+            capture_output=True,
+            text=True,
+            timeout=5
+        )
+        
+        if result.returncode == 0:
+            return jsonify({
+                'success': True,
+                'logs': result.stdout,
+                'lines': len(result.stdout.split('\n'))
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'message': 'journalctl nicht verfügbar oder Fehler',
+                'logs': result.stderr or 'Keine Ausgabe',
+                'lines': 0
+            })
+    except subprocess.TimeoutExpired:
+        return jsonify({
+            'success': False,
+            'message': 'Timeout beim Laden des System-Logs',
+            'logs': '',
+            'lines': 0
+        })
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'message': f'Fehler beim Lesen des System-Logs: {str(e)}',
+            'logs': '',
+            'lines': 0
+        })
+
+@app.route('/api/logs/archived')
+def api_logs_archived():
+    """API-Endpoint für Liste der archivierten Log-Dateien"""
+    try:
+        config = get_config()
+        output_dir = Path(config['output_dir'])
+        log_dir = output_dir / '.log'
+        
+        if not log_dir.exists():
+            return jsonify({
+                'success': True,
+                'files': []
+            })
+        
+        # Sammle alle Log-Dateien
+        log_files = []
+        for log_file in sorted(log_dir.glob('*.log'), key=lambda p: p.stat().st_mtime, reverse=True):
+            stat = log_file.stat()
+            log_files.append({
+                'name': log_file.name,
+                'size': stat.st_size,
+                'modified': datetime.fromtimestamp(stat.st_mtime).strftime('%Y-%m-%d %H:%M:%S')
+            })
+        
+        return jsonify({
+            'success': True,
+            'files': log_files
+        })
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'message': f'Fehler beim Lesen der Log-Dateien: {str(e)}',
+            'files': []
+        })
+
+@app.route('/api/logs/archived/<filename>')
+def api_logs_archived_file(filename):
+    """API-Endpoint für eine spezifische archivierte Log-Datei"""
+    try:
+        # Sicherheitscheck: Nur .log Dateien erlauben und keine Pfad-Traversierung
+        if not filename.endswith('.log') or '/' in filename or '\\' in filename or '..' in filename:
+            return jsonify({
+                'success': False,
+                'message': 'Ungültiger Dateiname',
+                'logs': '',
+                'lines': 0
+            }), 400
+        
+        config = get_config()
+        output_dir = Path(config['output_dir'])
+        log_dir = output_dir / '.log'
+        log_file = log_dir / filename
+        
+        if not log_file.exists() or not log_file.is_file():
+            return jsonify({
+                'success': False,
+                'message': 'Log-Datei nicht gefunden',
+                'logs': '',
+                'lines': 0
+            }), 404
+        
+        # Lese die Log-Datei (letzte 1000 Zeilen)
+        with open(log_file, 'r', encoding='utf-8', errors='replace') as f:
+            lines = f.readlines()
+            # Zeige die letzten 1000 Zeilen
+            recent_lines = lines[-1000:] if len(lines) > 1000 else lines
+            log_content = ''.join(recent_lines)
+        
+        return jsonify({
+            'success': True,
+            'logs': log_content,
+            'lines': len(recent_lines),
+            'filename': filename
+        })
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'message': f'Fehler beim Lesen der Log-Datei: {str(e)}',
+            'logs': '',
+            'lines': 0
+        })
+
+def get_command_version(command, args=None):
+    """Holt Version eines Kommandozeilen-Tools"""
+    try:
+        cmd = [command]
+        if args:
+            cmd.extend(args if isinstance(args, list) else [args])
+        
+        result = subprocess.run(
+            cmd,
+            capture_output=True,
+            text=True,
+            timeout=3
+        )
+        
+        output = result.stdout + result.stderr
+        # Extrahiere Version aus Ausgabe
+        import re
+        version_match = re.search(r'(\d+\.[\d.]+)', output)
+        if version_match:
+            return version_match.group(1)
+        return 'Installiert'
+    except:
+        return None
+
+def get_package_version(package_name):
+    """Holt installierte Version eines Debian-Pakets"""
+    try:
+        result = subprocess.run(
+            ['dpkg', '-s', package_name],
+            capture_output=True,
+            text=True,
+            timeout=2
+        )
+        
+        if result.returncode == 0:
+            for line in result.stdout.split('\n'):
+                if line.startswith('Version:'):
+                    version = line.split(':', 1)[1].strip()
+                    # Kürze Debian-Versionsnummern
+                    if '-' in version:
+                        version = version.split('-')[0]
+                    if '+' in version:
+                        version = version.split('+')[0]
+                    return version
+        return None
+    except:
+        return None
+
+def get_available_package_version(package_name):
+    """Holt verfügbare Version eines Pakets aus den Repositories"""
+    try:
+        result = subprocess.run(
+            ['apt-cache', 'policy', package_name],
+            capture_output=True,
+            text=True,
+            timeout=3
+        )
+        
+        if result.returncode == 0:
+            for line in result.stdout.split('\n'):
+                if 'Candidate:' in line:
+                    version = line.split(':', 1)[1].strip()
+                    if version and version != '(none)':
+                        # Kürze Debian-Versionsnummern
+                        if '-' in version:
+                            version = version.split('-')[0]
+                        if '+' in version:
+                            version = version.split('+')[0]
+                        return version
+        return 'Unbekannt'
+    except:
+        return 'Unbekannt'
+
+def check_software_versions():
+    """Sammelt alle Software-Versionen"""
+    software_list = []
+    
+    # Audio-CD Tools
+    software_list.extend([
+        {
+            'name': 'cdparanoia',
+            'display_name': 'cdparanoia',
+            'package': 'cdparanoia',
+            'version_cmd': ['cdparanoia', '--version']
+        },
+        {
+            'name': 'abcde',
+            'display_name': 'abcde',
+            'package': 'abcde',
+            'version_cmd': ['abcde', '-v']
+        },
+        {
+            'name': 'lame',
+            'display_name': 'LAME MP3 Encoder',
+            'package': 'lame',
+            'version_cmd': ['lame', '--version']
+        },
+        {
+            'name': 'flac',
+            'display_name': 'FLAC',
+            'package': 'flac',
+            'version_cmd': ['flac', '--version']
+        },
+        {
+            'name': 'vorbis-tools',
+            'display_name': 'Vorbis Tools',
+            'package': 'vorbis-tools',
+            'version_cmd': None  # Package version only
+        }
+    ])
+    
+    # DVD/Blu-ray Tools
+    software_list.extend([
+        {
+            'name': 'makemkv',
+            'display_name': 'MakeMKV',
+            'package': 'makemkv-bin',
+            'version_cmd': ['makemkvcon', '--version']
+        },
+        {
+            'name': 'dvdbackup',
+            'display_name': 'dvdbackup',
+            'package': 'dvdbackup',
+            'version_cmd': None
+        },
+        {
+            'name': 'libbluray',
+            'display_name': 'libbluray',
+            'package': 'libbluray2',
+            'version_cmd': None
+        }
+    ])
+    
+    # System Tools
+    software_list.extend([
+        {
+            'name': 'ddrescue',
+            'display_name': 'GNU ddrescue',
+            'package': 'gddrescue',
+            'version_cmd': ['ddrescue', '--version']
+        },
+        {
+            'name': 'wodim',
+            'display_name': 'wodim',
+            'package': 'wodim',
+            'version_cmd': ['wodim', '--version']
+        },
+        {
+            'name': 'genisoimage',
+            'display_name': 'genisoimage',
+            'package': 'genisoimage',
+            'version_cmd': ['genisoimage', '--version']
+        },
+        {
+            'name': 'isoinfo',
+            'display_name': 'isoinfo',
+            'package': 'genisoimage',
+            'version_cmd': ['isoinfo', '--version']
+        }
+    ])
+    
+    # Sammle Versionen
+    results = []
+    for soft in software_list:
+        installed_version = None
+        available_version = 'Unbekannt'
+        
+        # Versuche Paket-Version
+        if soft['package']:
+            installed_version = get_package_version(soft['package'])
+            available_version = get_available_package_version(soft['package'])
+        
+        # Falls kein Paket oder Kommando angegeben, versuche Command-Version
+        if not installed_version and soft['version_cmd']:
+            installed_version = get_command_version(soft['version_cmd'][0], 
+                                                    soft['version_cmd'][1:] if len(soft['version_cmd']) > 1 else None)
+        
+        # Prüfe ob Update verfügbar
+        update_available = False
+        if installed_version and available_version and available_version != 'Unbekannt':
+            try:
+                # Einfacher String-Vergleich
+                if installed_version != available_version:
+                    update_available = True
+            except:
+                pass
+        
+        results.append({
+            'name': soft['name'],
+            'display_name': soft['display_name'],
+            'installed_version': installed_version,
+            'available_version': available_version,
+            'update_available': update_available
+        })
+    
+    return results
+
+def get_os_info():
+    """Sammelt Betriebssystem-Informationen"""
+    info = {
+        'distribution': 'Unbekannt',
+        'version': 'Unbekannt',
+        'kernel': 'Unbekannt',
+        'architecture': 'Unbekannt',
+        'hostname': 'Unbekannt',
+        'uptime': 'Unbekannt'
+    }
+    
+    try:
+        # Distribution und Version
+        if os.path.exists('/etc/os-release'):
+            with open('/etc/os-release', 'r') as f:
+                for line in f:
+                    if line.startswith('NAME='):
+                        info['distribution'] = line.split('=', 1)[1].strip().strip('"')
+                    elif line.startswith('VERSION='):
+                        info['version'] = line.split('=', 1)[1].strip().strip('"')
+        
+        # Kernel
+        result = subprocess.run(['uname', '-r'], capture_output=True, text=True, timeout=1)
+        if result.returncode == 0:
+            info['kernel'] = result.stdout.strip()
+        
+        # Architektur
+        result = subprocess.run(['uname', '-m'], capture_output=True, text=True, timeout=1)
+        if result.returncode == 0:
+            info['architecture'] = result.stdout.strip()
+        
+        # Hostname
+        result = subprocess.run(['hostname'], capture_output=True, text=True, timeout=1)
+        if result.returncode == 0:
+            info['hostname'] = result.stdout.strip()
+        
+        # Uptime
+        result = subprocess.run(['uptime', '-p'], capture_output=True, text=True, timeout=1)
+        if result.returncode == 0:
+            info['uptime'] = result.stdout.strip().replace('up ', '')
+    
+    except Exception as e:
+        print(f"Fehler beim Sammeln der OS-Infos: {e}", file=sys.stderr)
+    
+    return info
+
+def get_disk2iso_info():
+    """Sammelt disk2iso-spezifische Informationen"""
+    info = {
+        'version': get_version(),
+        'service_status': 'unknown',
+        'install_path': str(INSTALL_DIR),
+        'python_version': 'Unbekannt'
+    }
+    
+    try:
+        # Service Status
+        if get_service_status():
+            info['service_status'] = 'active'
+        else:
+            result = subprocess.run(
+                ['systemctl', 'is-active', 'disk2iso'],
+                capture_output=True,
+                text=True,
+                timeout=2
+            )
+            info['service_status'] = result.stdout.strip()
+        
+        # Python Version
+        result = subprocess.run(
+            [sys.executable, '--version'],
+            capture_output=True,
+            text=True,
+            timeout=1
+        )
+        if result.returncode == 0:
+            info['python_version'] = result.stdout.strip().replace('Python ', '')
+    
+    except Exception as e:
+        print(f"Fehler beim Sammeln der disk2iso-Infos: {e}", file=sys.stderr)
+    
+    return info
+
+@app.route('/api/system')
+def api_system():
+    """API-Endpoint für System-Informationen"""
+    try:
+        return jsonify({
+            'success': True,
+            'os': get_os_info(),
+            'disk2iso': get_disk2iso_info(),
+            'software': check_software_versions(),
+            'timestamp': datetime.now().isoformat()
+        })
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'message': f'Fehler beim Sammeln der Systeminformationen: {str(e)}'
+        }), 500
 
 @app.route('/health')
 def health():

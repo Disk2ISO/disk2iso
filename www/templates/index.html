@@ -10,7 +10,7 @@
     <div class="app-container">
         <!-- Header -->
         <div class="header">
-            <h1>🎛️ disk2iso</h1>
+            <h1><img src="{{ url_for('static', filename='img/control.svg') }}" alt="" style="width:28px;height:28px;vertical-align:middle;margin-right:8px;">disk2iso</h1>
         </div>
 
         <div class="main-wrapper">
@@ -20,19 +20,31 @@
                     <ul class="nav-menu">
                         <li>
                             <a href="/" class="active">
-                                <span class="nav-icon">🏠</span>
+                                <span class="nav-icon"><img src="{{ url_for('static', filename='img/home.svg') }}" alt="Home"></span>
                                 <span>Home</span>
                             </a>
                         </li>
                         <li>
                             <a href="/archive">
-                                <span class="nav-icon">📚</span>
+                                <span class="nav-icon"><img src="{{ url_for('static', filename='img/archive.svg') }}" alt="Archiv"></span>
                                 <span>Archiv</span>
                             </a>
                         </li>
                         <li>
+                            <a href="/logs">
+                                <span class="nav-icon"><img src="{{ url_for('static', filename='img/logs.svg') }}" alt="Logs"></span>
+                                <span>Logs</span>
+                            </a>
+                        </li>
+                        <li>
+                            <a href="/system">
+                                <span class="nav-icon"><img src="{{ url_for('static', filename='img/system.svg') }}" alt="System"></span>
+                                <span>System</span>
+                            </a>
+                        </li>
+                        <li>
                             <a href="/config">
-                                <span class="nav-icon">⚙️</span>
+                                <span class="nav-icon"><img src="{{ url_for('static', filename='img/settings.svg') }}" alt="Konfiguration"></span>
                                 <span>Konfiguration</span>
                             </a>
                         </li>
@@ -46,7 +58,7 @@
                 <nav class="breadcrumb">
                     <ul class="breadcrumb-list">
                         <li>
-                            <a href="/">🏠 Home</a>
+                            <a href="/"><img src="{{ url_for('static', filename='img/home.svg') }}" alt="" style="width:16px;height:16px;vertical-align:middle;margin-right:4px;">Home</a>
                         </li>
                         <li class="breadcrumb-separator">></li>
                         <li class="current">Dashboard</li>
@@ -58,7 +70,7 @@
         <div class="status-grid">
             <!-- Live Ripping Status -->
             <div class="card live-status-card" id="live-status-card">
-                <h2>🎬 Live Status</h2>
+                <h2><img src="{{ url_for('static', filename='img/live.svg') }}" alt="" style="width:24px;height:24px;vertical-align:middle;margin-right:8px;">Live Status</h2>
                 <div class="info-row">
                     <span class="info-label">Aktueller Status</span>
                     <span class="info-value" id="live-status-text">
@@ -167,9 +179,9 @@
         </div>
     </div>
     
-    <script>
-        // Live-Daten Aktualisierung via AJAX
-        let updateInterval = null;
+    <script src="{{ url_for('static', filename='js/index.js') }}"></script>
+</body>
+</html>
         
         function updateLiveStatus() {
             fetch('/api/status')
@@ -275,8 +287,4 @@
         // Initialer Aufruf
         updateLiveStatus();
         
-        // Alle 5 Sekunden aktualisieren
-        updateInterval = setInterval(updateLiveStatus, 5000);
-    </script>
-</body>
-</html>
+

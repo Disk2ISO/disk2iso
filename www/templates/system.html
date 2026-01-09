@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>disk2iso - System</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Header -->
+        <div class="header">
+            <h1><img src="{{ url_for('static', filename='img/control.svg') }}" alt="" style="width:28px;height:28px;vertical-align:middle;margin-right:8px;">disk2iso</h1>
+        </div>
+
+        <div class="main-wrapper">
+            <!-- Sidebar Navigation -->
+            <aside class="sidebar">
+                <nav>
+                    <ul class="nav-menu">
+                        <li>
+                            <a href="/">
+                                <span class="nav-icon"><img src="{{ url_for('static', filename='img/home.svg') }}" alt="Home"></span>
+                                <span>Home</span>
+                            </a>
+                        </li>
+                        <li>
+                            <a href="/archive">
+                                <span class="nav-icon"><img src="{{ url_for('static', filename='img/archive.svg') }}" alt="Archiv"></span>
+                                <span>Archiv</span>
+                            </a>
+                        </li>
+                        <li>
+                            <a href="/logs">
+                                <span class="nav-icon"><img src="{{ url_for('static', filename='img/logs.svg') }}" alt="Logs"></span>
+                                <span>Logs</span>
+                            </a>
+                        </li>
+                        <li>
+                            <a href="/system" class="active">
+                                <span class="nav-icon"><img src="{{ url_for('static', filename='img/system.svg') }}" alt="System"></span>
+                                <span>System</span>
+                            </a>
+                        </li>
+                        <li>
+                            <a href="/config">
+                                <span class="nav-icon"><img src="{{ url_for('static', filename='img/settings.svg') }}" alt="Konfiguration"></span>
+                                <span>Konfiguration</span>
+                            </a>
+                        </li>
+                    </ul>
+                </nav>
+            </aside>
+
+            <!-- Content Area -->
+            <main class="content">
+                <!-- Breadcrumb -->
+                <nav class="breadcrumb">
+                    <ul class="breadcrumb-list">
+                        <li>
+                            <a href="/"><img src="{{ url_for('static', filename='img/home.svg') }}" alt="" style="width:16px;height:16px;vertical-align:middle;margin-right:4px;">Home</a>
+                        </li>
+                        <li>
+                            <span><img src="{{ url_for('static', filename='img/system.svg') }}" alt="" style="width:16px;height:16px;vertical-align:middle;margin-right:4px;">System</span>
+                        </li>
+                    </ul>
+                </nav>
+
+                <!-- Update Notice (conditional) -->
+                <div id="update-notice" style="display: none;" class="update-notice">
+                    <h3><img src="{{ url_for('static', filename='img/warning.svg') }}" alt="" style="width:22px;height:22px;vertical-align:middle;margin-right:8px;">Updates verfügbar</h3>
+                    <p id="update-message"></p>
+                </div>
+
+                <!-- System Information Grid -->
+                <div class="system-grid">
+                    <!-- OS Information -->
+                    <div class="card">
+                        <div class="category-header"><img src="{{ url_for('static', filename='img/linux.svg') }}" alt="" style="width:20px;height:20px;vertical-align:middle;margin-right:6px;">Betriebssystem</div>
+                        <div class="system-info-grid" id="os-info">
+                            <div class="info-item">
+                                <span class="info-label">Lade...</span>
+                                <span class="info-value"></span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- disk2iso Information -->
+                    <div class="card">
+                        <div class="category-header"><img src="{{ url_for('static', filename='img/dvd.svg') }}" alt="" style="width:20px;height:20px;vertical-align:middle;margin-right:6px;">disk2iso</div>
+                        <div class="system-info-grid" id="disk2iso-info">
+                            <div class="info-item">
+                                <span class="info-label">Lade...</span>
+                                <span class="info-value"></span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Software Versions -->
+                <div class="card">
+                    <h2>
+                        <img src="{{ url_for('static', filename='img/package.svg') }}" alt="" style="width:20px;height:20px;vertical-align:middle;margin-right:6px;">Installierte Software
+                        <button class="refresh-btn" onclick="refreshSystemInfo()" style="float: right;">
+                            <span id="refresh-icon"><img src="{{ url_for('static', filename='img/refresh.svg') }}" alt="" style="width:20px;height:20px;"></span>
+                            <span>Aktualisieren</span>
+                        </button>
+                    </h2>
+                    
+                    <div id="software-container">
+                        <p style="text-align: center; padding: 40px; color: #666;">
+                            Lade Systeminformationen...
+                        </p>
+                    </div>
+                </div>
+
+                <div class="footer">
+                    <p>disk2iso - Automatische ISO Erstellung von optischen Medien</p>
+                    <p style="margin-top: 5px; font-size: 0.9em;">© 2026 | Version {{ version }}</p>
+                </div>
+            </main>
+        </div>
+    </div>
+    
+    <script src="{{ url_for('static', filename='js/system.js') }}"></script>
+</body>
+</html>
+        
+        // Lade Systeminfos beim Start
+        window.addEventListener('load', function() {
+            loadSystemInfo();
+        });
+        
+        function loadSystemInfo() {
+            if (isRefreshing) return;
+            
+            fetch('/api/system')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        displayOsInfo(data.os);
+                        displayDisk2IsoInfo(data.disk2iso);
+                        displaySoftwareVersions(data.software);
+                        checkForUpdates(data.software);
+                    } else {
+                        showError('Fehler beim Laden der Systeminformationen');
+                    }
+                })
+                .catch(error => {
+                    console.error('Fehler:', error);
+                    showError('Fehler beim Laden der Systeminformationen: ' + error);
+                });
+        }
+        
+        function displayOsInfo(os) {
+            const container = document.getElementById('os-info');
+            container.innerHTML = `
+                <div class="info-item">
+                    <span class="info-label">Distribution</span>
+                    <span class="info-value">${os.distribution || 'Unbekannt'}</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">Version</span>
+                    <span class="info-value">${os.version || 'Unbekannt'}</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">Kernel</span>
+                    <span class="info-value">${os.kernel || 'Unbekannt'}</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">Architektur</span>
+                    <span class="info-value">${os.architecture || 'Unbekannt'}</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">Hostname</span>
+                    <span class="info-value">${os.hostname || 'Unbekannt'}</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">Uptime</span>
+                    <span class="info-value">${os.uptime || 'Unbekannt'}</span>
+                </div>
+            `;
+        }
+        
+        function displayDisk2IsoInfo(info) {
+            const container = document.getElementById('disk2iso-info');
+            const statusClass = info.service_status === 'active' ? 'status-ok' : 
+                              info.service_status === 'inactive' ? 'status-warning' : 'status-error';
+            
+            container.innerHTML = `
+                <div class="info-item">
+                    <span class="info-label">Version</span>
+                    <span class="info-value">${info.version || 'Unbekannt'}</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">Service Status</span>
+                    <span class="info-value">
+                        <span class="status-indicator-small ${statusClass}"></span>
+                        ${info.service_status || 'Unbekannt'}
+                    </span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">Installationspfad</span>
+                    <span class="info-value">${info.install_path || '/opt/disk2iso'}</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">Python Version</span>
+                    <span class="info-value">${info.python_version || 'Unbekannt'}</span>
+                </div>
+            `;
+        }
+        
+        function displaySoftwareVersions(software) {
+            const container = document.getElementById('software-container');
+            
+            // Gruppiere Software nach Kategorien
+            const categories = {
+                'Audio-CD Tools': software.filter(s => 
+                    ['cdparanoia', 'abcde', 'lame', 'flac', 'vorbis-tools'].includes(s.name)),
+                'DVD/Blu-ray Tools': software.filter(s => 
+                    ['makemkv', 'dvdbackup', 'libbluray', 'handbrake'].includes(s.name)),
+                'System Tools': software.filter(s => 
+                    ['ddrescue', 'gddrescue', 'wodim', 'genisoimage', 'isoinfo'].includes(s.name)),
+                'Sonstige': software.filter(s => 
+                    !['cdparanoia', 'abcde', 'lame', 'flac', 'vorbis-tools',
+                      'makemkv', 'dvdbackup', 'libbluray', 'handbrake',
+                      'ddrescue', 'gddrescue', 'wodim', 'genisoimage', 'isoinfo'].includes(s.name))
+            };
+            
+            let html = '';
+            
+            for (const [category, items] of Object.entries(categories)) {
+                if (items.length === 0) continue;
+                
+                html += `
+                    <div class="software-category">
+                        <h3>${category}</h3>
+                        <table class="software-table">
+                            <thead>
+                                <tr>
+                                    <th>Software</th>
+                                    <th>Installiert</th>
+                                    <th>Verfügbar</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                `;
+                
+                items.forEach(item => {
+                    const statusBadge = getStatusBadge(item);
+                    const availableVersion = item.available_version || 'Prüfung läuft...';
+                    
+                    html += `
+                        <tr>
+                            <td><strong>${item.display_name || item.name}</strong></td>
+                            <td>${item.installed_version || '<em>Nicht installiert</em>'}</td>
+                            <td>${availableVersion}</td>
+                            <td>${statusBadge}</td>
+                        </tr>
+                    `;
+                });
+                
+                html += `
+                            </tbody>
+                        </table>
+                    </div>
+                `;
+            }
+            
+            if (html === '') {
+                html = '<p style="text-align: center; padding: 40px; color: #666;">Keine Software-Informationen verfügbar</p>';
+            }
+            
+            container.innerHTML = html;
+        }
+        
+        function getStatusBadge(item) {
+            if (!item.installed_version) {
+                return '<span class="version-badge version-error"><img src="{{ url_for(\'static\', filename=\'img/close.svg\') }}" alt="" style="width:16px;height:16px;vertical-align:middle;margin-right:4px;">Nicht installiert</span>';
+            }
+            
+            if (!item.available_version || item.available_version === 'Unbekannt') {
+                return '<span class="version-badge version-unavailable"><img src="{{ url_for(\'static\', filename=\'img/help.svg\') }}" alt="" style="width:16px;height:16px;vertical-align:middle;margin-right:4px;">Unbekannt</span>';
+            }
+            
+            if (item.update_available) {
+                return '<span class="version-badge version-outdated"><img src="{{ url_for(\'static\', filename=\'img/warning.svg\') }}" alt="" style="width:16px;height:16px;vertical-align:middle;margin-right:4px;">Update verfügbar</span>';
+            }
+            
+            return '<span class="version-badge version-current"><img src="{{ url_for(\'static\', filename=\'img/check.svg\') }}" alt="" style="width:16px;height:16px;vertical-align:middle;margin-right:4px;">Aktuell</span>';
+        }
+        
+        function checkForUpdates(software) {
+            const outdated = software.filter(s => s.update_available);
+            const missing = software.filter(s => !s.installed_version);
+            
+            if (outdated.length === 0 && missing.length === 0) {
+                document.getElementById('update-notice').style.display = 'none';
+                return;
+            }
+            
+            let message = '';
+            
+            if (outdated.length > 0) {
+                message += `<strong>${outdated.length} Update(s) verfügbar:</strong><br>`;
+                message += '<ul style="margin: 10px 0;">';
+                outdated.forEach(s => {
+                    message += `<li><strong>${s.display_name || s.name}:</strong> ${s.installed_version} → ${s.available_version}</li>`;
+                });
+                message += '</ul>';
+            }
+            
+            if (missing.length > 0) {
+                message += `<strong>${missing.length} fehlende Software:</strong><br>`;
+                message += '<ul style="margin: 10px 0;">';
+                missing.forEach(s => {
+                    message += `<li>${s.display_name || s.name}</li>`;
+                });
+                message += '</ul>';
+            }
+            
+            document.getElementById('update-message').innerHTML = message;
+            document.getElementById('update-notice').style.display = 'block';
+        }
+        
+        function refreshSystemInfo() {
+            if (isRefreshing) return;
+            
+            isRefreshing = true;
+            const refreshIcon = document.getElementById('refresh-icon');
+            const container = document.getElementById('software-container');
+            
+            // Rotation animation
+            refreshIcon.style.display = 'inline-block';
+            refreshIcon.style.animation = 'spin 1s linear infinite';
+            container.classList.add('loading');
+            
+            loadSystemInfo();
+            
+            // Reset nach 2 Sekunden
+            setTimeout(() => {
+                isRefreshing = false;
+                refreshIcon.style.animation = '';
+                container.classList.remove('loading');
+            }, 2000);
+        }
+        
+        function showError(message) {
+            const container = document.getElementById('software-container');
+            container.innerHTML = `
+                <div style="background: #ffe3e3; border-left: 4px solid #c92a2a; padding: 20px; border-radius: 4px;">
+                    <strong><img src="{{ url_for('static', filename='img/warning.svg') }}" alt="" style="width:18px;height:18px;vertical-align:middle;margin-right:4px;">Fehler</strong><br>
+                    ${message}
+                </div>
+

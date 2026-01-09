@@ -121,7 +121,7 @@
     <div class="app-container">
         <!-- Header -->
         <div class="header">
-            <h1>🎛️ disk2iso</h1>
+            <h1><img src="{{ url_for('static', filename='img/control.svg') }}" alt="" style="width:28px;height:28px;vertical-align:middle;margin-right:8px;">disk2iso</h1>
         </div>
 
         <div class="main-wrapper">
@@ -131,19 +131,31 @@
                     <ul class="nav-menu">
                         <li>
                             <a href="/">
-                                <span class="nav-icon">🏠</span>
+                                <span class="nav-icon"><img src="{{ url_for('static', filename='img/home.svg') }}" alt="Home"></span>
                                 <span>Home</span>
                             </a>
                         </li>
                         <li>
                             <a href="/archive">
-                                <span class="nav-icon">📚</span>
+                                <span class="nav-icon"><img src="{{ url_for('static', filename='img/archive.svg') }}" alt="Archiv"></span>
                                 <span>Archiv</span>
                             </a>
                         </li>
                         <li>
+                            <a href="/logs">
+                                <span class="nav-icon"><img src="{{ url_for('static', filename='img/logs.svg') }}" alt="Logs"></span>
+                                <span>Logs</span>
+                            </a>
+                        </li>
+                        <li>
+                            <a href="/system">
+                                <span class="nav-icon"><img src="{{ url_for('static', filename='img/system.svg') }}" alt="System"></span>
+                                <span>System</span>
+                            </a>
+                        </li>
+                        <li>
                             <a href="/config" class="active">
-                                <span class="nav-icon">⚙️</span>
+                                <span class="nav-icon"><img src="{{ url_for('static', filename='img/settings.svg') }}" alt="Konfiguration"></span>
                                 <span>Konfiguration</span>
                             </a>
                         </li>
@@ -157,7 +169,7 @@
                 <nav class="breadcrumb">
                     <ul class="breadcrumb-list">
                         <li>
-                            <a href="/">🏠 Home</a>
+                            <a href="/"><img src="{{ url_for('static', filename='img/home.svg') }}" alt="" style="width:16px;height:16px;vertical-align:middle;margin-right:4px;">Home</a>
                         </li>
                         <li class="breadcrumb-separator">></li>
                         <li class="current">Konfiguration</li>
@@ -171,7 +183,7 @@
         <form id="config-form" class="config-form">
             <!-- System-Einstellungen -->
             <div class="form-section">
-                <h2>📁 System-Einstellungen</h2>
+                <h2><img src="{{ url_for('static', filename='img/folder.svg') }}" alt="" style="width:24px;height:24px;vertical-align:middle;margin-right:8px;">System-Einstellungen</h2>
                 
                 <div class="form-group">
                     <label for="output_dir">Ausgabeverzeichnis</label>
@@ -182,7 +194,7 @@
             
             <!-- Audio-CD Encoding -->
             <div class="form-section">
-                <h2>🎵 Audio-CD Encoding</h2>
+                <h2><img src="{{ url_for('static', filename='img/audio.svg') }}" alt="" style="width:24px;height:24px;vertical-align:middle;margin-right:8px;">Audio-CD Encoding</h2>
                 
                 <div class="form-group">
                     <label for="mp3_quality">MP3 Qualität</label>
@@ -198,7 +210,7 @@
             
             <!-- Kopier-Parameter -->
             <div class="form-section">
-                <h2>💾 Kopier-Parameter</h2>
+                <h2><img src="{{ url_for('static', filename='img/data.svg') }}" alt="" style="width:24px;height:24px;vertical-align:middle;margin-right:8px;">Kopier-Parameter</h2>
                 
                 <div class="form-group">
                     <label for="ddrescue_retries">ddrescue Wiederholungen</label>
@@ -209,7 +221,7 @@
             
             <!-- Hardware-Erkennung -->
             <div class="form-section">
-                <h2>🔌 Hardware-Erkennung</h2>
+                <h2><img src="{{ url_for('static', filename='img/plugin.svg') }}" alt="" style="width:24px;height:24px;vertical-align:middle;margin-right:8px;">Hardware-Erkennung</h2>
                 
                 <div class="form-group">
                     <label for="usb_detection_attempts">USB-Laufwerk Erkennungsversuche</label>
@@ -226,7 +238,7 @@
             
             <!-- MQTT Integration -->
             <div class="form-section">
-                <h2>📡 MQTT Integration</h2>
+                <h2><img src="{{ url_for('static', filename='img/mqtt.svg') }}" alt="" style="width:24px;height:24px;vertical-align:middle;margin-right:8px;">MQTT Integration</h2>
                 
                 <div class="form-group">
                     <label>
@@ -276,58 +288,7 @@
         </div>
     </div>
     
-    <script>
-        document.getElementById('config-form').addEventListener('submit', function(e) {
-            e.preventDefault();
-            
-            const formData = {
-                output_dir: document.getElementById('output_dir').value,
-                mp3_quality: parseInt(document.getElementById('mp3_quality').value),
-                ddrescue_retries: parseInt(document.getElementById('ddrescue_retries').value),
-                usb_detection_attempts: parseInt(document.getElementById('usb_detection_attempts').value),
-                usb_detection_delay: parseInt(document.getElementById('usb_detection_delay').value),
-                mqtt_enabled: document.getElementById('mqtt_enabled').checked,
-                mqtt_broker: document.getElementById('mqtt_broker').value,
-                mqtt_port: parseInt(document.getElementById('mqtt_port').value),
-                mqtt_user: document.getElementById('mqtt_user').value,
-                mqtt_password: document.getElementById('mqtt_password').value
-            };
-            
-            fetch('/api/config', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(formData)
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    showAlert('success', data.message);
-                    setTimeout(() => {
-                        window.location.href = '/';
-                    }, 2000);
-                } else {
-                    showAlert('error', data.message || 'Fehler beim Speichern der Konfiguration');
-                }
-            })
-            .catch(error => {
-                showAlert('error', 'Netzwerkfehler: ' + error.message);
-            });
-        });
-        
-        function showAlert(type, message) {
-            const container = document.getElementById('alert-container');
-            const alert = document.createElement('div');
-            alert.className = 'alert alert-' + type;
-            alert.textContent = message;
-            alert.style.display = 'block';
-            container.appendChild(alert);
-            
-            setTimeout(() => {
-                alert.remove();
-            }, 5000);
-        }
-    </script>
+    <script src="{{ url_for('static', filename='js/config.js') }}"></script>
 </body>
 </html>
+

@@ -1284,42 +1284,79 @@ if __name__ == '__main__':
 
 ## Zeitplan und Meilensteine
 
-| Phase | Beschreibung | Geschätzte Dauer | Status |
-|-------|-------------|------------------|--------|
-| Phase 1 | Installation und Grundeinrichtung | 2-3 Stunden | ⏳ Ausstehend |
-| Phase 2 | Hello World Test | 1-2 Stunden | ⏳ Ausstehend |
-| Phase 3 | Status-Seite implementieren | 4-6 Stunden | ⏳ Ausstehend |
-| Phase 4 | Archiv-Seite implementieren | 3-4 Stunden | ⏳ Ausstehend |
-| Phase 5 | Log-Viewer implementieren | 2-3 Stunden | ⏳ Ausstehend |
-| Phase 6 | Styling und Responsive Design | 4-5 Stunden | ⏳ Ausstehend |
-| Phase 7 | Integration und Testing | 4-6 Stunden | ⏳ Ausstehend |
-| **Gesamt** | **Vollständige Implementierung** | **20-29 Stunden** | ⏳ Ausstehend |
+| Phase | Beschreibung | Geschätzte Dauer | Status | Bemerkungen |
+|-------|-------------|------------------|--------|-------------|
+| Phase 1 | Installation und Grundeinrichtung | 2-3 Stunden | ✅ Abgeschlossen | install_web_server() in install.sh (Zeile 2085) |
+| Phase 2 | Hello World Test | 1-2 Stunden | ⏭️ Übersprungen | App bereits funktional, nicht nötig |
+| Phase 3 | Status-Seite implementieren | 4-6 Stunden | ✅ Abgeschlossen | www/app.py + templates/index.html vollständig |
+| Phase 4 | Archiv-Seite implementieren | 3-4 Stunden | ✅ Abgeschlossen | www/app.py + templates/archive.html vollständig |
+| Phase 5 | Log-Viewer implementieren | 2-3 Stunden | ⏳ Ausstehend | **Nächster Schritt - einzige fehlende Seite** |
+| Phase 6 | Styling und Responsive Design | 4-5 Stunden | ✅ Abgeschlossen | Sidebar, Breadcrumb, Dark-Theme, Responsive |
+| Phase 7 | Integration und Testing | 4-6 Stunden | ✅ Abgeschlossen | Service: disk2iso-web.service aktiv |
+| **Gesamt** | **Vollständige Implementierung** | **20-29 Stunden** | **~95% fertig** | **Nur Log-Viewer fehlt (~2-3h)** |
 
 ## Nächste Schritte
 
-### Sofort (Priorität 1)
+### Sofort (Priorität 1) - **EINZIGE VERBLEIBENDE AUFGABE** ⭐
+
 1. ✅ Umsetzungsplan erstellen und reviewen
-2. 🔲 Python3 und Flask-Abhängigkeiten installieren
-3. 🔲 Grundlegende Verzeichnisstruktur anlegen
-4. 🔲 Hello World-Anwendung testen
+2. 🔲 **Log-Viewer-Seite implementieren** (Phase 5) - **NUR NOCH DIESE SEITE FEHLT!**
+   - ✅ Navigation bereits vorbereitet (Home, Archiv, Config vorhanden)
+   - 🔲 Template logs.html erstellen (analog zu index.html/archive.html)
+   - 🔲 Route `/logs` in app.py hinzufügen
+   - 🔲 API-Endpunkt `/api/logs` für Log-Daten erstellen
+   - 🔲 Auto-Refresh-Funktionalität (alle 10 Sek)
+   - 🔲 Menüpunkt "Logs" in Sidebar aller Templates ergänzen
 
-### Kurzfristig (Priorität 2)
-5. 🔲 Status-API entwickeln
-6. 🔲 Erste Version der Status-Seite
-7. 🔲 Systemd-Service einrichten
-8. 🔲 Basis-Styling implementieren
+### Bereits erledigt ✅
 
-### Mittelfristig (Priorität 3)
-9. 🔲 Archiv-Übersicht vervollständigen
-10. 🔲 Log-Viewer finalisieren
-11. 🔲 Responsive Design optimieren
-12. 🔲 Error-Handling verbessern
+**Phase 1 - Installation:**
+- ✅ install_web_server() Funktion in install.sh (Zeile 2085)
+- ✅ Python3 + pip + venv Installation
+- ✅ Flask Installation in virtualenv (/opt/disk2iso/venv)
+- ✅ Verzeichnisstruktur (www/, templates/, static/)
+- ✅ requirements.txt erstellt
 
-### Langfristig (Priorität 4)
-13. 🔲 Performance-Optimierung
-14. 🔲 Erweiterte Features (z.B. Download-Funktion)
-15. 🔲 Umfassende Tests durchführen
-16. 🔲 Dokumentation vervollständigen
+**Phase 3 - Status-Seite:**
+- ✅ Status-API entwickelt (app.py: /api/status, /api/history)
+- ✅ Live-Status aus JSON-Dateien (api/*.json)
+- ✅ Index.html mit Live-Updates (alle 5 Sek)
+- ✅ Service-Status, Fortschrittsbalken, Disk-Space
+
+**Phase 4 - Archiv-Seite:**
+- ✅ Archiv-API (app.py: /api/archive)
+- ✅ Archive.html mit Typ-Gruppierung (Audio/DVD/BD/Data)
+- ✅ ISO-Dateien nach Typ sortiert
+
+**Phase 6 - Styling:**
+- ✅ Vollständiges Layout mit Sidebar-Navigation
+- ✅ Breadcrumb-Navigation
+- ✅ Dark-Theme für Header/Sidebar
+- ✅ Responsive Design (Mobile/Tablet/Desktop)
+
+**Phase 7 - Integration:**
+- ✅ Systemd-Service (disk2iso-web.service)
+- ✅ Service-Aktivierung in install.sh
+- ✅ Deinstallations-Support (uninstall.sh)
+- ✅ Config-API für Einstellungen (/api/config)
+
+**Zusätzlich:**
+- ✅ Konfigurations-Seite (config.html)
+- ✅ Health-Check Endpoint (/health)
+- ✅ Error-Handler (404, 500)
+
+### Mittelfristig (Priorität 2)
+
+- ✅ Archiv-Übersicht vervollständigen
+- 🔲 Error-Handling erweitern
+- 🔲 Mehrsprachigkeit / i18n (Flask-Babel)
+
+### Langfristig (Priorität 3)
+
+- 🔲 Performance-Optimierung
+- 🔲 Erweiterte Features (z.B. Download-Funktion für ISOs)
+- 🔲 Umfassende Tests durchführen
+- 🔲 API-Dokumentation vervollständigen
 
 ## Technische Anforderungen
 
