@@ -17,6 +17,57 @@
 # ============================================================================
 
 readonly DVD_DIR="dvd"
+readonly FAILED_DISCS_FILE=".failed_dvds"
+
+# ============================================================================
+# FEHLER-TRACKING SYSTEM
+# ============================================================================
+
+# Funktion: Ermittle eindeutigen Identifier für DVD
+# Rückgabe: String mit disc_label und disc_type (z.B. "supernatural_season_10_disc_3:dvd-video")
+get_dvd_identifier() {
+    echo "${disc_label}:${disc_type}"
+}
+
+# Funktion: Prüfe ob DVD bereits fehlgeschlagen ist
+# Parameter: $1 = DVD-Identifier
+# Rückgabe: Anzahl der bisherigen Fehlversuche (0-2)
+get_dvd_failure_count() {
+    local identifier="$1"
+    local failed_file="${IMAGE_PATH}/${FAILED_DISCS_FILE}"
+    
+    if [[ ! -f "$failed_file" ]]; then
+        echo 0
+        return
+    fi
+    
+    local count=$(grep -c "^${identifier}|" "$failed_file" 2>/dev/null || echo 0)
+    echo "$count"
+}
+
+# Funktion: Registriere DVD-Fehlschlag
+# Parameter: $1 = DVD-Identifier
+#            $2 = Fehlgeschlagene Methode (dvdbackup/ddrescue)
+register_dvd_failure() {
+    local identifier="$1"
+    local method="$2"
+    local failed_file="${IMAGE_PATH}/${FAILED_DISCS_FILE}"
+    local timestamp=$(date '+%Y-%m-%d %H:%M:%S')
+    
+    # Format: identifier|timestamp|method
+    echo "${identifier}|${timestamp}|${method}" >> "$failed_file"
+}
+
+# Funktion: Entferne DVD aus Fehler-Liste (nach erfolgreichem Kopieren)
+# Parameter: $1 = DVD-Identifier
+clear_dvd_failures() {
+    local identifier="$1"
+    local failed_file="${IMAGE_PATH}/${FAILED_DISCS_FILE}"
+    
+    if [[ -f "$failed_file" ]]; then
+        sed -i "/^${identifier}|/d" "$failed_file"
+    fi
+}
 
 # ============================================================================
 # PATH GETTER
@@ -86,8 +137,25 @@ check_video_dvd_dependencies() {
 
 # Funktion zum Kopieren von Video-DVDs mit Entschlüsselung
 # Nutzt dvdbackup (mit libdvdcss) + genisoimage
-# KEIN Fallback - Methode wird zu Beginn gewählt
+# Mit intelligentem Fallback: dvdbackup → ddrescue → Ablehnung
 copy_video_dvd() {
+    local dvd_id=$(get_dvd_identifier)
+    local failure_count=$(get_dvd_failure_count "$dvd_id")
+    
+    # Prüfe Fehler-Historie
+    if [[ $failure_count -ge 2 ]]; then
+        # DVD ist bereits 2x fehlgeschlagen → Ablehnung
+        log_message "$MSG_ERROR_DVD_REJECTED"
+        log_message "$MSG_ERROR_DVD_REJECTED_HINT"
+        return 1
+    elif [[ $failure_count -eq 1 ]]; then
+        # DVD ist bereits 1x fehlgeschlagen → Automatischer Fallback auf ddrescue
+        log_message "$MSG_WARNING_DVD_FAILED_BEFORE"
+        log_message "$MSG_FALLBACK_TO_DDRESCUE"
+        return copy_video_dvd_ddrescue
+    fi
+    
+    # Erste Versuch: Normale dvdbackup-Methode
     log_message "$MSG_METHOD_DVDBACKUP"
     
     # Erstelle temporäres Verzeichnis für DVD-Struktur (unter temp_pathname)
@@ -154,6 +222,12 @@ copy_video_dvd() {
     # Prüfe Ergebnis
     if [[ $dvdbackup_exit -ne 0 ]]; then
         log_message "$MSG_ERROR_DVDBACKUP_FAILED (Exit-Code: $dvdbackup_exit)"
+        
+        # Registriere Fehlschlag für automatischen Fallback
+        local dvd_id=$(get_dvd_identifier)
+        register_dvd_failure "$dvd_id" "dvdbackup"
+        log_message "$MSG_DVD_MARKED_FOR_RETRY"
+        
         rm -rf "$temp_dvd"
         return 1
     fi
@@ -174,10 +248,20 @@ copy_video_dvd() {
     log_message "$MSG_CREATE_DECRYPTED_ISO"
     if genisoimage -dvd-video -V "$disc_label" -o "$iso_filename" "$(dirname "$video_ts_dir")" 2>>"$log_filename"; then
         log_message "$MSG_DECRYPTED_DVD_SUCCESS"
+        
+        # Erfolg → Lösche eventuelle Fehler-Historie
+        local dvd_id=$(get_dvd_identifier)
+        clear_dvd_failures "$dvd_id"
+        
         rm -rf "$temp_dvd"
         return 0
     else
         log_message "$MSG_ERROR_GENISOIMAGE_FAILED"
+        
+        # Registriere Fehlschlag (genisoimage-Fehler)
+        local dvd_id=$(get_dvd_identifier)
+        register_dvd_failure "$dvd_id" "genisoimage"
+        
         rm -rf "$temp_dvd"
         return 1
     fi
@@ -252,10 +336,21 @@ copy_video_dvd_ddrescue() {
     # Prüfe Ergebnis
     if [[ $ddrescue_exit -eq 0 ]]; then
         log_message "$MSG_VIDEO_DVD_DDRESCUE_SUCCESS"
+        
+        # Erfolg → Lösche eventuelle Fehler-Historie
+        local dvd_id=$(get_dvd_identifier)
+        clear_dvd_failures "$dvd_id"
+        
         rm -f "$mapfile"
         return 0
     else
         log_message "$MSG_ERROR_DDRESCUE_FAILED"
+        
+        # Registriere Fehlschlag für finale Ablehnung
+        local dvd_id=$(get_dvd_identifier)
+        register_dvd_failure "$dvd_id" "ddrescue"
+        log_message "$MSG_DVD_FINAL_FAILURE"
+        
         rm -f "$mapfile"
         return 1
     fi

@@ -876,10 +876,10 @@ EOF
             chmod -R 755 "$INSTALL_DIR/venv" 2>/dev/null || true
             
             # Erstelle requirements.txt
-            cat > "$INSTALL_DIR/www/requirements.txt" <<'EOFREQ'
-# disk2iso Web-Server Dependencies
-flask>=2.0.0
-EOFREQ
+            cat > "$INSTALL_DIR/www/requirements.txt" <<-'EOFREQ'
+	# disk2iso Web-Server Dependencies
+	flask>=2.0.0
+	EOFREQ
             
             echo "100"
             echo "XXX"
@@ -1306,10 +1306,10 @@ EOF
             chmod -R 755 "$INSTALL_DIR/venv" 2>/dev/null || true
             
             # Erstelle requirements.txt
-            cat > "$INSTALL_DIR/www/requirements.txt" <<'EOFREQ'
-# disk2iso Web-Server Dependencies
-flask>=2.0.0
-EOFREQ
+            cat > "$INSTALL_DIR/www/requirements.txt" <<-'EOFREQ'
+	# disk2iso Web-Server Dependencies
+	flask>=2.0.0
+	EOFREQ
             
             echo "100"
             echo "XXX"
