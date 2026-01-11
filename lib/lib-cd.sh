@@ -426,6 +426,18 @@ copy_audio_cd() {
     mkdir -p "$album_dir"
     log_message "$MSG_ALBUM_DIRECTORY: $album_dir"
     
+    # API: Aktualisiere Attribute mit CD-Metadaten
+    if declare -f api_update_status >/dev/null 2>&1; then
+        # Erstelle readable Label für Anzeige
+        local display_label=""
+        if [[ -n "$cd_artist" ]] && [[ -n "$cd_album" ]]; then
+            display_label="${cd_artist} - ${cd_album}"
+        else
+            display_label="$disc_label"
+        fi
+        api_update_status "copying" "$display_label" "audio-cd"
+    fi
+    
     # Ermittle Anzahl der Tracks
     local track_info
     track_info=$(cdparanoia -Q 2>&1 | grep -E "^\s+[0-9]+\.")
