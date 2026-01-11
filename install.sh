@@ -54,6 +54,29 @@ MQTT_PASSWORD=""
 # UTILITY FUNCTIONS
 # ============================================================================
 
+
+################################################################################
+# AUSGABEVERZEICHNIS - Helper Funktion
+################################################################################
+
+# Erstelle Ausgabeverzeichnis mit korrekten Berechtigungen
+create_output_directory() {
+    local output_dir="$1"
+    [[ -z "$output_dir" ]] && return 1
+    
+    # Erstelle Verzeichnisstruktur
+    mkdir -p "$output_dir"/{.log,.temp/mountpoints,audio,dvd,bd,data} || return 1
+    
+    # Setze Berechtigungen
+    chmod 755 "$output_dir"
+    chmod 755 "$output_dir"/{audio,dvd,bd,data} 2>/dev/null
+    chmod 777 "$output_dir"/.log 2>/dev/null
+    chmod 777 "$output_dir"/.temp 2>/dev/null
+    chmod 777 "$output_dir"/.temp/mountpoints 2>/dev/null
+    
+    return 0
+}
+
 print_header() {
     echo -e "\n${BLUE}========================================${NC}"
     echo -e "${BLUE}$1${NC}"
@@ -465,8 +488,7 @@ EOF
         fi
         
         # Erstelle Ausgabeverzeichnis mit Unterordnern
-        mkdir -p "$output_dir"/{.log,.temp,audio,dvd,bd,data}
-        chmod 755 "$output_dir"
+        create_output_directory "$output_dir"
         print_success "Ausgabeverzeichnis erstellt: $output_dir"
         
         systemctl daemon-reload
@@ -486,8 +508,7 @@ EOF
             
             # Erstelle Verzeichnis falls es nicht existiert
             if [[ -n "$output_dir" ]] && [[ ! -d "$output_dir" ]]; then
-                mkdir -p "$output_dir"/{.log,.temp,audio,dvd,bd,data}
-                chmod 755 "$output_dir"
+                create_output_directory "$output_dir"
                 print_success "Ausgabeverzeichnis erstellt: $output_dir"
             fi
         fi
@@ -905,8 +926,7 @@ EOF
         fi
         
         # Erstelle Ausgabeverzeichnis mit Unterordnern
-        mkdir -p "$output_dir"/{.log,.temp,audio,dvd,bd,data}
-        chmod 755 "$output_dir"
+        create_output_directory "$output_dir"
         print_success "Ausgabeverzeichnis erstellt: $output_dir"
         
         systemctl daemon-reload
@@ -928,8 +948,7 @@ EOF
             
             # Erstelle Verzeichnis falls es nicht existiert
             if [[ -n "$output_dir" ]] && [[ ! -d "$output_dir" ]]; then
-                mkdir -p "$output_dir"/{.log,.temp,audio,dvd,bd,data}
-                chmod 755 "$output_dir"
+                create_output_directory "$output_dir"
                 print_success "Ausgabeverzeichnis erstellt: $output_dir"
             fi
         fi
@@ -1804,12 +1823,7 @@ configure_service() {
     
     # Erstelle Ausgabe-Verzeichnis mit vollständiger Struktur
     print_success "Erstelle Verzeichnisstruktur in $output_dir..."
-    mkdir -p "$output_dir"/{.log,.temp,audio,dvd,bd,data}
-    
-    # Setze Berechtigungen (777 für NFS-Kompatibilität)
-    chmod -R 777 "$output_dir" 2>/dev/null || {
-        print_warning "Konnte Berechtigungen nicht setzen (evtl. NFS-Mount)"
-    }
+    create_output_directory "$output_dir"
     
     # Aktualisiere config.sh mit gewähltem Ausgabeverzeichnis
     sed -i "s|DEFAULT_OUTPUT_DIR=.*|DEFAULT_OUTPUT_DIR=\"$output_dir\"|" "$INSTALL_DIR/lib/config.sh"

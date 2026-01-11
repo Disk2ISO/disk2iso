@@ -84,6 +84,10 @@ SCRIPT_DIR="$(dirname "$SCRIPT_PATH")"
 # Lade Basis-Module
 source "${SCRIPT_DIR}/lib/config.sh"
 
+# Setze OUTPUT_DIR bereits hier (wichtig für get_tmp_mount() in lib-diskinfos.sh)
+# Verhindert dass Mount-Points im Root / landen wenn OUTPUT_DIR noch nicht gesetzt ist
+OUTPUT_DIR="${DEFAULT_OUTPUT_DIR}"
+
 # Lade Kern-Bibliotheken (IMMER erforderlich)
 source "${SCRIPT_DIR}/lib/lib-logging.sh"
 source "${SCRIPT_DIR}/lib/lib-api.sh"
@@ -642,8 +646,8 @@ main() {
     
     # Ab hier: Nur noch Service-Modus
     
-    # Ausgabeverzeichnis kommt IMMER aus config.sh
-    OUTPUT_DIR="$DEFAULT_OUTPUT_DIR"
+    # OUTPUT_DIR wurde bereits am Anfang des Scripts gesetzt (siehe Zeile 88)
+    # Dies verhindert dass Mount-Points im Root / landen
     
     # Prüfe ob OUTPUT_DIR existiert
     if [[ ! -d "$OUTPUT_DIR" ]]; then
