@@ -297,23 +297,16 @@ get_musicbrainz_metadata() {
             log_message "DEBUG: $releases_count Releases gefunden, gewählt: Index $best_release_index (Score: $best_score)"
         fi
         
-        # Wenn Score niedrig (< 100 = keine Track-Übereinstimmung), warte auf User-Eingabe
-        if [[ $best_score -lt 100 ]]; then
-            log_message "WARNUNG: Keine exakte Übereinstimmung - Benutzer-Bestätigung erforderlich"
-            
-            # Setze vorläufige Auswahl
-            if declare -f api_write_json >/dev/null 2>&1; then
-                api_write_json "musicbrainz_selection.json" '{
-                  "status": "waiting_user_input",
-                  "selected_index": '"$best_release_index"',
-                  "confidence": "low",
-                  "message": "Mehrere Alben gefunden. Bitte wählen Sie das richtige Album aus."
-                }'
-            fi
-            
-            # Markiere, dass User-Input benötigt wird
-            export MUSICBRAINZ_NEEDS_CONFIRMATION=true
+        # Bei mehreren Releases IMMER User-Input anfordern (auch wenn Score hoch)
+        log_message "INFO: $releases_count Releases gefunden - Benutzer-Bestätigung wird angefordert"
+        
+        # Setze vorläufige Auswahl
+        if declare -f api_write_json >/dev/null 2>&1; then
+            api_write_json "musicbrainz_selection.json" "{\"status\":\"waiting_user_input\",\"selected_index\":$best_release_index,\"confidence\":\"medium\",\"message\":\"Mehrere Alben gefunden. Bitte wählen Sie das richtige Album aus.\"}"
         fi
+        
+        # Markiere, dass User-Input benötigt wird
+        export MUSICBRAINZ_NEEDS_CONFIRMATION=true
     fi
     
     # Extrahiere gewähltes Release
