@@ -31,8 +31,10 @@ function updateLiveStatus() {
             const live = data.live_status;
             const statusIndicator = document.getElementById('live-status-indicator');
             const statusLabel = document.getElementById('live-status-label');
-            const discInfoRow = document.getElementById('disc-info-row');
-            const discInfo = document.getElementById('disc-info');
+            const discMediumRow = document.getElementById('disc-medium-row');
+            const discMedium = document.getElementById('disc-medium');
+            const discModeRow = document.getElementById('disc-mode-row');
+            const discMode = document.getElementById('disc-mode');
             const progressSection = document.getElementById('progress-section');
             
             // Prüfe ob Service läuft
@@ -73,12 +75,22 @@ function updateLiveStatus() {
             statusLabel.textContent = statusText;
             statusIndicator.className = 'status-indicator ' + statusClass;
             
-            // Disc-Info anzeigen wenn verfügbar
-            if (live.disc_label || live.disc_type) {
-                discInfoRow.style.display = '';
-                discInfo.textContent = `${live.disc_label || 'Unbekannt'} (${live.disc_type || '-'})`;
+            // Medium anzeigen (ISO-Dateiname)
+            if (live.disc_label) {
+                discMediumRow.style.display = '';
+                discMedium.textContent = live.disc_label;
             } else {
-                discInfoRow.style.display = 'none';
+                discMediumRow.style.display = 'none';
+            }
+            
+            // Modus anzeigen (Disc-Typ + Methode)
+            if (live.disc_type || live.method) {
+                discModeRow.style.display = '';
+                const discType = live.disc_type || '-';
+                const method = live.method && live.method !== 'unknown' ? ` (${live.method})` : '';
+                discMode.textContent = `${discType}${method}`;
+            } else {
+                discModeRow.style.display = 'none';
             }
             
             // Fortschritt anzeigen wenn kopiert wird

@@ -272,6 +272,12 @@ copy_disc_to_iso() {
     
     log_message "$MSG_START_COPY_PROCESS $disc_label -> $iso_filename"
     
+    # Wähle Kopiermethode basierend auf Disc-Typ und verfügbaren Tools
+    local method=$(select_copy_method "$disc_type")
+    
+    # Speichere Methode für MQTT-Attribute (MUSS vor api_update_status gesetzt werden!)
+    COPY_METHOD="$method"
+    
     # API: Status-Update (IMMER)
     api_update_status "copying" "$disc_label" "$disc_type"
     
@@ -279,12 +285,6 @@ copy_disc_to_iso() {
     if [[ "$MQTT_SUPPORT" == "true" ]]; then
         mqtt_publish_state "copying" "$disc_label" "$disc_type"
     fi
-    
-    # Wähle Kopiermethode basierend auf Disc-Typ und verfügbaren Tools
-    local method=$(select_copy_method "$disc_type")
-    
-    # Speichere Methode für MQTT-Attribute
-    COPY_METHOD="$method"
     
     # Kopiere mit gewählter Methode (KEIN Fallback bei Fehler)
     local copy_success=false
