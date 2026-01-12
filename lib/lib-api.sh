@@ -1,6 +1,6 @@
 #!/bin/bash
 #############################################################################
-# disk2iso v1.3.0 - API JSON Library
+# disk2iso v1.2.0 - API JSON Library
 # Filepath: lib/lib-api.sh
 #
 # Beschreibung:
@@ -8,7 +8,7 @@
 #   Schreibt JSON-Dateien die von Web-UI und anderen Tools gelesen werden.
 #   Unabhängig von MQTT - funktioniert IMMER.
 #
-# Version: 1.3.0
+# Version: 1.2.0
 # Datum: 10.01.2026
 #
 # Funktionen:

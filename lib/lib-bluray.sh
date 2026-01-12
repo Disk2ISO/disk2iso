@@ -1,6 +1,6 @@
 #!/bin/bash
 ################################################################################
-# disk2iso v1.3.0 - Blu-ray Library
+# disk2iso v1.2.0 - Blu-ray Library
 # Filepath: lib/lib-bluray.sh
 #
 # Beschreibung:
@@ -8,7 +8,7 @@
 #   - copy_bluray_ddrescue() - Blu-ray mit ddrescue (verschlüsselt, robust)
 #   - copy_bluray_dd() - Blu-ray mit dd (verschlüsselt, langsam)
 #
-# Version: 1.3.0
+# Version: 1.2.0
 # Datum: 06.01.2026
 ################################################################################
 

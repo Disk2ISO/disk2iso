@@ -1,6 +1,6 @@
 #!/bin/bash
 ################################################################################
-# disk2iso v1.3.0 - Logging Library
+# disk2iso v1.2.0 - Logging Library
 # Filepath: lib/lib-logging.sh
 #
 # Beschreibung:
@@ -9,7 +9,7 @@
 #   - Modulares Sprachsystem
 #   - Wird von allen Modulen verwendet
 #
-# Version: 1.3.0
+# Version: 1.2.0
 # Datum: 06.01.2026
 ################################################################################
 

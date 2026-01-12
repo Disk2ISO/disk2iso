@@ -1,6 +1,6 @@
 #!/bin/bash
 # disk2iso Web-Interface - Archivo de idioma español
-# Versión 1.3.0 - 11.01.2026
+# Versión 1.2.0 - 11.01.2026
 
 # Navegación
 readonly MSG_NAV_HOME="Inicio"

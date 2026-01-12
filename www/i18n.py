@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 disk2iso i18n Module - Bash Language File Parser
-Version 1.3.0 - 11.01.2026
+Version 1.2.0 - 11.01.2026
 
 Lädt Sprachdateien aus dem Bash-Format (readonly MSG_XYZ="...")
 und stellt sie als Python-Dictionary für Flask/Jinja2-Templates bereit.

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 disk2iso Web Interface
-Version: 1.3.0
+Version: 1.2.0
 Description: Flask-basierte Web-Oberfläche für disk2iso Monitoring
 """
 
@@ -29,7 +29,7 @@ def get_version():
             return VERSION_FILE.read_text().strip()
     except:
         pass
-    return "1.3.0"
+    return "1.2.0"
 
 def get_config():
     """Liest Konfiguration aus config.sh"""

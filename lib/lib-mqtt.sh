@@ -1,6 +1,6 @@
 #!/bin/bash
 ################################################################################
-# disk2iso v1.3.0 - MQTT Library
+# disk2iso v1.2.0 - MQTT Library
 # Filepath: lib/lib-mqtt.sh
 #
 # Beschreibung:
@@ -13,7 +13,7 @@
 # Abhängigkeiten:
 #   - mosquitto-clients (mosquitto_pub)
 #
-# Version: 1.3.0
+# Version: 1.2.0
 # Datum: 06.01.2026
 ################################################################################
 

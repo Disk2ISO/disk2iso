@@ -69,7 +69,7 @@ disk2iso.sh (Orchestrator + State Machine)
 
 ### Übersicht
 
-disk2iso v1.3.0 implementiert eine **Finite State Machine** (FSM) für präzise Ablaufsteuerung und bessere Fehlerbehandlung.
+disk2iso v1.2.0 implementiert eine **Finite State Machine** (FSM) für präzise Ablaufsteuerung und bessere Fehlerbehandlung.
 
 ### Definierte Zustände
 
@@ -1176,4 +1176,4 @@ grep "/dev/sr0" strace.log
 
 ---
 
-**Version**: 1.3.0 | **Letzte Aktualisierung**: 11.01.2026
+**Version**: 1.2.0 | **Letzte Aktualisierung**: 11.01.2026

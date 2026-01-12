@@ -1,5 +1,5 @@
 /**
- * disk2iso v1.3.0 - MusicBrainz Album-Auswahl
+ * disk2iso v1.2.0 - MusicBrainz Album-Auswahl
  * Filepath: www/static/js/musicbrainz.js
  * 
  * Verwaltet die Auswahl bei mehrdeutigen MusicBrainz-Treffern

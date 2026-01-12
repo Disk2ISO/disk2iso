@@ -3,7 +3,7 @@
 # disk2iso - Archivo de idioma español para lib-systeminfo.sh
 # Filepath: lang/lib-systeminfo.es
 #
-# Versión: 1.3.0
+# Versión: 1.2.0
 # Fecha: 11.01.2026
 ################################################################################
 

@@ -1,6 +1,6 @@
 #!/bin/bash
 ################################################################################
-# disk2iso v1.3.0 - Folder Management Library
+# disk2iso v1.2.0 - Folder Management Library
 # Filepath: lib/lib-folders.sh
 #
 # Beschreibung:
@@ -9,7 +9,7 @@
 #   - Temp-Verzeichnis-Bereinigung
 #   - Lazy Initialization für Output-Ordner
 #
-# Version: 1.3.0
+# Version: 1.2.0
 # Datum: 06.01.2026
 ################################################################################
 

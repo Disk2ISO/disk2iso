@@ -1,6 +1,6 @@
 #!/bin/bash
 ################################################################################
-# disk2iso v1.3.0
+# disk2iso v1.2.0
 # Filepath: /usr/local/bin/disk2iso.sh
 #
 # Beschreibung:
@@ -43,7 +43,7 @@ readonly POLL_REMOVAL_INTERVAL=5
 # Globale State-Variable
 CURRENT_STATE="$STATE_INITIALIZING"
 #
-# Version: 1.3.0
+# Version: 1.2.0
 # Datum: 06.01.2026
 #
 # Abhängigkeiten:
