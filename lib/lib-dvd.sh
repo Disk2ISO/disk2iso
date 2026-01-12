@@ -156,6 +156,10 @@ copy_video_dvd() {
         # DVD ist bereits 1x fehlgeschlagen → Automatischer Fallback auf ddrescue
         log_message "$MSG_WARNING_DVD_FAILED_BEFORE"
         log_message "$MSG_FALLBACK_TO_DDRESCUE"
+        
+        # Update COPY_METHOD für API/MQTT Anzeige
+        export COPY_METHOD="ddrescue"
+        
         copy_video_dvd_ddrescue
         return $?
     fi

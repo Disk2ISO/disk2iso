@@ -25,7 +25,7 @@ readonly LANGUAGE="de"
 
 # Standard-Ausgabeverzeichnis (wird bei Installation konfiguriert)
 # Wird vom Service ausschließlich aus dieser Datei gelesen
-DEFAULT_OUTPUT_DIR="/srv/iso"
+DEFAULT_OUTPUT_DIR="/media/iso"
 
 # ============================================================================
 # MQTT KONFIGURATION (Home Assistant Integration)

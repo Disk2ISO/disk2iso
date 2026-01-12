@@ -156,13 +156,15 @@ def get_disk_space(path):
         free_gb = (stat.f_bavail * stat.f_frsize) / (1024**3)
         total_gb = (stat.f_blocks * stat.f_frsize) / (1024**3)
         used_percent = ((total_gb - free_gb) / total_gb * 100) if total_gb > 0 else 0
+        free_percent = (free_gb / total_gb * 100) if total_gb > 0 else 0
         return {
             'free_gb': round(free_gb, 2),
             'total_gb': round(total_gb, 2),
-            'used_percent': round(used_percent, 1)
+            'used_percent': round(used_percent, 1),
+            'free_percent': round(free_percent, 1)
         }
     except:
-        return {'free_gb': 0, 'total_gb': 0, 'used_percent': 0}
+        return {'free_gb': 0, 'total_gb': 0, 'used_percent': 0, 'free_percent': 0}
 
 def count_iso_files(path):
     """Zählt ISO-Dateien im Ausgabeverzeichnis"""
