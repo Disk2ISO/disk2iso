@@ -165,6 +165,69 @@ download_tmdb_poster() {
 }
 
 # ============================================================================
+# WEB API WRAPPER FUNCTIONS (für Python Flask Integration)
+# ============================================================================
+
+# Funktion: TMDB Suche mit JSON-Return für Web-API
+# Parameter: $1 = Suchbegriff (Film/Serien-Titel)
+#            $2 = Media-Type ("movie" oder "tv")
+# Rückgabe: JSON-String mit {"success": true/false, "results": [...]}
+# Diese Funktion wird vom Python Web-Interface aufgerufen
+search_tmdb_json() {
+    local title="$1"
+    local media_type="$2"
+    
+    # Validierung
+    if [[ -z "$title" ]]; then
+        echo '{"success": false, "message": "Titel erforderlich"}'
+        return 1
+    fi
+    
+    if [[ -z "$TMDB_API_KEY" ]]; then
+        echo '{"success": false, "message": "TMDB API Key nicht konfiguriert"}'
+        return 1
+    fi
+    
+    # URL-Encode des Titels
+    local encoded_title=$(echo "$title" | sed 's/ /%20/g' | sed 's/&/%26/g')
+    
+    # Wähle Endpoint basierend auf media_type
+    local url
+    if [[ "$media_type" == "tv" ]]; then
+        url="${TMDB_API_BASE_URL}/search/tv?api_key=${TMDB_API_KEY}&language=de-DE&query=${encoded_title}&page=1"
+    else
+        url="${TMDB_API_BASE_URL}/search/movie?api_key=${TMDB_API_KEY}&language=de-DE&query=${encoded_title}&page=1"
+    fi
+    
+    # API-Anfrage
+    local response=$(curl -s -f "$url" 2>/dev/null)
+    
+    if [[ $? -ne 0 ]] || [[ -z "$response" ]]; then
+        echo '{"success": false, "message": "TMDB-Suche fehlgeschlagen"}'
+        return 1
+    fi
+    
+    # Formatiere Ergebnisse mit jq (max 10 Treffer)
+    local results=$(echo "$response" | jq -c '[.results[:10] | .[] | {
+        id: .id,
+        title: (if .title then .title else .name end),
+        year: ((if .release_date then .release_date else .first_air_date end) // "" | split("-")[0]),
+        overview: (.overview // ""),
+        poster_path: (.poster_path // ""),
+        poster_url: (if .poster_path then ("https://image.tmdb.org/t/p/w200" + .poster_path) else null end)
+    }]' 2>/dev/null)
+    
+    if [[ $? -ne 0 ]] || [[ -z "$results" ]]; then
+        echo '{"success": false, "message": "JSON-Formatierung fehlgeschlagen"}'
+        return 1
+    fi
+    
+    # Baue finale JSON-Response
+    echo "{\"success\": true, \"results\": $results}"
+    return 0
+}
+
+# ============================================================================
 # METADATA CREATION
 # ============================================================================
 

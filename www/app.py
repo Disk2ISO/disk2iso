@@ -10,7 +10,6 @@ import os
 import sys
 import json
 import subprocess
-import requests
 from datetime import datetime
 from pathlib import Path
 from i18n import get_translations
@@ -536,31 +535,45 @@ def api_musicbrainz_releases():
 
 @app.route('/api/musicbrainz/cover/<release_id>')
 def api_musicbrainz_cover(release_id):
-    """API-Endpoint zum Abrufen von Cover-Art (cached im .temp Verzeichnis)"""
+    """API-Endpoint zum Abrufen von Cover-Art (via Bash)"""
     try:
-        # Temp-Verzeichnis aus Config oder Standard
+        # Temp-Verzeichnis
         temp_dir = INSTALL_DIR / '.temp'
-        temp_dir.mkdir(exist_ok=True)
         
-        # Cover-Datei-Pfad
-        cover_file = temp_dir / f'cover_{release_id}.jpg'
+        # Rufe Bash-Funktion auf
+        script = f"""
+        source {INSTALL_DIR}/lib/lib-cd-metadata.sh
+        get_musicbrainz_cover "{release_id}" "{temp_dir}"
+        """
         
-        # Wenn Cover bereits existiert, direkt zurückgeben
-        if cover_file.exists():
-            return send_file(str(cover_file), mimetype='image/jpeg')
+        result = subprocess.run(
+            ['/bin/bash', '-c', script],
+            capture_output=True,
+            text=True,
+            timeout=15
+        )
         
-        # Ansonsten: Von Cover Art Archive laden
-        cover_url = f'https://coverartarchive.org/release/{release_id}/front-250'
+        if result.returncode != 0:
+            return jsonify({'error': 'Cover-Download fehlgeschlagen'}), 500
         
-        response = requests.get(cover_url, timeout=5, allow_redirects=True)
-        
-        if response.status_code == 200:
-            # Cover speichern
-            cover_file.write_bytes(response.content)
-            return send_file(str(cover_file), mimetype='image/jpeg')
-        else:
-            return jsonify({'error': 'Cover nicht verfügbar'}), 404
+        # Parse JSON-Output
+        try:
+            response_data = json.loads(result.stdout)
             
+            if response_data.get('success'):
+                cover_path = response_data.get('path')
+                if cover_path and os.path.exists(cover_path):
+                    return send_file(cover_path, mimetype='image/jpeg')
+                else:
+                    return jsonify({'error': 'Cover-Datei nicht gefunden'}), 404
+            else:
+                return jsonify({'error': response_data.get('message', 'Unknown error')}), 404
+                
+        except json.JSONDecodeError as e:
+            return jsonify({'error': f'Ungültige JSON-Antwort: {str(e)}'}), 500
+            
+    except subprocess.TimeoutExpired:
+        return jsonify({'error': 'Cover-Download: Zeitüberschreitung'}), 500
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
@@ -697,13 +710,44 @@ def api_archive_thumbnail(filename):
 
 @app.route('/api/config', methods=['GET', 'POST'])
 def api_config():
-    """API-Endpoint für Konfigurations-Verwaltung"""
+    """API-Endpoint für Konfigurations-Verwaltung (via Bash)"""
     if request.method == 'GET':
-        # Konfiguration lesen
-        return jsonify(get_config())
+        # Konfiguration lesen via Bash
+        try:
+            script = f"""
+            source {INSTALL_DIR}/lib/lib-common.sh
+            get_all_config_values
+            """
+            
+            result = subprocess.run(
+                ['/bin/bash', '-c', script],
+                capture_output=True,
+                text=True,
+                timeout=5
+            )
+            
+            if result.returncode != 0:
+                return jsonify({'success': False, 'message': 'Fehler beim Lesen der Konfiguration'}), 500
+            
+            # Parse JSON-Output
+            try:
+                config_data = json.loads(result.stdout)
+                if config_data.get('success'):
+                    # Entferne success-Key für Kompatibilität
+                    config_data.pop('success', None)
+                    return jsonify(config_data)
+                else:
+                    return jsonify({'error': config_data.get('message', 'Unknown error')}), 500
+            except json.JSONDecodeError as e:
+                return jsonify({'error': f'Ungültige JSON-Antwort: {str(e)}'}), 500
+                
+        except subprocess.TimeoutExpired:
+            return jsonify({'error': 'Config-Read: Zeitüberschreitung'}), 500
+        except Exception as e:
+            return jsonify({'error': str(e)}), 500
     
     elif request.method == 'POST':
-        # Konfiguration speichern
+        # Konfiguration speichern via Bash
         try:
             data = request.get_json()
             
@@ -717,50 +761,67 @@ def api_config():
                 if field not in data:
                     return jsonify({'success': False, 'message': f'Feld fehlt: {field}'}), 400
             
-            # Lese aktuelle config.sh
-            if not CONFIG_FILE.exists():
-                return jsonify({'success': False, 'message': 'config.sh nicht gefunden'}), 404
+            # Mapping: JSON-Key -> Config-Key
+            config_mapping = {
+                'output_dir': 'DEFAULT_OUTPUT_DIR',
+                'mp3_quality': 'MP3_QUALITY',
+                'ddrescue_retries': 'DDRESCUE_RETRIES',
+                'usb_detection_attempts': 'USB_DRIVE_DETECTION_ATTEMPTS',
+                'usb_detection_delay': 'USB_DRIVE_DETECTION_DELAY',
+                'mqtt_enabled': 'MQTT_ENABLED',
+                'mqtt_broker': 'MQTT_BROKER',
+                'mqtt_port': 'MQTT_PORT',
+                'mqtt_user': 'MQTT_USER',
+                'mqtt_password': 'MQTT_PASSWORD',
+                'tmdb_api_key': 'TMDB_API_KEY'
+            }
             
-            with open(CONFIG_FILE, 'r') as f:
-                lines = f.readlines()
+            # Baue Bash-Script mit allen Updates
+            update_commands = []
+            for json_key, config_key in config_mapping.items():
+                if json_key in data:
+                    value = data[json_key]
+                    
+                    # Spezialbehandlung für mqtt_enabled (boolean -> string)
+                    if json_key == 'mqtt_enabled':
+                        value = 'true' if value else 'false'
+                    
+                    # Escape für Bash
+                    value_str = str(value).replace('"', '\\"')
+                    update_commands.append(f'update_config_value "{config_key}" "{value_str}"')
             
-            # Aktualisiere Werte
-            new_lines = []
-            for line in lines:
-                if line.strip().startswith('DEFAULT_OUTPUT_DIR='):
-                    new_lines.append(f'DEFAULT_OUTPUT_DIR="{data["output_dir"]}"\n')
-                elif line.strip().startswith('MP3_QUALITY='):
-                    new_lines.append(f'MP3_QUALITY={data["mp3_quality"]}\n')
-                elif line.strip().startswith('DDRESCUE_RETRIES='):
-                    new_lines.append(f'DDRESCUE_RETRIES={data["ddrescue_retries"]}\n')
-                elif line.strip().startswith('USB_DRIVE_DETECTION_ATTEMPTS='):
-                    new_lines.append(f'USB_DRIVE_DETECTION_ATTEMPTS={data["usb_detection_attempts"]}\n')
-                elif line.strip().startswith('USB_DRIVE_DETECTION_DELAY='):
-                    new_lines.append(f'USB_DRIVE_DETECTION_DELAY={data["usb_detection_delay"]}\n')
-                elif line.strip().startswith('MQTT_ENABLED='):
-                    new_lines.append(f'MQTT_ENABLED={"true" if data.get("mqtt_enabled", False) else "false"}\n')
-                elif line.strip().startswith('MQTT_BROKER='):
-                    new_lines.append(f'MQTT_BROKER="{data.get("mqtt_broker", "")}"\n')
-                elif line.strip().startswith('MQTT_PORT='):
-                    new_lines.append(f'MQTT_PORT={data.get("mqtt_port", 1883)}\n')
-                elif line.strip().startswith('MQTT_USER='):
-                    new_lines.append(f'MQTT_USER="{data.get("mqtt_user", "")}"\n')
-                elif line.strip().startswith('MQTT_PASSWORD='):
-                    new_lines.append(f'MQTT_PASSWORD="{data.get("mqtt_password", "")}"\n')
-                elif line.strip().startswith('TMDB_API_KEY='):
-                    new_lines.append(f'TMDB_API_KEY="{data.get("tmdb_api_key", "")}"\n')
-                else:
-                    new_lines.append(line)
+            script = f"""
+            source {INSTALL_DIR}/lib/lib-common.sh
             
-            # Schreibe aktualisierte config.sh
-            with open(CONFIG_FILE, 'w') as f:
-                f.writelines(new_lines)
+            # Führe alle Updates durch
+            {'
+            '.join(update_commands)}
+            
+            # Finale Bestätigung
+            echo '{{"success": true}}'
+            """
+            
+            result = subprocess.run(
+                ['/bin/bash', '-c', script],
+                capture_output=True,
+                text=True,
+                timeout=10
+            )
+            
+            if result.returncode != 0:
+                return jsonify({
+                    'success': False,
+                    'message': 'Fehler beim Speichern der Konfiguration',
+                    'error': result.stderr
+                }), 500
             
             return jsonify({
                 'success': True, 
                 'message': 'Konfiguration gespeichert. Service wird neu gestartet...'
             })
             
+        except subprocess.TimeoutExpired:
+            return jsonify({'success': False, 'message': 'Config-Write: Zeitüberschreitung'}), 500
         except Exception as e:
             return jsonify({'success': False, 'message': f'Fehler beim Speichern: {str(e)}'}), 500
 
@@ -1279,7 +1340,7 @@ def api_system():
 
 @app.route('/api/metadata/tmdb/search', methods=['POST'])
 def api_tmdb_search():
-    """API-Endpoint: Suche Film/TV-Serie in TMDB"""
+    """API-Endpoint: Suche Film/TV-Serie in TMDB (nutzt Bash-Funktion)"""
     try:
         data = request.get_json()
         title = data.get('title', '').strip()
@@ -1288,39 +1349,44 @@ def api_tmdb_search():
         if not title:
             return jsonify({'success': False, 'message': 'Titel erforderlich'}), 400
         
-        # Lade TMDB API Key aus config
-        config = get_config()
-        tmdb_api_key = config.get('tmdb_api_key', '')
+        # Rufe Bash-Funktion auf (sicheres Argument-Array statt String-Interpolation)
+        script = f"""
+source {INSTALL_DIR}/lib/config.sh
+source {INSTALL_DIR}/lib/lib-dvd-metadata.sh
+search_tmdb_json "$1" "$2"
+"""
         
-        if not tmdb_api_key:
-            return jsonify({'success': False, 'message': 'TMDB API Key nicht konfiguriert'}), 400
+        result = subprocess.run(
+            ['/bin/bash', '-c', script, '--', title, media_type],
+            capture_output=True,
+            text=True,
+            timeout=30
+        )
         
-        # TMDB API-Anfrage
-        if media_type == 'tv':
-            url = f"https://api.themoviedb.org/3/search/tv?api_key={tmdb_api_key}&language=de-DE&query={title}&page=1"
+        if result.returncode == 0 and result.stdout.strip():
+            # Parse JSON-Output von Bash
+            try:
+                bash_response = json.loads(result.stdout)
+                return jsonify(bash_response)
+            except json.JSONDecodeError as e:
+                print(f"[ERROR] JSON-Parse-Fehler: {e}, Output: {result.stdout}", file=sys.stderr)
+                return jsonify({
+                    'success': False,
+                    'message': 'Ungültige Antwort vom Server'
+                }), 500
         else:
-            url = f"https://api.themoviedb.org/3/search/movie?api_key={tmdb_api_key}&language=de-DE&query={title}&page=1"
-        
-        response = requests.get(url, timeout=10)
-        response.raise_for_status()
-        data = response.json()
-        
-        # Formatiere Ergebnisse
-        results = []
-        for item in data.get('results', [])[:10]:  # Max 10 Treffer
-            results.append({
-                'id': item.get('id'),
-                'title': item.get('title' if media_type == 'movie' else 'name', 'Unknown'),
-                'year': item.get('release_date' if media_type == 'movie' else 'first_air_date', '')[:4],
-                'overview': item.get('overview', ''),
-                'poster_path': item.get('poster_path', ''),
-                'poster_url': f"https://image.tmdb.org/t/p/w200{item['poster_path']}" if item.get('poster_path') else None
-            })
-        
-        return jsonify({'success': True, 'results': results})
-        
+            error_msg = result.stderr.strip() if result.stderr else 'TMDB-Suche fehlgeschlagen'
+            print(f"[ERROR] Bash-Fehler: {error_msg}", file=sys.stderr)
+            return jsonify({
+                'success': False,
+                'message': 'TMDB-Suche fehlgeschlagen'
+            }), 500
+            
+    except subprocess.TimeoutExpired:
+        return jsonify({'success': False, 'message': 'Timeout bei TMDB-Anfrage'}), 504
     except Exception as e:
-        return jsonify({'success': False, 'message': f'TMDB-Suche fehlgeschlagen: {str(e)}'}), 500
+        print(f"[ERROR] Unexpected: {str(e)}", file=sys.stderr)
+        return jsonify({'success': False, 'message': f'Fehler: {str(e)}'}), 500
 
 @app.route('/api/metadata/tmdb/apply', methods=['POST'])
 def api_tmdb_apply():
@@ -1401,111 +1467,46 @@ echo "$new_path"
 
 @app.route('/api/metadata/musicbrainz/search', methods=['POST'])
 def api_musicbrainz_search():
-    """API-Endpoint: Suche Album in MusicBrainz"""
+    """API-Endpoint: Suche Album in MusicBrainz (via Bash)"""
     try:
         data = request.get_json()
         artist = data.get('artist', '').strip()
         album = data.get('album', '').strip()
         iso_path = data.get('iso_path', '').strip()
         
-        # Prüfe ob .mbquery Datei existiert (bei mehreren Treffern während Rip)
-        mbquery_file = None
-        used_mbquery = False
-        if iso_path:
-            # Entferne .iso Extension und füge .mbquery hinzu
-            iso_base = iso_path.rsplit('.', 1)[0] if iso_path.endswith('.iso') else iso_path
-            mbquery_file = f"{iso_base}.mbquery"
-            
-            if os.path.exists(mbquery_file):
-                # Lese gespeicherte Query-Daten
-                try:
-                    with open(mbquery_file, 'r') as f:
-                        query_data = {}
-                        for line in f:
-                            if '=' in line:
-                                key, value = line.strip().split('=', 1)
-                                query_data[key] = value
-                    
-                    disc_id = query_data.get('DISC_ID')
-                    toc = query_data.get('TOC')
-                    
-                    if disc_id and toc:
-                        # Nutze disc-id + TOC für exakte Suche (wie beim Rippen)
-                        url = f"https://musicbrainz.org/ws/2/discid/{disc_id}?toc={toc}&fmt=json&inc=artists+labels+recordings+media"
-                        
-                        response = requests.get(url, timeout=10, headers={'User-Agent': 'disk2iso/1.2.0'})
-                        response.raise_for_status()
-                        mb_data = response.json()
-                        
-                        # Formatiere releases aus discid-Antwort
-                        releases_data = mb_data.get('releases', [])
-                        
-                        # Verwende diese Daten statt normaler Suche
-                        data = {'releases': releases_data}
-                        used_mbquery = True
-                    else:
-                        # Fallback: Normale Suche
-                        mbquery_file = None
-                except Exception as e:
-                    print(f"Fehler beim Lesen von .mbquery: {e}", file=sys.stderr)
-                    mbquery_file = None
+        # Rufe Bash-Funktion auf
+        script = """
+        source /opt/disk2iso/lib/lib-cd-metadata.sh
+        search_musicbrainz_json "$1" "$2" "$3"
+        """
         
-        # Normale Suche wenn keine .mbquery oder Fehler
-        if not used_mbquery:
-            if not artist and not album:
-                return jsonify({'success': False, 'message': 'Artist oder Album erforderlich'}), 400
-            
-            # MusicBrainz API-Anfrage
-            query_parts = []
-            if artist:
-                query_parts.append(f'artist:"{artist}"')
-            if album:
-                query_parts.append(f'release:"{album}"')
-            
-            query = ' AND '.join(query_parts)
-            # Erweiterte Abfrage mit recordings und labels für vollständige Metadaten
-            url = f"https://musicbrainz.org/ws/2/release/?query={query}&fmt=json&limit=10&inc=artists+labels+recordings+media"
-            
-            response = requests.get(url, timeout=10, headers={'User-Agent': 'disk2iso/1.2.0'})
-            response.raise_for_status()
-            data = response.json()
+        result = subprocess.run(
+            ['/bin/bash', '-c', script, '--', artist, album, iso_path],
+            capture_output=True,
+            text=True,
+            timeout=30
+        )
         
-        # Formatiere Ergebnisse (kompatibel mit Original-Format)
-        results = []
-        for release in data.get('releases', []):
-            artist_name = release.get('artist-credit', [{}])[0].get('name', 'Unknown')
-            
-            # Extrahiere Label
-            label_info = release.get('label-info', [])
-            label_name = label_info[0].get('label', {}).get('name', 'Unknown') if label_info else 'Unknown'
-            
-            # Berechne Gesamtdauer (in Millisekunden)
-            total_duration = 0
-            media = release.get('media', [])
-            if media and len(media) > 0:
-                tracks = media[0].get('tracks', [])
-                for track in tracks:
-                    track_length = track.get('length', 0)
-                    if track_length:
-                        total_duration += track_length
-            
-            # Track-Anzahl
-            track_count = media[0].get('track-count', 0) if media else release.get('track-count', 0)
-            
-            results.append({
-                'id': release.get('id'),
-                'title': release.get('title', 'Unknown Album'),
-                'artist': artist_name,
-                'date': release.get('date', 'unknown'),
-                'country': release.get('country', 'unknown'),
-                'tracks': track_count,
-                'label': label_name,
-                'duration': total_duration,
-                'cover_url': f"https://coverartarchive.org/release/{release['id']}/front-250" if release.get('id') else None
-            })
+        if result.returncode != 0:
+            return jsonify({
+                'success': False,
+                'message': 'MusicBrainz-Suche fehlgeschlagen',
+                'error': result.stderr
+            }), 500
         
-        return jsonify({'success': True, 'results': results, 'used_mbquery': used_mbquery})
+        # Parse JSON-Output
+        try:
+            response_data = json.loads(result.stdout)
+            return jsonify(response_data)
+        except json.JSONDecodeError as e:
+            return jsonify({
+                'success': False,
+                'message': f'Ungültige JSON-Antwort: {str(e)}',
+                'stdout': result.stdout
+            }), 500
         
+    except subprocess.TimeoutExpired:
+        return jsonify({'success': False, 'message': 'MusicBrainz-Suche: Zeitüberschreitung'}), 500
     except Exception as e:
         return jsonify({'success': False, 'message': f'MusicBrainz-Suche fehlgeschlagen: {str(e)}'}), 500
 

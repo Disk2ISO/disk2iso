@@ -15,6 +15,150 @@
 ################################################################################
 
 # ============================================================================
+# WEB API WRAPPER FUNCTIONS (für Python Flask Integration)
+# ============================================================================
+
+# Funktion: MusicBrainz Suche mit JSON-Return für Web-API
+# Parameter: $1 = Artist (optional bei .mbquery)
+#            $2 = Album (optional bei .mbquery)
+#            $3 = ISO-Pfad (optional, für .mbquery Lookup)
+# Rückgabe: JSON-String mit {"success": true/false, "results": [...], "used_mbquery": true/false}
+# Diese Funktion wird vom Python Web-Interface aufgerufen
+search_musicbrainz_json() {
+    local artist="$1"
+    local album="$2"
+    local iso_path="$3"
+    
+    local used_mbquery=false
+    local mb_response=""
+    
+    # Prüfe ob .mbquery Datei existiert
+    if [[ -n "$iso_path" ]]; then
+        local mbquery_file="${iso_path%.iso}.mbquery"
+        
+        if [[ -f "$mbquery_file" ]]; then
+            # Lese Query-Daten
+            local disc_id=""
+            local toc=""
+            
+            while IFS='=' read -r key value; do
+                case "$key" in
+                    DISC_ID) disc_id="$value" ;;
+                    TOC) toc="$value" ;;
+                esac
+            done < "$mbquery_file"
+            
+            if [[ -n "$disc_id" ]] && [[ -n "$toc" ]]; then
+                # Nutze disc-id + TOC für exakte Suche
+                local url="https://musicbrainz.org/ws/2/discid/${disc_id}?toc=${toc}&fmt=json&inc=artists+labels+recordings+media"
+                
+                mb_response=$(curl -s -m 10 -H "User-Agent: disk2iso/1.2.0" "$url" 2>/dev/null)
+                
+                if [[ $? -eq 0 ]] && [[ -n "$mb_response" ]]; then
+                    used_mbquery=true
+                else
+                    # Fallback zu normaler Suche
+                    mb_response=""
+                fi
+            fi
+        fi
+    fi
+    
+    # Normale Suche wenn keine .mbquery oder Fehler
+    if [[ "$used_mbquery" == "false" ]]; then
+        if [[ -z "$artist" ]] && [[ -z "$album" ]]; then
+            echo '{"success": false, "message": "Artist oder Album erforderlich"}'
+            return 1
+        fi
+        
+        # Baue Query
+        local query_parts=()
+        [[ -n "$artist" ]] && query_parts+=("artist:${artist}")
+        [[ -n "$album" ]] && query_parts+=("release:${album}")
+        
+        local query=$(IFS=' AND '; echo "${query_parts[*]}")
+        
+        # URL-Encoding mit jq (sicherer als sed)
+        local encoded_query=$(echo -n "$query" | jq -sRr @uri)
+        
+        local url="https://musicbrainz.org/ws/2/release/?query=${encoded_query}&fmt=json&limit=10&inc=artists+labels+recordings+media"
+        
+        mb_response=$(curl -s -m 10 -H "User-Agent: disk2iso/1.2.0" "$url" 2>/dev/null)
+        
+        if [[ $? -ne 0 ]] || [[ -z "$mb_response" ]]; then
+            echo '{"success": false, "message": "MusicBrainz-Suche fehlgeschlagen"}'
+            return 1
+        fi
+    fi
+    
+    # Formatiere Ergebnisse mit jq
+    local results=$(echo "$mb_response" | jq -c '[.releases[:10] | .[] | {
+        id: .id,
+        title: (.title // "Unknown Album"),
+        artist: (."artist-credit"[0].name // "Unknown"),
+        date: (.date // "unknown"),
+        country: (.country // "unknown"),
+        tracks: (.media[0]."track-count" // 0),
+        label: (."label-info"[0]?.label?.name // "Unknown"),
+        duration: (.media[0].tracks | map(.length // 0) | add),
+        cover_url: (if (."cover-art-archive".front == true) then ("https://coverartarchive.org/release/" + .id + "/front-250") else null end)
+    }]' 2>/dev/null)
+    
+    if [[ $? -ne 0 ]] || [[ -z "$results" ]]; then
+        echo '{"success": false, "message": "JSON-Formatierung fehlgeschlagen"}'
+        return 1
+    fi
+    
+    # Baue finale Response
+    echo "{\"success\": true, \"results\": $results, \"used_mbquery\": $used_mbquery}"
+    return 0
+}
+
+# Funktion: MusicBrainz Cover-Art Download mit Caching
+# Parameter: $1 = Release-ID
+#            $2 = Cache-Verzeichnis (optional, default: .temp)
+# Rückgabe: Pfad zur Cover-Datei oder Fehler
+# Diese Funktion lädt Cover von CoverArtArchive und cached sie lokal
+get_musicbrainz_cover() {
+    local release_id="$1"
+    local cache_dir="${2:-.temp}"
+    
+    if [[ -z "$release_id" ]]; then
+        echo '{"success": false, "message": "Release-ID erforderlich"}'
+        return 1
+    fi
+    
+    # Erstelle Cache-Verzeichnis
+    mkdir -p "$cache_dir" 2>/dev/null
+    
+    local cover_file="${cache_dir}/cover_${release_id}.jpg"
+    
+    # Wenn Cover bereits existiert, gib Pfad zurück
+    if [[ -f "$cover_file" ]]; then
+        echo "{\"success\": true, \"path\": \"${cover_file}\"}"
+        return 0
+    fi
+    
+    # Lade Cover von CoverArtArchive
+    local cover_url="https://coverartarchive.org/release/${release_id}/front-250"
+    
+    if curl -s -f -m 10 -o "$cover_file" "$cover_url" 2>/dev/null; then
+        # Prüfe ob Download erfolgreich (Datei > 0 Bytes)
+        if [[ -s "$cover_file" ]]; then
+            echo "{\"success\": true, \"path\": \"${cover_file}\"}"
+            return 0
+        else
+            rm -f "$cover_file"
+            echo '{"success": false, "message": "Cover-Download leer"}'
+            return 1
+        fi
+    else
+        echo '{"success": false, "message": "Cover nicht verfügbar"}'
+        return 1
+    fi
+}
+
+# ============================================================================
 # RETROACTIVE METADATA FUNCTIONS
 # ============================================================================
 
