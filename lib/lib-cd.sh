@@ -607,75 +607,38 @@ copy_audio_cd() {
         return 1
     fi
     
-    # Metadaten abrufen
-    # 1. Versuch: MusicBrainz (bevorzugt - liefert Cover-Art, Track-Namen, Jahr)
-    # 2. Fallback: CD-TEXT (wenn MusicBrainz fehlschlägt)
+    # Metadaten abrufen - aber nur OHNE Modal!
+    # - 1 Release gefunden → Metadaten direkt nutzen
+    # - Mehrere Releases → Überspringen, später im Archiv hinzufügen
+    cd_artist=""
+    cd_album=""
+    cd_year=""
+    cd_discid=""
+    mb_response=""
+    local skip_metadata=false
+    
     if ! get_musicbrainz_metadata; then
         log_message "$MSG_CONTINUE_WITHOUT_METADATA"
-        # Fallback: CD-TEXT versuchen
-        if get_cdtext_metadata; then
-            log_message "$MSG_USE_CDTEXT_METADATA"
-        else
-            log_message "$MSG_CONTINUE_NO_METADATA"
-        fi
-    fi
-    
-    # Falls MusicBrainz-Metadaten Benutzer-Bestätigung benötigen
-    if [[ "${MUSICBRAINZ_NEEDS_CONFIRMATION:-false}" == "true" ]]; then
-        log_message "WARNUNG: Mehrere Alben gefunden - warte auf Benutzer-Auswahl..."
+        skip_metadata=true
+    elif [[ "${MUSICBRAINZ_NEEDS_CONFIRMATION:-false}" == "true" ]]; then
+        # Mehrere Releases gefunden - verwende generische Namen
+        log_message "INFO: Mehrere Releases - verwende generische Namen. Metadaten können später im Archiv hinzugefügt werden."
         
-        local wait_seconds=0
-        local max_wait=300
+        # Lösche temporäre API-Dateien (kein Modal während Ripping)
+        local api_dir="${INSTALL_DIR:-/opt/disk2iso}/api"
+        rm -f "${api_dir}/musicbrainz_releases.json" "${api_dir}/musicbrainz_selection.json" 2>/dev/null || true
         
-        while [[ $wait_seconds -lt $max_wait ]]; do
-            local api_dir="${INSTALL_DIR:-/opt/disk2iso}/api"
-            local selection_file="${api_dir}/musicbrainz_selection.json"
-            local manual_file="${api_dir}/musicbrainz_manual.json"
-            
-            if [[ -f "$selection_file" ]]; then
-                local selection_status=$(jq -r '.status // "unknown"' "$selection_file" 2>/dev/null)
-                
-                if [[ "$selection_status" == "confirmed" ]]; then
-                    best_release_index=$(jq -r '.selected_index // 0' "$selection_file" 2>/dev/null)
-                    log_message "Benutzer hat Album $best_release_index ausgewählt"
-                    
-                    cd_album=$(echo "$mb_response" | jq -r ".releases[$best_release_index].title" 2>/dev/null)
-                    cd_artist=$(echo "$mb_response" | jq -r ".releases[$best_release_index][\"artist-credit\"][0].name" 2>/dev/null)
-                    cd_year=$(echo "$mb_response" | jq -r ".releases[$best_release_index].date" 2>/dev/null | cut -d'-' -f1)
-                    
-                    [[ "$cd_album" == "null" ]] && cd_album=""
-                    [[ "$cd_artist" == "null" ]] && cd_artist=""
-                    [[ "$cd_year" == "null" ]] && cd_year=""
-                    
-                    log_message "Aktualisierte Metadaten: $cd_artist - $cd_album ($cd_year)"
-                    break
-                fi
-            fi
-            
-            if [[ -f "$manual_file" ]]; then
-                local manual_status=$(jq -r '.status // "unknown"' "$manual_file" 2>/dev/null)
-                
-                if [[ "$manual_status" == "manual" ]]; then
-                    cd_artist=$(jq -r '.artist' "$manual_file" 2>/dev/null)
-                    cd_album=$(jq -r '.album' "$manual_file" 2>/dev/null)
-                    cd_year=$(jq -r '.year' "$manual_file" 2>/dev/null)
-                    
-                    log_message "Manuelle Metadaten: $cd_artist - $cd_album ($cd_year)"
-                    mb_response=""
-                    break
-                fi
-            fi
-            
-            sleep 2
-            wait_seconds=$((wait_seconds + 2))
-        done
-        
-        if [[ $wait_seconds -ge $max_wait ]]; then
-            log_message "TIMEOUT: Keine Benutzer-Auswahl - verwende automatische Auswahl"
-        fi
-        
+        # Setze Variablen zurück
+        cd_artist=""
+        cd_album=""
+        cd_year=""
+        mb_response=""
+        skip_metadata=true
         unset MUSICBRAINZ_NEEDS_CONFIRMATION
-        rm -f "$selection_file" "$manual_file" 2>/dev/null || true
+    else
+        # Genau 1 Release - nutze Metadaten direkt
+        log_message "INFO: 1 Release gefunden - verwende Metadaten: $cd_artist - $cd_album"
+        skip_metadata=false
     fi
     
     # Nutze globales temp_pathname (wird von init_filenames erstellt)
@@ -687,36 +650,37 @@ copy_audio_cd() {
         mkdir -p "$temp_pathname" || return 1
     fi
     
-    # Lade Album-Cover falls verfügbar (nach temp_pathname Sicherstellung)
+    # Album-Cover laden (falls Metadaten verfügbar)
     local cover_file=""
-    if command -v eyeD3 >/dev/null 2>&1; then
-        cover_file=$(download_cover_art "$temp_pathname")
-    else
-        log_message "$MSG_INFO_EYED3_MISSING"
+    if [[ "$skip_metadata" == "false" ]] && [[ -n "$mb_response" ]]; then
+        if command -v eyeD3 >/dev/null 2>&1; then
+            cover_file=$(download_cover_art "$temp_pathname")
+        else
+            log_message "$MSG_INFO_EYED3_MISSING"
+        fi
     fi
     
-    # Erstelle Jellyfin-kompatible Verzeichnisstruktur: AlbumArtist/Album/
+    # Erstelle Verzeichnisstruktur basierend auf verfügbaren Metadaten
     local album_dir
-    if [[ -n "$cd_album" ]] && [[ -n "$cd_artist" ]]; then
-        # Behalte Originalnamen (nur gefährliche Zeichen entfernen)
+    if [[ "$skip_metadata" == "false" ]] && [[ -n "$cd_album" ]] && [[ -n "$cd_artist" ]]; then
+        # Metadaten verfügbar - Jellyfin-Struktur: AlbumArtist/Album/
         local safe_artist=$(echo "$cd_artist" | sed 's/[\/\\:*?"<>|]/_/g')
         local safe_album=$(echo "$cd_album" | sed 's/[\/\\:*?"<>|]/_/g')
         
-        # Struktur: AlbumArtist/Album/
         album_dir="${temp_pathname}/${safe_artist}/${safe_album}"
         
-        # Setze disc_label für ISO-Dateinamen (lowercase für Dateinamen)
+        # ISO-Label (lowercase)
         local label_artist=$(echo "$cd_artist" | sed 's/[^a-zA-Z0-9_-]/_/g' | tr '[:upper:]' '[:lower:]')
         local label_album=$(echo "$cd_album" | sed 's/[^a-zA-Z0-9_-]/_/g' | tr '[:upper:]' '[:lower:]')
         disc_label="${label_artist}_${label_album}"
     else
-        # Fallback: Verwende Disc-ID oder generischen Namen
+        # Keine Metadaten - einfache DiskID-Struktur
         if [[ -n "$cd_discid" ]]; then
-            album_dir="${temp_pathname}/Unknown_Artist/audio_cd_${cd_discid}"
+            album_dir="${temp_pathname}/audio_cd_${cd_discid}"
             disc_label="audio_cd_${cd_discid}"
         else
             local timestamp=$(date +%Y%m%d_%H%M%S)
-            album_dir="${temp_pathname}/Unknown_Artist/audio_cd_${timestamp}"
+            album_dir="${temp_pathname}/audio_cd_${timestamp}"
             disc_label="audio_cd_${timestamp}"
         fi
     fi
@@ -737,27 +701,14 @@ copy_audio_cd() {
     
     log_message "$MSG_TRACKS_FOUND: $track_count"
     
-    # API: Aktualisiere Attribute mit CD-Metadaten
+    # API: Aktualisiere Status
     if declare -f api_update_status >/dev/null 2>&1; then
-        # Erstelle readable Label für Anzeige
-        local display_label=""
-        if [[ -n "$cd_artist" ]] && [[ -n "$cd_album" ]]; then
-            display_label="${cd_artist} - ${cd_album}"
-        else
-            display_label="$disc_label"
-        fi
-        api_update_status "copying" "$display_label" "audio-cd"
+        api_update_status "copying" "$disc_label" "audio-cd"
     fi
     
-    # MQTT: Sende Update mit erkanntem Label
+    # MQTT: Sende Update mit DiskID
     if [[ "$MQTT_SUPPORT" == "true" ]] && declare -f mqtt_publish_state >/dev/null 2>&1; then
-        local display_label=""
-        if [[ -n "$cd_artist" ]] && [[ -n "$cd_album" ]]; then
-            display_label="${cd_artist} - ${cd_album}"
-        else
-            display_label="$disc_label"
-        fi
-        mqtt_publish_state "copying" "$display_label" "audio-cd"
+        mqtt_publish_state "copying" "$disc_label" "audio-cd"
     fi
     
     # Initialisiere Fortschritt mit korrekter Track-Anzahl (0/24 statt 0/0)
@@ -794,41 +745,50 @@ copy_audio_cd() {
         fi
         
         # Konvertiere WAV zu MP3 mit lame
-        # Dateiname: "Artist - Title.mp3" (Jellyfin-Format)
+        # Dateiname abhängig von verfügbaren Metadaten
         local mp3_filename
-        local track_title
-        track_title=$(get_track_title "$track")
+        local mp3_file
         
-        if [[ -n "$track_title" ]] && [[ -n "$cd_artist" ]]; then
-            # Jellyfin-Format: "Artist - Title.mp3"
-            # Entferne nur gefährliche Zeichen, behalte Groß-/Kleinschreibung
-            local safe_artist=$(echo "$cd_artist" | sed 's/[\/\\:*?"<>|]/_/g')
-            local safe_title=$(echo "$track_title" | sed 's/[\/\\:*?"<>|]/_/g')
-            mp3_filename="${safe_artist} - ${safe_title}.mp3"
-            log_message "$MSG_ENCODING_TRACK_WITH_TITLE $track: $track_title"
+        if [[ "$skip_metadata" == "false" ]] && [[ -n "$mb_response" ]]; then
+            # Metadaten verfügbar - nutze Track-Titel
+            local track_title
+            track_title=$(get_track_title "$track")
+            
+            if [[ -n "$track_title" ]] && [[ -n "$cd_artist" ]]; then
+                # Jellyfin-Format: "Artist - Title.mp3"
+                local safe_artist=$(echo "$cd_artist" | sed 's/[\/\\:*?"<>|]/_/g')
+                local safe_title=$(echo "$track_title" | sed 's/[\/\\:*?"<>|]/_/g')
+                mp3_filename="${safe_artist} - ${safe_title}.mp3"
+                log_message "$MSG_ENCODING_TRACK_WITH_TITLE $track: $track_title"
+            else
+                mp3_filename="Track ${track_num}.mp3"
+                log_message "$MSG_ENCODING_TRACK $track"
+            fi
         else
-            # Fallback ohne MusicBrainz: "Track 01.mp3"
+            # Keine Metadaten - einfacher Dateiname
             mp3_filename="Track ${track_num}.mp3"
             log_message "$MSG_ENCODING_TRACK $track"
         fi
         
-        local mp3_file="${album_dir}/${mp3_filename}"
+        mp3_file="${album_dir}/${mp3_filename}"
         
-        # lame Optionen: VBR Qualität aus Konfiguration, --quiet
+        # lame Optionen: VBR Qualität aus Konfiguration
         local lame_opts="-V${MP3_QUALITY} --quiet"
         
-        # Füge ID3-Tags hinzu
-        if [[ -n "$cd_artist" ]]; then
-            lame_opts="$lame_opts --ta \"$cd_artist\""
-        fi
-        if [[ -n "$cd_album" ]]; then
-            lame_opts="$lame_opts --tl \"$cd_album\""
-        fi
-        if [[ -n "$cd_year" ]]; then
-            lame_opts="$lame_opts --ty \"$cd_year\""
-        fi
-        if [[ -n "$track_title" ]]; then
-            lame_opts="$lame_opts --tt \"$track_title\""
+        # Füge ID3-Tags hinzu (falls Metadaten verfügbar)
+        if [[ "$skip_metadata" == "false" ]]; then
+            if [[ -n "$cd_artist" ]]; then
+                lame_opts="$lame_opts --ta \"$cd_artist\""
+            fi
+            if [[ -n "$cd_album" ]]; then
+                lame_opts="$lame_opts --tl \"$cd_album\""
+            fi
+            if [[ -n "$cd_year" ]]; then
+                lame_opts="$lame_opts --ty \"$cd_year\""
+            fi
+            if [[ -n "$track_title" ]]; then
+                lame_opts="$lame_opts --tt \"$track_title\""
+            fi
         fi
         lame_opts="$lame_opts --tn \"$track/$track_count\""
         
@@ -839,9 +799,11 @@ copy_audio_cd() {
             return 1
         fi
         
-        # Bette Cover-Art ein (falls vorhanden und eyeD3 verfügbar)
-        if [[ -n "$cover_file" ]] && [[ -f "$cover_file" ]]; then
-            eyeD3 --quiet --add-image "${cover_file}:FRONT_COVER" "$mp3_file" >>"$log_filename" 2>&1
+        # Bette Cover-Art ein (falls vorhanden)
+        if [[ "$skip_metadata" == "false" ]] && [[ -n "$cover_file" ]] && [[ -f "$cover_file" ]]; then
+            if command -v eyeD3 >/dev/null 2>&1; then
+                eyeD3 --quiet --add-image "${cover_file}:FRONT_COVER" "$mp3_file" >>"$log_filename" 2>&1
+            fi
         fi
         
         # Lösche WAV-Datei um Speicherplatz zu sparen
@@ -876,29 +838,18 @@ copy_audio_cd() {
         fi
     done
     
-    # Kopiere Cover als folder.jpg ins Album-Verzeichnis (Jellyfin-Standard)
-    if [[ "${DEBUG:-0}" == "1" ]]; then
-        log_message "${DBG_CHECKING_COVER_COPY/\%s/$cover_file}" | sed "s/%s/$album_dir/"
-    fi
-    if [[ -n "$cover_file" ]]; then
-        if [[ -f "$cover_file" ]]; then
-            [[ "${DEBUG:-0}" == "1" ]] && log_message "${DBG_COVER_FILE_EXISTS/\%s/$cover_file}"
-            if cp "$cover_file" "${album_dir}/folder.jpg" 2>>/dev/stderr; then
-                log_message "$MSG_COVER_SAVED_FOLDER_JPG"
-            else
-                log_message "$MSG_ERROR_COVER_COPY_FAILED"
-            fi
-        else
-            log_message "$MSG_ERROR_COVER_FILE_NOT_FOUND $cover_file"
-        fi
-    else
-        [[ "${DEBUG:-0}" == "1" ]] && log_message "$DBG_COVER_FILE_EMPTY"
+    # Kopiere Cover als folder.jpg (falls vorhanden)
+    if [[ "$skip_metadata" == "false" ]] && [[ -n "$cover_file" ]] && [[ -f "$cover_file" ]]; then
+        cp "$cover_file" "${album_dir}/folder.jpg" 2>/dev/null && \
+            log_message "$MSG_COVER_SAVED_FOLDER_JPG"
     fi
     
     log_message "$MSG_RIPPING_COMPLETE_CREATE_ISO"
     
-    # Erstelle album.nfo für Jellyfin
-    create_album_nfo "$album_dir"
+    # Erstelle album.nfo für Jellyfin (falls Metadaten verfügbar)
+    if [[ "$skip_metadata" == "false" ]] && [[ -n "$mb_response" ]]; then
+        create_album_nfo "$album_dir"
+    fi
     
     # Sichere temp_pathname bevor init_filenames es überschreibt
     local audio_temp_path="$temp_pathname"
@@ -918,9 +869,12 @@ copy_audio_cd() {
     
     # Erstelle ISO mit genisoimage
     local volume_id
-    if [[ -n "$cd_album" ]]; then
-        # Volume-ID: max 32 Zeichen, nur A-Z0-9_
+    if [[ "$skip_metadata" == "false" ]] && [[ -n "$cd_album" ]]; then
+        # Metadaten verfügbar - Album-Name als Volume-ID
         volume_id=$(echo "$cd_album" | sed 's/[^A-Za-z0-9_]/_/g' | cut -c1-32 | tr '[:lower:]' '[:upper:]')
+    elif [[ -n "$cd_discid" ]]; then
+        # Nur Disc-ID verfügbar
+        volume_id="AUDIO_CD_${cd_discid}"
     else
         volume_id="AUDIO_CD"
     fi
@@ -928,18 +882,21 @@ copy_audio_cd() {
     log_message "$MSG_CREATE_ISO: $iso_filename"
     log_message "$MSG_VOLUME_ID: $volume_id"
     
-    # Erstelle ISO aus audio_temp_path (nicht album_dir!) um Ordnerstruktur zu erhalten
-    # ISO enthält dann: AlbumArtist/Album/Tracks.mp3
+    # Erstelle ISO aus audio_temp_path
+    # ISO-Struktur abhängig von Metadaten:
+    # - Mit Metadaten: AlbumArtist/Album/Artist - Title.mp3
+    # - Ohne Metadaten: audio_cd_<discid>/Track 01.mp3
     if ! genisoimage -R -J -joliet-long \
         -V "$volume_id" \
         -o "$iso_filename" \
         "$audio_temp_path" >>"$log_filename" 2>&1; then
         log_message "$MSG_ERROR_ISO_CREATION_FAILED"
         rm -rf "$audio_temp_path"
+        [[ -n "$cover_file" ]] && rm -f "$cover_file"
         return 1
     fi
     
-    # Cleanup temp-Verzeichnis und Cover-Datei
+    # Cleanup temp-Verzeichnis und Cover
     rm -rf "$audio_temp_path"
     [[ -n "$cover_file" ]] && rm -f "$cover_file"
     
@@ -958,8 +915,10 @@ copy_audio_cd() {
         log_message "$MSG_WARNING_MD5_FAILED"
     fi
     
-    # Erstelle Archiv-Metadaten für Web-Interface (NFO + Thumbnail)
-    create_archive_metadata "$iso_filename"
+    # Erstelle Archiv-Metadaten (falls Metadaten verfügbar)
+    if [[ "$skip_metadata" == "false" ]] && [[ -n "$mb_response" ]]; then
+        create_archive_metadata "$iso_filename"
+    fi
     
     log_message "$MSG_AUDIO_CD_SUCCESS"
     return 0

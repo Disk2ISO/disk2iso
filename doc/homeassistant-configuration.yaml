@@ -162,7 +162,8 @@ automation:
 #       **Größe:** {{ state_attr('sensor.disk2iso_status', 'disc_size_mb') or 0 }} MB
 #
 #       {% if is_state('sensor.disk2iso_status', 'copying') %}
-#       **Fortschritt:** {{ state_attr('sensor.disk2iso_status', 'progress_mb') }} / {{ state_attr('sensor.disk2iso_status', 'total_mb') }} MB
+#       {% set unit = state_attr('sensor.disk2iso_status', 'progress_unit') or 'MB' %}
+#       **Fortschritt:** {{ state_attr('sensor.disk2iso_status', 'progress_mb') }} / {{ state_attr('sensor.disk2iso_status', 'total_mb') }} {{ unit }}
 #       **Verbleibend:** {{ state_attr('sensor.disk2iso_status', 'eta') }}
 #       **Methode:** {{ state_attr('sensor.disk2iso_status', 'method') }}
 #       {% endif %}

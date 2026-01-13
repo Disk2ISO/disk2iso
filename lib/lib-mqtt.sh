@@ -383,6 +383,12 @@ mqtt_publish_progress() {
     # MQTT Publishing
     mqtt_publish "progress" "${percent}"
     
+    # Bestimme Einheit basierend auf Disc-Typ (Audio-CD = Tracks, sonst MB)
+    local unit="MB"
+    if [[ "${disc_type:-}" == "audio-cd" ]]; then
+        unit="Tracks"
+    fi
+    
     # Attributes Topic (Update nur relevante Felder)
     local attr_json=$(cat <<EOF
 {
@@ -392,6 +398,7 @@ mqtt_publish_progress() {
   "progress_percent": ${percent},
   "progress_mb": ${copied_mb},
   "total_mb": ${total_mb},
+  "progress_unit": "${unit}",
   "eta": "${eta}",
   "filename": "${iso_basename:-}",
   "method": "${COPY_METHOD:-unknown}",
@@ -403,7 +410,8 @@ EOF
     
     mqtt_publish "attributes" "${attr_json}"
     
-    log_message "$MSG_MQTT_PROGRESS ${percent}% (${copied_mb}/${total_mb} MB, ETA: ${eta})"
+    # Log-Ausgabe mit korrekter Einheit
+    log_message "$MSG_MQTT_PROGRESS ${percent}% (${copied_mb}/${total_mb} ${unit}, ETA: ${eta})"
     
     return 0
 }
