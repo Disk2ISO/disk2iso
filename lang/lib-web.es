@@ -7,6 +7,7 @@ readonly MSG_NAV_HOME="Inicio"
 readonly MSG_NAV_ARCHIVE="Archivo"
 readonly MSG_NAV_LOGS="Registros"
 readonly MSG_NAV_SYSTEM="Sistema"
+readonly MSG_NAV_CONFIG="Configuración"
 readonly MSG_NAV_HELP="Ayuda"
 
 # Página de inicio (Estado de la unidad)

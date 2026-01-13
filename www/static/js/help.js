@@ -1,5 +1,6 @@
 /**
  * disk2iso - Help Page JavaScript
+ * Version: 1.2.0
  */
 
 let currentDoc = 'Handbuch.md';

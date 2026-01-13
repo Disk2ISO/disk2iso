@@ -74,6 +74,25 @@
     </div>
 
     </div>
+
+    <!-- Metadata Modal -->
+    <div id="metadata-modal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="metadata-search-type">Metadaten-Suche</h2>
+                <span class="modal-close" onclick="closeMetadataModal()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div id="metadata-search-fields" style="margin-bottom: 20px;">
+                    <!-- Wird dynamisch gefüllt -->
+                </div>
+                <button onclick="searchMetadata()" class="btn btn-primary" style="width: 100%;">Suchen</button>
+                <div id="metadata-results" style="margin-top: 20px;">
+                    <!-- Suchergebnisse werden hier angezeigt -->
+                </div>
+            </div>
+        </div>
+    </div>
 {% endblock %}
 
 {% block scripts %}

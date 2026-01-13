@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="250" height="250" viewBox="0 0 250 250" xmlns="http://www.w3.org/2000/svg">
+  <!-- Hintergrund mit abgerundeten Ecken -->
+  <rect width="250" height="250" rx="15" ry="15" fill="url(#bgGradient)"/>
+  
+  <!-- Gradient Definition -->
+  <defs>
+    <linearGradient id="bgGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#667eea;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#764ba2;stop-opacity:1" />
+    </linearGradient>
+    
+    <radialGradient id="cdGradient" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" style="stop-color:#e0e0e0;stop-opacity:1" />
+      <stop offset="40%" style="stop-color:#f5f5f5;stop-opacity:1" />
+      <stop offset="70%" style="stop-color:#d0d0d0;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#b0b0b0;stop-opacity:1" />
+    </radialGradient>
+    
+    <radialGradient id="cdReflection" cx="40%" cy="40%" r="60%">
+      <stop offset="0%" style="stop-color:#ffffff;stop-opacity:0.6" />
+      <stop offset="50%" style="stop-color:#ffffff;stop-opacity:0.2" />
+      <stop offset="100%" style="stop-color:#ffffff;stop-opacity:0" />
+    </radialGradient>
+  </defs>
+  
+  <!-- CD-Scheibe (leicht nach oben versetzt) -->
+  <g transform="translate(125, 110)">
+    <!-- Äußerer CD-Ring -->
+    <circle cx="0" cy="0" r="70" fill="url(#cdGradient)"/>
+    
+    <!-- Reflexion/Glanz -->
+    <circle cx="-15" cy="-15" r="60" fill="url(#cdReflection)" opacity="0.7"/>
+    
+    <!-- Inneres Loch -->
+    <circle cx="0" cy="0" r="15" fill="#4a5568"/>
+    <circle cx="0" cy="0" r="12" fill="#2d3748"/>
+    
+    <!-- CD-Linien (simulierte Datenspur) -->
+    <circle cx="0" cy="0" r="55" fill="none" stroke="#c0c0c0" stroke-width="0.5" opacity="0.3"/>
+    <circle cx="0" cy="0" r="45" fill="none" stroke="#d0d0d0" stroke-width="0.5" opacity="0.3"/>
+    <circle cx="0" cy="0" r="35" fill="none" stroke="#c0c0c0" stroke-width="0.5" opacity="0.3"/>
+    <circle cx="0" cy="0" r="25" fill="none" stroke="#d0d0d0" stroke-width="0.5" opacity="0.3"/>
+  </g>
+  
+  <!-- Musiknote (nach unten rechts verschoben) -->
+  <g transform="translate(160, 170)">
+    <!-- Notenkopf -->
+    <ellipse cx="0" cy="0" rx="12" ry="10" fill="white" transform="rotate(-20)"/>
+    
+    <!-- Notenhals -->
+    <rect x="10" y="-35" width="3" height="35" fill="white"/>
+    
+    <!-- Fähnchen -->
+    <path d="M 13 -35 Q 25 -30 25 -20 Q 25 -25 13 -28 Z" fill="white"/>
+    <path d="M 13 -28 Q 25 -23 25 -13 Q 25 -18 13 -21 Z" fill="white"/>
+  </g>
+  
+  <!-- Text "Audio CD" (optional, dezent am unteren Rand) -->
+  <text x="125" y="235" font-family="Arial, sans-serif" font-size="14" font-weight="600" fill="white" text-anchor="middle" opacity="0.8">
+    Audio CD
+  </text>
+</svg>

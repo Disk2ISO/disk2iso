@@ -49,6 +49,14 @@ MQTT_QOS=0                  # Quality of Service (0, 1, 2)
 MQTT_RETAIN=true            # Retain-Flag (true/false)
 
 # ============================================================================
+# TMDB API KONFIGURATION (DVD/Blu-ray Metadaten)
+# ============================================================================
+
+# TMDB API-Key von themoviedb.org
+# Wird für automatische Film-Metadaten und Cover-Download benötigt
+TMDB_API_KEY=""
+
+# ============================================================================
 # AUDIO-CD ENCODING EINSTELLUNGEN
 # ============================================================================
 

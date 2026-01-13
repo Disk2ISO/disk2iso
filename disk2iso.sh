@@ -151,6 +151,14 @@ else
     log_message "$MSG_VIDEO_DVD_NOT_INSTALLED"
 fi
 
+# DVD/Blu-ray Metadata Support (optional, benötigt TMDB API-Key)
+if [[ -f "${SCRIPT_DIR}/lib/lib-dvd-metadata.sh" ]]; then
+    source "${SCRIPT_DIR}/lib/lib-dvd-metadata.sh"
+    if [[ -n "$TMDB_API_KEY" ]]; then
+        log_message "TMDB Metadaten-Support aktiviert"
+    fi
+fi
+
 # Blu-ray Support (optional)
 BLURAY_SUPPORT=false
 if [[ -f "${SCRIPT_DIR}/lib/lib-bluray.sh" ]]; then

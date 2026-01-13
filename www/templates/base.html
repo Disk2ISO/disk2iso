@@ -57,6 +57,12 @@
                             </a>
                         </li>
                         <li>
+                            <a href="/config" class="{% if active_page == 'config' %}active{% endif %}">
+                                <span class="nav-icon"><img src="{{ url_for('static', filename='img/control.svg') }}" alt=""></span>
+                                <span>{{ t.NAV_CONFIG }}</span>
+                            </a>
+                        </li>
+                        <li>
                             <a href="/help" class="{% if active_page == 'help' %}active{% endif %}">
                                 <span class="nav-icon"><img src="{{ url_for('static', filename='img/help.svg') }}" alt=""></span>
                                 <span>{{ t.NAV_HELP }}</span>
@@ -78,6 +84,21 @@
         </div>
     </div>
     
+    <!-- TMDB Movie Selection Modal -->
+    <div id="tmdbModal" class="modal">
+        <div class="modal-content modal-large">
+            <div class="modal-header">
+                <h2>Film auswählen</h2>
+                <span class="modal-close" onclick="closeTmdbModal()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <p>Bitte wählen Sie den richtigen Film aus den TMDB-Suchergebnissen:</p>
+                <div id="tmdbResultsList" class="tmdb-results-list"></div>
+            </div>
+        </div>
+    </div>
+    
+    <script src="{{ url_for('static', filename='js/tmdb.js') }}"></script>
     {% block scripts %}{% endblock %}
 </body>
 </html>

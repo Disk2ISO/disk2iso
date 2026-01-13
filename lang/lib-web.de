@@ -7,6 +7,7 @@ readonly MSG_NAV_HOME="Home"
 readonly MSG_NAV_ARCHIVE="Archiv"
 readonly MSG_NAV_LOGS="Logs"
 readonly MSG_NAV_SYSTEM="System"
+readonly MSG_NAV_CONFIG="Einstellungen"
 readonly MSG_NAV_HELP="Hilfe"
 
 # Index-Seite (Laufwerksstatus)

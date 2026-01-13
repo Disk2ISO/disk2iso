@@ -45,6 +45,7 @@ def get_config():
         "mqtt_port": 1883,
         "mqtt_user": "",
         "mqtt_password": "",
+        "tmdb_api_key": "",
     }
     
     try:
@@ -100,6 +101,14 @@ def get_config():
                             value = value.split('#')[0]
                         value = value.strip().strip('"').strip()
                         config['mqtt_password'] = value
+                    
+                    # TMDB API Key
+                    elif line.startswith('TMDB_API_KEY='):
+                        value = line.split('=', 1)[1].strip()
+                        if '#' in value:
+                            value = value.split('#')[0]
+                        value = value.strip().strip('"').strip()
+                        config['tmdb_api_key'] = value
     except Exception as e:
         print(f"Fehler beim Lesen der Konfiguration: {e}", file=sys.stderr)
     
@@ -220,6 +229,25 @@ def get_iso_files_by_type(path):
                         'created': datetime.fromtimestamp(stat.st_ctime).strftime('%Y-%m-%d %H:%M:%S'),
                         'modified': datetime.fromtimestamp(stat.st_mtime).strftime('%Y-%m-%d %H:%M:%S')
                     }
+                    
+                    # Prüfe ob .nfo Metadaten existieren
+                    nfo_path = filepath.replace('.iso', '.nfo')
+                    if os.path.exists(nfo_path):
+                        try:
+                            with open(nfo_path, 'r', encoding='utf-8') as nfo:
+                                nfo_data = {}
+                                for line in nfo:
+                                    if '=' in line:
+                                        key, value = line.strip().split('=', 1)
+                                        nfo_data[key.lower()] = value
+                                file_info['metadata'] = nfo_data
+                        except:
+                            pass
+                    
+                    # Prüfe ob Thumbnail existiert
+                    thumb_path = filepath.replace('.iso', '-thumb.jpg')
+                    if os.path.exists(thumb_path):
+                        file_info['thumbnail'] = os.path.basename(thumb_path)
                     
                     # Determine type based on directory structure (primary) or filename pattern (fallback)
                     # Normalisiere Pfad-Komponenten
@@ -594,6 +622,48 @@ def api_musicbrainz_manual():
     except Exception as e:
         return jsonify({'success': False, 'message': str(e)}), 500
 
+@app.route('/api/tmdb/results')
+def api_tmdb_results():
+    """API-Endpoint für TMDB-Suchergebnisse"""
+    results = read_api_json('tmdb_results.json')
+    
+    if not results:
+        return jsonify({'status': 'no_data', 'results': []}), 404
+    
+    return jsonify({
+        'status': 'pending',
+        'results': results.get('results', []),
+        'total_results': results.get('total_results', 0)
+    })
+
+@app.route('/api/tmdb/select', methods=['POST'])
+def api_tmdb_select():
+    """API-Endpoint zum Auswählen eines TMDB Films"""
+    try:
+        data = request.get_json()
+        
+        if not data or 'index' not in data:
+            return jsonify({'success': False, 'message': 'Index fehlt'}), 400
+        
+        selected_index = int(data['index'])
+        
+        # Aktualisiere Selection-Status
+        selection_data = {
+            'status': 'confirmed',
+            'selected_index': selected_index,
+            'timestamp': datetime.now().isoformat()
+        }
+        
+        # Schreibe in API-Datei
+        api_file = Path(CONFIG_FILE).parent.parent / 'api' / 'tmdb_selection.json'
+        with open(api_file, 'w') as f:
+            json.dump(selection_data, f, indent=2)
+        
+        return jsonify({'success': True, 'selected_index': selected_index})
+        
+    except Exception as e:
+        return jsonify({'success': False, 'message': str(e)}), 500
+
 @app.route('/api/archive')
 def api_archive():
     """API-Endpoint für Archiv-Daten gruppiert nach Typ"""
@@ -607,6 +677,23 @@ def api_archive():
         'by_type': archives,
         'timestamp': datetime.now().isoformat()
     })
+
+@app.route('/api/archive/thumbnail/<path:filename>')
+def api_archive_thumbnail(filename):
+    """API-Endpoint zum Abrufen von ISO-Thumbnails"""
+    try:
+        config = get_config()
+        output_dir = Path(config['output_dir'])
+        
+        # Suche Thumbnail in allen Unterverzeichnissen
+        for root, dirs, files in os.walk(output_dir):
+            if filename in files:
+                thumb_path = os.path.join(root, filename)
+                return send_file(thumb_path, mimetype='image/jpeg')
+        
+        return jsonify({'error': 'Thumbnail nicht gefunden'}), 404
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 @app.route('/api/config', methods=['GET', 'POST'])
 def api_config():
@@ -660,6 +747,8 @@ def api_config():
                     new_lines.append(f'MQTT_USER="{data.get("mqtt_user", "")}"\n')
                 elif line.strip().startswith('MQTT_PASSWORD='):
                     new_lines.append(f'MQTT_PASSWORD="{data.get("mqtt_password", "")}"\n')
+                elif line.strip().startswith('TMDB_API_KEY='):
+                    new_lines.append(f'TMDB_API_KEY="{data.get("tmdb_api_key", "")}"\n')
                 else:
                     new_lines.append(line)
             
@@ -1187,6 +1276,231 @@ def api_system():
             'success': False,
             'message': f'Fehler beim Sammeln der Systeminformationen: {str(e)}'
         }), 500
+
+@app.route('/api/metadata/tmdb/search', methods=['POST'])
+def api_tmdb_search():
+    """API-Endpoint: Suche Film/TV-Serie in TMDB"""
+    try:
+        data = request.get_json()
+        title = data.get('title', '').strip()
+        media_type = data.get('type', 'movie')  # 'movie' oder 'tv'
+        
+        if not title:
+            return jsonify({'success': False, 'message': 'Titel erforderlich'}), 400
+        
+        # Lade TMDB API Key aus config
+        config = get_config()
+        tmdb_api_key = config.get('tmdb_api_key', '')
+        
+        if not tmdb_api_key:
+            return jsonify({'success': False, 'message': 'TMDB API Key nicht konfiguriert'}), 400
+        
+        # TMDB API-Anfrage
+        if media_type == 'tv':
+            url = f"https://api.themoviedb.org/3/search/tv?api_key={tmdb_api_key}&language=de-DE&query={title}&page=1"
+        else:
+            url = f"https://api.themoviedb.org/3/search/movie?api_key={tmdb_api_key}&language=de-DE&query={title}&page=1"
+        
+        response = requests.get(url, timeout=10)
+        response.raise_for_status()
+        data = response.json()
+        
+        # Formatiere Ergebnisse
+        results = []
+        for item in data.get('results', [])[:10]:  # Max 10 Treffer
+            results.append({
+                'id': item.get('id'),
+                'title': item.get('title' if media_type == 'movie' else 'name', 'Unknown'),
+                'year': item.get('release_date' if media_type == 'movie' else 'first_air_date', '')[:4],
+                'overview': item.get('overview', ''),
+                'poster_path': item.get('poster_path', ''),
+                'poster_url': f"https://image.tmdb.org/t/p/w200{item['poster_path']}" if item.get('poster_path') else None
+            })
+        
+        return jsonify({'success': True, 'results': results})
+        
+    except Exception as e:
+        return jsonify({'success': False, 'message': f'TMDB-Suche fehlgeschlagen: {str(e)}'}), 500
+
+@app.route('/api/metadata/tmdb/apply', methods=['POST'])
+def api_tmdb_apply():
+    """API-Endpoint: Wende TMDB-Metadaten auf ISO an"""
+    try:
+        data = request.get_json()
+        iso_path = data.get('iso_path', '')
+        tmdb_id = data.get('tmdb_id', '')
+        media_type = data.get('type', 'movie')
+        title = data.get('title', '')
+        rename_iso = data.get('rename_iso', False)
+        
+        if not iso_path or not os.path.exists(iso_path):
+            return jsonify({'success': False, 'message': 'ISO-Datei nicht gefunden'}), 400
+        
+        if not tmdb_id:
+            return jsonify({'success': False, 'message': 'TMDB-ID erforderlich'}), 400
+        
+        # Rufe Bash-Funktion auf
+        script = f"""
+source {INSTALL_DIR}/lib/config.sh
+source {INSTALL_DIR}/lib/lib-common.sh
+source {INSTALL_DIR}/lib/lib-logging.sh
+source {INSTALL_DIR}/lib/lib-dvd-metadata.sh
+
+add_metadata_to_existing_iso "{iso_path}" "{title}" "{media_type}" "{tmdb_id}"
+result=$?
+
+if [ $result -eq 0 ]; then
+    echo "SUCCESS"
+else
+    echo "FAILED"
+fi
+"""
+        
+        result = subprocess.run(
+            ['bash', '-c', script],
+            capture_output=True,
+            text=True,
+            timeout=60
+        )
+        
+        if "SUCCESS" in result.stdout:
+            # Optional: ISO umbenennen
+            new_path = iso_path
+            if rename_iso and title:
+                rename_script = f"""
+source {INSTALL_DIR}/lib/config.sh
+source {INSTALL_DIR}/lib/lib-common.sh
+source {INSTALL_DIR}/lib/lib-logging.sh
+source {INSTALL_DIR}/lib/lib-dvd-metadata.sh
+
+new_path=$(rename_iso_with_metadata "{iso_path}" "{title}")
+echo "$new_path"
+"""
+                rename_result = subprocess.run(
+                    ['bash', '-c', rename_script],
+                    capture_output=True,
+                    text=True,
+                    timeout=10
+                )
+                new_path = rename_result.stdout.strip()
+            
+            return jsonify({
+                'success': True,
+                'message': 'Metadaten erfolgreich hinzugefügt',
+                'new_path': new_path
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'message': 'Fehler beim Hinzufügen der Metadaten',
+                'error': result.stderr
+            }), 500
+            
+    except Exception as e:
+        return jsonify({'success': False, 'message': f'Fehler: {str(e)}'}), 500
+
+@app.route('/api/metadata/musicbrainz/search', methods=['POST'])
+def api_musicbrainz_search():
+    """API-Endpoint: Suche Album in MusicBrainz"""
+    try:
+        data = request.get_json()
+        artist = data.get('artist', '').strip()
+        album = data.get('album', '').strip()
+        
+        if not artist and not album:
+            return jsonify({'success': False, 'message': 'Artist oder Album erforderlich'}), 400
+        
+        # MusicBrainz API-Anfrage
+        query_parts = []
+        if artist:
+            query_parts.append(f'artist:"{artist}"')
+        if album:
+            query_parts.append(f'release:"{album}"')
+        
+        query = ' AND '.join(query_parts)
+        url = f"https://musicbrainz.org/ws/2/release/?query={query}&fmt=json&limit=10"
+        
+        response = requests.get(url, timeout=10, headers={'User-Agent': 'disk2iso/1.2.0'})
+        response.raise_for_status()
+        data = response.json()
+        
+        # Formatiere Ergebnisse
+        results = []
+        for release in data.get('releases', []):
+            artist_name = release.get('artist-credit', [{}])[0].get('name', 'Unknown')
+            results.append({
+                'id': release.get('id'),
+                'title': release.get('title', 'Unknown Album'),
+                'artist': artist_name,
+                'date': release.get('date', '')[:4] if release.get('date') else '',
+                'country': release.get('country', ''),
+                'track_count': release.get('track-count', 0),
+                'cover_url': f"https://coverartarchive.org/release/{release['id']}/front-250" if release.get('id') else None
+            })
+        
+        return jsonify({'success': True, 'results': results})
+        
+    except Exception as e:
+        return jsonify({'success': False, 'message': f'MusicBrainz-Suche fehlgeschlagen: {str(e)}'}), 500
+
+@app.route('/api/metadata/musicbrainz/apply', methods=['POST'])
+def api_musicbrainz_apply():
+    """API-Endpoint: Wende MusicBrainz-Metadaten auf ISO an (Remaster)"""
+    try:
+        data = request.get_json()
+        iso_path = data.get('iso_path', '')
+        release_id = data.get('release_id', '')
+        
+        if not iso_path or not os.path.exists(iso_path):
+            return jsonify({'success': False, 'message': 'ISO-Datei nicht gefunden'}), 400
+        
+        if not release_id:
+            return jsonify({'success': False, 'message': 'MusicBrainz Release-ID erforderlich'}), 400
+        
+        # Starte Remaster-Prozess im Hintergrund
+        script = f"""
+source {INSTALL_DIR}/lib/config.sh
+source {INSTALL_DIR}/lib/lib-common.sh
+source {INSTALL_DIR}/lib/lib-logging.sh
+source {INSTALL_DIR}/lib/lib-cd-metadata.sh
+
+remaster_audio_iso_with_metadata "{iso_path}" "{release_id}"
+result=$?
+
+if [ $result -eq 0 ]; then
+    echo "SUCCESS"
+else
+    echo "FAILED"
+fi
+"""
+        
+        # Timeout erhöhen (Remaster kann 5-10 Minuten dauern)
+        result = subprocess.run(
+            ['bash', '-c', script],
+            capture_output=True,
+            text=True,
+            timeout=600  # 10 Minuten
+        )
+        
+        if "SUCCESS" in result.stdout:
+            return jsonify({
+                'success': True,
+                'message': 'Audio-ISO erfolgreich neu erstellt mit korrekten Tags'
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'message': 'Fehler beim Remaster der Audio-ISO',
+                'error': result.stderr
+            }), 500
+            
+    except subprocess.TimeoutExpired:
+        return jsonify({
+            'success': False,
+            'message': 'Timeout: Remaster-Prozess dauert zu lange'
+        }), 500
+    except Exception as e:
+        return jsonify({'success': False, 'message': f'Fehler: {str(e)}'}), 500
 
 @app.route('/health')
 def health():

@@ -1,11 +1,14 @@
 /**
  * disk2iso - Configuration Page JavaScript
+ * Version: 1.2.0
  */
 
 function loadConfig() {
+    console.log('loadConfig() wird aufgerufen...');
     fetch('/api/config')
         .then(response => response.json())
         .then(data => {
+            console.log('Config geladen:', data);
             document.getElementById('output_dir').value = data.output_dir || '/media/iso';
             document.getElementById('mp3_quality').value = data.mp3_quality || 2;
             document.getElementById('ddrescue_retries').value = data.ddrescue_retries || 1;
@@ -16,6 +19,8 @@ function loadConfig() {
             document.getElementById('mqtt_port').value = data.mqtt_port || 1883;
             document.getElementById('mqtt_user').value = data.mqtt_user || '';
             document.getElementById('mqtt_password').value = data.mqtt_password || '';
+            document.getElementById('tmdb_api_key').value = data.tmdb_api_key || '';
+            console.log('TMDB API Key gesetzt auf:', document.getElementById('tmdb_api_key').value);
             
             toggleMqttFields();
         })
@@ -36,8 +41,11 @@ function saveConfig() {
         mqtt_broker: document.getElementById('mqtt_broker').value,
         mqtt_port: parseInt(document.getElementById('mqtt_port').value),
         mqtt_user: document.getElementById('mqtt_user').value,
-        mqtt_password: document.getElementById('mqtt_password').value
+        mqtt_password: document.getElementById('mqtt_password').value,
+        tmdb_api_key: document.getElementById('tmdb_api_key').value
     };
+    
+    console.log('saveConfig() wird aufgerufen mit:', config);
     
     fetch('/api/config', {
         method: 'POST',
@@ -51,10 +59,10 @@ function saveConfig() {
         if (data.success) {
             showMessage(data.message, 'success');
             
-            // Service neu starten nach 2 Sekunden
+            // Lade Konfiguration neu um anzuzeigen dass sie gespeichert wurde
             setTimeout(() => {
-                restartService();
-            }, 2000);
+                loadConfig();
+            }, 1000);
         } else {
             showMessage(data.message, 'error');
         }
@@ -124,4 +132,10 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Event-Listener für MQTT-Toggle
     document.getElementById('mqtt_enabled').addEventListener('change', toggleMqttFields);
+    
+    // Event-Listener für Formular-Submit
+    document.getElementById('config-form').addEventListener('submit', function(e) {
+        e.preventDefault(); // Verhindere normalen Form-Submit
+        saveConfig();
+    });
 });

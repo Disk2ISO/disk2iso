@@ -1,5 +1,6 @@
 /**
  * disk2iso - Home Page JavaScript
+ * Version: 1.2.0
  */
 
 let updateInterval = null;

@@ -1,0 +1,57 @@
+<svg width="200" height="300" xmlns="http://www.w3.org/2000/svg">
+  <!-- Gradient Background -->
+  <defs>
+    <linearGradient id="bg-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#3498db;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#2c3e50;stop-opacity:1" />
+    </linearGradient>
+    
+    <linearGradient id="disc-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#ecf0f1;stop-opacity:1" />
+      <stop offset="50%" style="stop-color:#bdc3c7;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#95a5a6;stop-opacity:1" />
+    </linearGradient>
+    
+    <radialGradient id="disc-shine">
+      <stop offset="0%" style="stop-color:#ffffff;stop-opacity:0.6" />
+      <stop offset="100%" style="stop-color:#ffffff;stop-opacity:0" />
+    </radialGradient>
+  </defs>
+  
+  <!-- Background -->
+  <rect width="200" height="300" fill="url(#bg-gradient)"/>
+  
+  <!-- DVD/Blu-ray Disc -->
+  <g transform="translate(100, 130)">
+    <!-- Outer disc -->
+    <circle cx="0" cy="0" r="60" fill="url(#disc-gradient)" stroke="#7f8c8d" stroke-width="2"/>
+    
+    <!-- Inner hole -->
+    <circle cx="0" cy="0" r="15" fill="#34495e" stroke="#2c3e50" stroke-width="1"/>
+    
+    <!-- Disc reflections/segments for DVD/Blu-ray effect -->
+    <path d="M -60,0 A 60,60 0 0,1 0,-60" fill="none" stroke="#ffffff" stroke-width="1" opacity="0.3"/>
+    <path d="M 0,-60 A 60,60 0 0,1 60,0" fill="none" stroke="#ffffff" stroke-width="0.5" opacity="0.2"/>
+    
+    <!-- Shine effect -->
+    <ellipse cx="-18" cy="-18" rx="35" ry="26" fill="url(#disc-shine)" opacity="0.5"/>
+  </g>
+  
+  <!-- Film/Movie Icon -->
+  <g transform="translate(100, 240)">
+    <!-- Clapperboard base -->
+    <rect x="-22" y="-8" width="44" height="26" rx="2" fill="#2c3e50"/>
+    
+    <!-- Clapperboard top (clapper) -->
+    <rect x="-22" y="-18" width="44" height="10" rx="2" fill="#e74c3c"/>
+    
+    <!-- Stripes on clapper -->
+    <rect x="-18" y="-18" width="7" height="10" fill="#ffffff"/>
+    <rect x="-4" y="-18" width="7" height="10" fill="#ffffff"/>
+    <rect x="10" y="-18" width="7" height="10" fill="#ffffff"/>
+    
+    <!-- Text area lines -->
+    <line x1="-16" y1="0" x2="16" y2="0" stroke="#95a5a6" stroke-width="2"/>
+    <line x1="-16" y1="7" x2="16" y2="7" stroke="#95a5a6" stroke-width="2"/>
+  </g>
+</svg>

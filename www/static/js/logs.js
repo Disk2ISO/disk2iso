@@ -1,5 +1,6 @@
 /**
  * disk2iso - Logs Page JavaScript
+ * Version: 1.2.0
  */
 
 let autoRefreshInterval = null;

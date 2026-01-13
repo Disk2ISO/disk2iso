@@ -1,6 +1,5 @@
 /**
- * disk2iso - System Page JavaScript
- */
+ * disk2iso - System Page JavaScript * Version: 1.2.0 */
 
 let isRefreshing = false;
 

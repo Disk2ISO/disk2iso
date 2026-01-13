@@ -265,6 +265,12 @@ copy_video_dvd() {
         local dvd_id=$(get_dvd_identifier)
         clear_dvd_failures "$dvd_id"
         
+        # Erstelle Metadaten für Archiv-Ansicht
+        if declare -f create_dvd_archive_metadata >/dev/null 2>&1; then
+            local movie_title=$(extract_movie_title "$disc_label")
+            create_dvd_archive_metadata "$movie_title" "dvd-video" || true
+        fi
+        
         rm -rf "$temp_dvd"
         return 0
     else
@@ -352,6 +358,12 @@ copy_video_dvd_ddrescue() {
         # Erfolg → Lösche eventuelle Fehler-Historie
         local dvd_id=$(get_dvd_identifier)
         clear_dvd_failures "$dvd_id"
+        
+        # Erstelle Metadaten für Archiv-Ansicht (verwende disc_type für DVD/Blu-ray)
+        if declare -f create_dvd_archive_metadata >/dev/null 2>&1; then
+            local movie_title=$(extract_movie_title "$disc_label")
+            create_dvd_archive_metadata "$movie_title" "$disc_type" || true
+        fi
         
         # Mapfile wird mit temp_pathname automatisch gelöscht
         return 0

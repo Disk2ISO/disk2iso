@@ -492,8 +492,8 @@ EOF
     # Füge Track-Liste hinzu
     for ((i=0; i<track_count; i++)); do
         local position=$((i + 1))
-        local track_title=$(echo "$mb_response" | jq -r ".releases[0].media[0].tracks[$i].recording.title" 2>/dev/null)
-        local track_length=$(echo "$mb_response" | jq -r ".releases[0].media[0].tracks[$i].length" 2>/dev/null)
+        local track_title=$(echo "$mb_response" | jq -r ".releases[$release_idx].media[0].tracks[$i].recording.title" 2>/dev/null)
+        local track_length=$(echo "$mb_response" | jq -r ".releases[$release_idx].media[0].tracks[$i].length" 2>/dev/null)
         
         # Konvertiere Millisekunden zu MM:SS
         if [[ -n "$track_length" ]] && [[ "$track_length" != "null" ]]; then
@@ -519,6 +519,67 @@ EOF
     
     log_message "$MSG_NFO_FILE_CREATED"
     return 0
+}
+
+# Funktion: Erstelle Archiv-Metadaten für Web-Interface
+# Parameter: $1 = ISO-Pfad
+# Erstellt: <iso>.nfo und <iso>-thumb.jpg für Archiv-Anzeige
+create_archive_metadata() {
+    local iso_path="$1"
+    local iso_base="${iso_path%.iso}"
+    local archive_nfo="${iso_base}.nfo"
+    local archive_thumb="${iso_base}-thumb.jpg"
+    
+    if [[ -z "$mb_response" ]] || [[ -z "$cd_artist" ]] || [[ -z "$cd_album" ]]; then
+        return 1
+    fi
+    
+    # Nutze besten Release-Index
+    local release_idx="${best_release_index:-0}"
+    
+    # Extrahiere Track-Anzahl und Laufzeit
+    local track_count=$(echo "$mb_response" | jq -r ".releases[$release_idx].media[0].tracks | length" 2>/dev/null)
+    local total_duration_ms=0
+    
+    for ((i=0; i<track_count; i++)); do
+        local track_length=$(echo "$mb_response" | jq -r ".releases[$release_idx].media[0].tracks[$i].length" 2>/dev/null)
+        if [[ -n "$track_length" ]] && [[ "$track_length" != "null" ]]; then
+            total_duration_ms=$((total_duration_ms + track_length))
+        fi
+    done
+    
+    local duration_sec=$((total_duration_ms / 1000))
+    local hours=$((duration_sec / 3600))
+    local minutes=$(((duration_sec % 3600) / 60))
+    local seconds=$((duration_sec % 60))
+    
+    if [[ $hours -gt 0 ]]; then
+        local duration=$(printf "%02d:%02d:%02d" $hours $minutes $seconds)
+    else
+        local duration=$(printf "%02d:%02d" $minutes $seconds)
+    fi
+    
+    # Hole Release-Datum (kann Jahr oder YYYY-MM-DD sein)
+    local release_date=$(echo "$mb_response" | jq -r ".releases[$release_idx].date" 2>/dev/null)
+    local release_country=$(echo "$mb_response" | jq -r ".releases[$release_idx].country" 2>/dev/null)
+    
+    # Erstelle Archiv-NFO (einfaches Format für schnelles Parsing)
+    cat > "$archive_nfo" <<EOF
+TITLE=${cd_album}
+ARTIST=${cd_artist}
+DATE=${release_date:-$cd_year}
+COUNTRY=${release_country:-unknown}
+TRACKS=${track_count}
+DURATION=${duration}
+TYPE=audio-cd
+EOF
+    
+    # Kopiere Cover als Thumbnail (falls vorhanden)
+    if [[ -n "$cover_file" ]] && [[ -f "$cover_file" ]]; then
+        cp "$cover_file" "$archive_thumb" 2>/dev/null
+    fi
+    
+    log_message "Archiv-Metadaten erstellt: $(basename "$archive_nfo")"
 }
 
 # ============================================================================
@@ -896,6 +957,9 @@ copy_audio_cd() {
     if ! md5sum "$iso_filename" > "$md5_filename" 2>>"$log_filename"; then
         log_message "$MSG_WARNING_MD5_FAILED"
     fi
+    
+    # Erstelle Archiv-Metadaten für Web-Interface (NFO + Thumbnail)
+    create_archive_metadata "$iso_filename"
     
     log_message "$MSG_AUDIO_CD_SUCCESS"
     return 0

@@ -19,10 +19,13 @@ Bedienung, Konfiguration und praktische Beispiele
 ### [5. MQTT & Home Assistant Integration](MQTT-HomeAssistant.md)
 Echtzeit-Status, Benachrichtigungen und Dashboard-Integration
 
-### [6. Entwickler-Dokumentation](Entwickler.md)
+### [6. TMDB API-Key Beschaffung](TMDB-API-Key.md)
+DVD/Blu-ray Metadaten-Integration mit The Movie Database
+
+### [7. Entwickler-Dokumentation](Entwickler.md)
 Technische Details, Modulstruktur und API-Referenz
 
-### [7. Deinstallation](Deinstallation.md)
+### [8. Deinstallation](Deinstallation.md)
 Vollständige Entfernung von disk2iso
 
 ---
