@@ -73,7 +73,8 @@ SCRIPT_PATH="$(readlink -f "${BASH_SOURCE[0]}")"
 SCRIPT_DIR="$(dirname "$SCRIPT_PATH")"
 
 # Lade Basis-Module
-source "${SCRIPT_DIR}/lib/config.sh"
+source "${SCRIPT_DIR}/conf/disk2iso.conf"
+source "${SCRIPT_DIR}/lib/lib-config.sh"
 
 # Setze OUTPUT_DIR bereits hier (wichtig für get_tmp_mount() in lib-diskinfos.sh)
 # Verhindert dass Mount-Points im Root / landen wenn OUTPUT_DIR noch nicht gesetzt ist

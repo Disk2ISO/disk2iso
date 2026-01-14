@@ -715,7 +715,7 @@ def api_config():
         # Konfiguration lesen via Bash
         try:
             script = f"""
-            source {INSTALL_DIR}/lib/lib-common.sh
+            source {INSTALL_DIR}/lib/lib-config.sh
             get_all_config_values
             """
             
@@ -790,16 +790,17 @@ def api_config():
                     value_str = str(value).replace('"', '\\"')
                     update_commands.append(f'update_config_value "{config_key}" "{value_str}"')
             
+            # Erstelle Update-Script
+            updates_script = '\n        '.join(update_commands)
             script = f"""
-            source {INSTALL_DIR}/lib/lib-common.sh
-            
-            # Führe alle Updates durch
-            {'
-            '.join(update_commands)}
-            
-            # Finale Bestätigung
-            echo '{{"success": true}}'
-            """
+        source {INSTALL_DIR}/lib/lib-config.sh
+        
+        # Führe alle Updates durch
+        {updates_script}
+        
+        # Finale Bestätigung
+        echo '{{"success": true}}'
+        """
             
             result = subprocess.run(
                 ['/bin/bash', '-c', script],
@@ -1354,7 +1355,7 @@ def api_tmdb_search():
 source {INSTALL_DIR}/lib/config.sh
 source {INSTALL_DIR}/lib/lib-dvd-metadata.sh
 search_tmdb_json "$1" "$2"
-"""
+        """
         
         result = subprocess.run(
             ['/bin/bash', '-c', script, '--', title, media_type],
@@ -1420,7 +1421,7 @@ if [ $result -eq 0 ]; then
 else
     echo "FAILED"
 fi
-"""
+        """
         
         result = subprocess.run(
             ['bash', '-c', script],
@@ -1441,7 +1442,7 @@ source {INSTALL_DIR}/lib/lib-dvd-metadata.sh
 
 new_path=$(rename_iso_with_metadata "{iso_path}" "{title}")
 echo "$new_path"
-"""
+                """
                 rename_result = subprocess.run(
                     ['bash', '-c', rename_script],
                     capture_output=True,
@@ -1545,7 +1546,7 @@ if [ $result -eq 0 ]; then
 else
     echo "FAILED"
 fi
-"""
+        """
         
         print(f"[DEBUG] Starte Remaster-Prozess...", file=sys.stderr)
         

@@ -1139,8 +1139,6 @@ body {
 .service-info-grid .info-item .info-value {
     display: inline;
 }
-    border-bottom: 1px solid #f0f0f0;
-}
 
 .info-item:last-child {
     border-bottom: none;

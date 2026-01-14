@@ -14,6 +14,136 @@
 ################################################################################
 
 # ============================================================================
+# CONFIG MANAGEMENT (NO DEPENDENCIES - must be first!)
+# ============================================================================
+
+# Funktion: Aktualisiere einzelnen Config-Wert in config.sh
+# Parameter: $1 = Key (z.B. "DEFAULT_OUTPUT_DIR")
+#            $2 = Value (z.B. "/media/iso")
+#            $3 = Quote-Mode ("quoted" oder "unquoted", default: auto-detect)
+# Rückgabe: JSON mit {"success": true} oder {"success": false, "message": "..."}
+update_config_value() {
+    local key="$1"
+    local value="$2"
+    local quote_mode="${3:-auto}"
+    local config_file="${INSTALL_DIR:-/opt/disk2iso}/lib/config.sh"
+    
+    if [[ -z "$key" ]]; then
+        echo '{"success": false, "message": "Key erforderlich"}'
+        return 1
+    fi
+    
+    if [[ ! -f "$config_file" ]]; then
+        echo '{"success": false, "message": "config.sh nicht gefunden"}'
+        return 1
+    fi
+    
+    # Auto-detect quote mode basierend auf aktuellem Wert
+    if [[ "$quote_mode" == "auto" ]]; then
+        local current_line=$(grep "^${key}=" "$config_file" | head -1)
+        if [[ "$current_line" =~ =\".*\" ]]; then
+            quote_mode="quoted"
+        else
+            quote_mode="unquoted"
+        fi
+    fi
+    
+    # Erstelle neue Zeile
+    local new_line
+    if [[ "$quote_mode" == "quoted" ]]; then
+        new_line="${key}=\"${value}\""
+    else
+        new_line="${key}=${value}"
+    fi
+    
+    # Aktualisiere mit sed (in-place)
+    if sed -i "s|^${key}=.*|${new_line}|" "$config_file" 2>/dev/null; then
+        echo '{"success": true}'
+        return 0
+    else
+        echo '{"success": false, "message": "Schreibfehler"}'
+        return 1
+    fi
+}
+
+# Funktion: Lese alle Config-Werte als JSON
+# Rückgabe: JSON mit allen Konfigurations-Werten
+get_all_config_values() {
+    local config_file="${INSTALL_DIR:-/opt/disk2iso}/lib/config.sh"
+    
+    if [[ ! -f "$config_file" ]]; then
+        echo '{"success": false, "message": "config.sh nicht gefunden"}'
+        return 1
+    fi
+    
+    # Extrahiere relevante Werte mit awk (entferne Kommentare)
+    local values=$(awk -F'=' '
+        /^DEFAULT_OUTPUT_DIR=/ { 
+            gsub(/#.*/, "", $2)
+            gsub(/^[ \t"]+|[ \t"]+$/, "", $2)
+            print "\"output_dir\": \"" $2 "\"," 
+        }
+        /^MP3_QUALITY=/ { 
+            gsub(/#.*/, "", $2)
+            gsub(/^[ \t]+|[ \t]+$/, "", $2)
+            print "\"mp3_quality\": " $2 "," 
+        }
+        /^DDRESCUE_RETRIES=/ { 
+            gsub(/#.*/, "", $2)
+            gsub(/^[ \t]+|[ \t]+$/, "", $2)
+            print "\"ddrescue_retries\": " $2 "," 
+        }
+        /^USB_DRIVE_DETECTION_ATTEMPTS=/ { 
+            gsub(/#.*/, "", $2)
+            gsub(/^[ \t]+|[ \t]+$/, "", $2)
+            print "\"usb_detection_attempts\": " $2 "," 
+        }
+        /^USB_DRIVE_DETECTION_DELAY=/ { 
+            gsub(/#.*/, "", $2)
+            gsub(/^[ \t]+|[ \t]+$/, "", $2)
+            print "\"usb_detection_delay\": " $2 "," 
+        }
+        /^MQTT_ENABLED=/ { 
+            gsub(/#.*/, "", $2)
+            gsub(/^[ \t]+|[ \t]+$/, "", $2)
+            print "\"mqtt_enabled\": " ($2 == "true" ? "true" : "false") "," 
+        }
+        /^MQTT_BROKER=/ { 
+            gsub(/#.*/, "", $2)
+            gsub(/^[ \t"]+|[ \t"]+$/, "", $2)
+            print "\"mqtt_broker\": \"" $2 "\"," 
+        }
+        /^MQTT_PORT=/ { 
+            gsub(/#.*/, "", $2)
+            gsub(/^[ \t]+|[ \t]+$/, "", $2)
+            print "\"mqtt_port\": " $2 "," 
+        }
+        /^MQTT_USER=/ { 
+            gsub(/#.*/, "", $2)
+            gsub(/^[ \t"]+|[ \t"]+$/, "", $2)
+            print "\"mqtt_user\": \"" $2 "\"," 
+        }
+        /^MQTT_PASSWORD=/ { 
+            gsub(/#.*/, "", $2)
+            gsub(/^[ \t"]+|[ \t"]+$/, "", $2)
+            print "\"mqtt_password\": \"" $2 "\"," 
+        }
+        /^TMDB_API_KEY=/ { 
+            gsub(/#.*/, "", $2)
+            gsub(/^[ \t"]+|[ \t"]+$/, "", $2)
+            print "\"tmdb_api_key\": \"" $2 "\"," 
+        }
+    ' "$config_file")
+    
+    # Entferne letztes Komma
+    local output=$(echo "$values" | sed '$ s/,$//')
+    
+    # Ausgabe nur zu stdout (kein logging)
+    echo "{\"success\": true, ${output}}" >&1
+    return 0
+}
+
+# ============================================================================
 # PATH CONSTANTS
 # ============================================================================
 
@@ -388,13 +518,15 @@ cleanup_disc_operation() {
     # 4. Variablen zurücksetzen (immer)
     reset_disc_variables
 }
+
 # ============================================================================
-# CONFIG MANAGEMENT FUNCTIONS (für Web-API)
+# CONFIG MANAGEMENT - Legacy function (kept for compatibility)
 # ============================================================================
 
 # Funktion: Lese Config-Wert aus config.sh
 # Parameter: $1 = Key (z.B. "DEFAULT_OUTPUT_DIR")
 # Rückgabe: JSON mit {"success": true, "value": "..."} oder {"success": false, "message": "..."}
+# NOTE: Diese Funktion ist veraltet. Nutze get_all_config_values() für vollständige Config
 get_config_value() {
     local key="$1"
     local config_file="${INSTALL_DIR:-/opt/disk2iso}/lib/config.sh"
@@ -424,130 +556,4 @@ get_config_value() {
         echo "{\"success\": false, \"message\": \"Key nicht gefunden\"}"
         return 1
     fi
-}
-
-# Funktion: Schreibe/Aktualisiere Config-Wert in config.sh
-# Parameter: $1 = Key (z.B. "DEFAULT_OUTPUT_DIR")
-#            $2 = Value (z.B. "/media/iso")
-#            $3 = Quote-Mode ("quoted" oder "unquoted", default: auto-detect)
-# Rückgabe: JSON mit {"success": true} oder {"success": false, "message": "..."}
-update_config_value() {
-    local key="$1"
-    local value="$2"
-    local quote_mode="${3:-auto}"
-    local config_file="${INSTALL_DIR:-/opt/disk2iso}/lib/config.sh"
-    
-    if [[ -z "$key" ]]; then
-        echo '{"success": false, "message": "Key erforderlich"}'
-        return 1
-    fi
-    
-    if [[ ! -f "$config_file" ]]; then
-        echo '{"success": false, "message": "config.sh nicht gefunden"}'
-        return 1
-    fi
-    
-    # Auto-detect quote mode basierend auf aktuellem Wert
-    if [[ "$quote_mode" == "auto" ]]; then
-        local current_line=$(grep "^${key}=" "$config_file" | head -1)
-        if [[ "$current_line" =~ =\".*\" ]]; then
-            quote_mode="quoted"
-        else
-            quote_mode="unquoted"
-        fi
-    fi
-    
-    # Erstelle neue Zeile
-    local new_line
-    if [[ "$quote_mode" == "quoted" ]]; then
-        new_line="${key}=\"${value}\""
-    else
-        new_line="${key}=${value}"
-    fi
-    
-    # Aktualisiere mit sed (in-place)
-    if sed -i "s|^${key}=.*|${new_line}|" "$config_file" 2>/dev/null; then
-        echo '{"success": true}'
-        return 0
-    else
-        echo '{"success": false, "message": "Schreibfehler"}'
-        return 1
-    fi
-}
-
-# Funktion: Lese alle Config-Werte als JSON
-# Rückgabe: JSON mit allen Konfigurations-Werten
-get_all_config_values() {
-    local config_file="${INSTALL_DIR:-/opt/disk2iso}/lib/config.sh"
-    
-    if [[ ! -f "$config_file" ]]; then
-        echo '{"success": false, "message": "config.sh nicht gefunden"}'
-        return 1
-    fi
-    
-    # Extrahiere relevante Werte mit awk (entferne Kommentare)
-    local values=$(awk -F'=' '
-        /^DEFAULT_OUTPUT_DIR=/ { 
-            gsub(/#.*/, "", $2)
-            gsub(/^[ \t"]+|[ \t"]+$/, "", $2)
-            print "\"output_dir\": \"" $2 "\"," 
-        }
-        /^MP3_QUALITY=/ { 
-            gsub(/#.*/, "", $2)
-            gsub(/^[ \t]+|[ \t]+$/, "", $2)
-            print "\"mp3_quality\": " $2 "," 
-        }
-        /^DDRESCUE_RETRIES=/ { 
-            gsub(/#.*/, "", $2)
-            gsub(/^[ \t]+|[ \t]+$/, "", $2)
-            print "\"ddrescue_retries\": " $2 "," 
-        }
-        /^USB_DRIVE_DETECTION_ATTEMPTS=/ { 
-            gsub(/#.*/, "", $2)
-            gsub(/^[ \t]+|[ \t]+$/, "", $2)
-            print "\"usb_detection_attempts\": " $2 "," 
-        }
-        /^USB_DRIVE_DETECTION_DELAY=/ { 
-            gsub(/#.*/, "", $2)
-            gsub(/^[ \t]+|[ \t]+$/, "", $2)
-            print "\"usb_detection_delay\": " $2 "," 
-        }
-        /^MQTT_ENABLED=/ { 
-            gsub(/#.*/, "", $2)
-            gsub(/^[ \t]+|[ \t]+$/, "", $2)
-            print "\"mqtt_enabled\": " ($2 == "true" ? "true" : "false") "," 
-        }
-        /^MQTT_BROKER=/ { 
-            gsub(/#.*/, "", $2)
-            gsub(/^[ \t"]+|[ \t"]+$/, "", $2)
-            print "\"mqtt_broker\": \"" $2 "\"," 
-        }
-        /^MQTT_PORT=/ { 
-            gsub(/#.*/, "", $2)
-            gsub(/^[ \t]+|[ \t]+$/, "", $2)
-            print "\"mqtt_port\": " $2 "," 
-        }
-        /^MQTT_USER=/ { 
-            gsub(/#.*/, "", $2)
-            gsub(/^[ \t"]+|[ \t"]+$/, "", $2)
-            print "\"mqtt_user\": \"" $2 "\"," 
-        }
-        /^MQTT_PASSWORD=/ { 
-            gsub(/#.*/, "", $2)
-            gsub(/^[ \t"]+|[ \t"]+$/, "", $2)
-            print "\"mqtt_password\": \"" $2 "\"," 
-        }
-        /^TMDB_API_KEY=/ { 
-            gsub(/#.*/, "", $2)
-            gsub(/^[ \t"]+|[ \t"]+$/, "", $2)
-            print "\"tmdb_api_key\": \"" $2 "\"," 
-        }
-    ' "$config_file")
-    
-    # Entferne letztes Komma
-    local output=$(echo "$values" | sed '$ s/,$//')
-    
-    # Ausgabe nur zu stdout (kein logging)
-    echo "{\"success\": true, ${output}}" >&1
-    return 0
 }

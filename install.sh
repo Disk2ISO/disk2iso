@@ -143,6 +143,66 @@ show_info() {
 }
 
 # ============================================================================
+# CONFIG MERGE FUNCTION
+# ============================================================================
+
+# Intelligentes Merge von alter und neuer Konfiguration
+# Parameter: $1 = Pfad zur alten Config, $2 = Pfad zur neuen Config (Template)
+merge_config() {
+    local old_config="$1"
+    local new_config="$2"
+    
+    if [[ ! -f "$old_config" ]]; then
+        print_info "Keine alte Konfiguration gefunden - nutze neue Template"
+        return 0
+    fi
+    
+    if [[ ! -f "$new_config" ]]; then
+        print_error "Neue Config-Template nicht gefunden: $new_config"
+        return 1
+    fi
+    
+    print_info "Merge Konfigurationen: alt → neu"
+    
+    # Extrahiere alle Einstellungen aus alter Config (ignoriere Kommentare/Leerzeilen)
+    local temp_values="/tmp/disk2iso-config-values-$$.tmp"
+    grep -E '^[A-Z_]+=' "$old_config" | grep -v '^#' > "$temp_values" 2>/dev/null || true
+    
+    # Aktualisiere neue Config mit alten Werten
+    while IFS='=' read -r key value; do
+        [[ -z "$key" ]] && continue
+        
+        # Prüfe ob Key in neuer Config existiert
+        if grep -q "^${key}=" "$new_config"; then
+            # Ersetze Wert in neuer Config (behalte Quotes-Style)
+            sed -i "s|^${key}=.*|${key}=${value}|" "$new_config"
+            print_info "  ✓ Übernehme: $key"
+        else
+            print_warning "  ⚠ Überspringe veralteten Parameter: $key"
+        fi
+    done < "$temp_values"
+    
+    rm -f "$temp_values"
+    
+    # Zeige neue Einstellungen an
+    print_info "Neue Einstellungen in dieser Version:"
+    local new_keys=$(grep -E '^[A-Z_]+=' "$new_config" | cut -d'=' -f1)
+    local found_new=false
+    
+    for key in $new_keys; do
+        if ! grep -q "^${key}=" "$old_config" 2>/dev/null; then
+            local value=$(grep "^${key}=" "$new_config" | cut -d'=' -f2-)
+            print_info "  + $key=$value"
+            found_new=true
+        fi
+    done
+    
+    [[ "$found_new" == "false" ]] && print_info "  (keine neuen Einstellungen)"
+    
+    return 0
+}
+
+# ============================================================================
 # SYSTEM CHECKS
 # ============================================================================
 
@@ -337,8 +397,8 @@ perform_repair() {
     
     # Sichere aktuelle Konfiguration
     local config_backup="/tmp/disk2iso-config-backup-$(date +%s).sh"
-    if [[ -f "$INSTALL_DIR/lib/config.sh" ]]; then
-        cp "$INSTALL_DIR/lib/config.sh" "$config_backup"
+    if [[ -f "$INSTALL_DIR/conf/disk2iso.conf" ]]; then
+        cp "$INSTALL_DIR/conf/disk2iso.conf" "$config_backup"
         print_info "Konfiguration gesichert: $config_backup"
     fi
     
@@ -375,10 +435,15 @@ perform_repair() {
         cp -rf "$SCRIPT_DIR/lib" "$INSTALL_DIR/"
         chmod +x "$INSTALL_DIR"/lib/*.sh
         
+        echo "60" ; sleep 0.3
+        echo "# Kopiere Konfiguration..."
+        mkdir -p "$INSTALL_DIR/conf"
+        cp -f "$SCRIPT_DIR/conf/disk2iso.conf" "$INSTALL_DIR/conf/"
+        
         echo "70" ; sleep 0.3
-        echo "# Stelle Konfiguration wieder her..."
+        echo "# Merge Konfigurationen..."
         if [[ -f "$config_backup" ]]; then
-            cp "$config_backup" "$INSTALL_DIR/lib/config.sh"
+            merge_config "$config_backup" "$INSTALL_DIR/conf/disk2iso.conf"
             rm -f "$config_backup"
         fi
         
@@ -490,8 +555,8 @@ WantedBy=multi-user.target
 EOF
         
         # Aktualisiere config.sh
-        if [[ -f "$INSTALL_DIR/lib/config.sh" ]]; then
-            sed -i "s|DEFAULT_OUTPUT_DIR=.*|DEFAULT_OUTPUT_DIR=\"$output_dir\"|" "$INSTALL_DIR/lib/config.sh"
+        if [[ -f "$INSTALL_DIR/conf/disk2iso.conf" ]]; then
+            sed -i "s|DEFAULT_OUTPUT_DIR=.*|DEFAULT_OUTPUT_DIR=\"$output_dir\"|" "$INSTALL_DIR/conf/disk2iso.conf"
         fi
         
         # Erstelle Ausgabeverzeichnis mit Unterordnern
@@ -510,7 +575,7 @@ EOF
             local output_dir=$(grep "ExecStart=" "$SERVICE_FILE" | sed -n 's/.*-o \([^ ]*\).*/\1/p')
             if [[ -z "$output_dir" ]]; then
                 # Fallback: Lese aus config.sh
-                output_dir=$(grep "DEFAULT_OUTPUT_DIR=" "$INSTALL_DIR/lib/config.sh" 2>/dev/null | cut -d'"' -f2)
+                output_dir=$(grep "DEFAULT_OUTPUT_DIR=" "$INSTALL_DIR/conf/disk2iso.conf" 2>/dev/null | cut -d'"' -f2)
             fi
             
             # Erstelle Verzeichnis falls es nicht existiert
@@ -564,14 +629,14 @@ EOF
                     
                     # Aktualisiere config.sh
                     local escaped_broker=$(echo "$mqtt_broker" | sed 's/[\/&]/\\&/g')
-                    sed -i "s|^MQTT_ENABLED=.*|MQTT_ENABLED=true|" "$INSTALL_DIR/lib/config.sh"
-                    sed -i "s|^MQTT_BROKER=.*|MQTT_BROKER=\"$escaped_broker\"|" "$INSTALL_DIR/lib/config.sh"
+                    sed -i "s|^MQTT_ENABLED=.*|MQTT_ENABLED=true|" "$INSTALL_DIR/conf/disk2iso.conf"
+                    sed -i "s|^MQTT_BROKER=.*|MQTT_BROKER=\"$escaped_broker\"|" "$INSTALL_DIR/conf/disk2iso.conf"
                     
                     if [[ -n "$mqtt_user" ]]; then
                         local escaped_user=$(echo "$mqtt_user" | sed 's/[\/&]/\\&/g')
                         local escaped_password=$(echo "$mqtt_password" | sed 's/[\/&]/\\&/g')
-                        sed -i "s|^MQTT_USER=.*|MQTT_USER=\"$escaped_user\"|" "$INSTALL_DIR/lib/config.sh"
-                        sed -i "s|^MQTT_PASSWORD=.*|MQTT_PASSWORD=\"$escaped_password\"|" "$INSTALL_DIR/lib/config.sh"
+                        sed -i "s|^MQTT_USER=.*|MQTT_USER=\"$escaped_user\"|" "$INSTALL_DIR/conf/disk2iso.conf"
+                        sed -i "s|^MQTT_PASSWORD=.*|MQTT_PASSWORD=\"$escaped_password\"|" "$INSTALL_DIR/conf/disk2iso.conf"
                     fi
                     
                     echo "XXX"
@@ -596,10 +661,10 @@ EOF
                 print_info "Installiere mosquitto-clients..."
                 apt-get update >/dev/null 2>&1
                 apt-get install -y mosquitto-clients >/dev/null 2>&1
-                sed -i "s|^MQTT_ENABLED=.*|MQTT_ENABLED=true|" "$INSTALL_DIR/lib/config.sh"
-                sed -i "s|^MQTT_BROKER=.*|MQTT_BROKER=\"$(echo "$mqtt_broker" | sed 's/[\/&]/\\&/g')\"|" "$INSTALL_DIR/lib/config.sh"
-                [[ -n "$mqtt_user" ]] && sed -i "s|^MQTT_USER=.*|MQTT_USER=\"$(echo "$mqtt_user" | sed 's/[\/&]/\\&/g')\"|" "$INSTALL_DIR/lib/config.sh"
-                [[ -n "$mqtt_password" ]] && sed -i "s|^MQTT_PASSWORD=.*|MQTT_PASSWORD=\"$(echo "$mqtt_password" | sed 's/[\/&]/\\&/g')\"|" "$INSTALL_DIR/lib/config.sh"
+                sed -i "s|^MQTT_ENABLED=.*|MQTT_ENABLED=true|" "$INSTALL_DIR/conf/disk2iso.conf"
+                sed -i "s|^MQTT_BROKER=.*|MQTT_BROKER=\"$(echo "$mqtt_broker" | sed 's/[\/&]/\\&/g')\"|" "$INSTALL_DIR/conf/disk2iso.conf"
+                [[ -n "$mqtt_user" ]] && sed -i "s|^MQTT_USER=.*|MQTT_USER=\"$(echo "$mqtt_user" | sed 's/[\/&]/\\&/g')\"|" "$INSTALL_DIR/conf/disk2iso.conf"
+                [[ -n "$mqtt_password" ]] && sed -i "s|^MQTT_PASSWORD=.*|MQTT_PASSWORD=\"$(echo "$mqtt_password" | sed 's/[\/&]/\\&/g')\"|" "$INSTALL_DIR/conf/disk2iso.conf"
                 print_success "MQTT installiert: $mqtt_broker"
             fi
         fi
@@ -701,8 +766,8 @@ perform_update() {
     
     # Sichere aktuelle Konfiguration
     local config_backup="/tmp/disk2iso-config-backup-$(date +%s).sh"
-    if [[ -f "$INSTALL_DIR/lib/config.sh" ]]; then
-        cp "$INSTALL_DIR/lib/config.sh" "$config_backup"
+    if [[ -f "$INSTALL_DIR/conf/disk2iso.conf" ]]; then
+        cp "$INSTALL_DIR/conf/disk2iso.conf" "$config_backup"
         print_info "Konfiguration gesichert: $config_backup"
     fi
     
@@ -764,10 +829,15 @@ perform_update() {
         cp -rf "$SCRIPT_DIR/lib" "$INSTALL_DIR/"
         chmod +x "$INSTALL_DIR"/lib/*.sh
         
+        echo "40" ; sleep 0.3
+        echo "# Kopiere neue Konfiguration..."
+        mkdir -p "$INSTALL_DIR/conf"
+        cp -f "$SCRIPT_DIR/conf/disk2iso.conf" "$INSTALL_DIR/conf/"
+        
         echo "50" ; sleep 0.3
-        echo "# Stelle Konfiguration wieder her..."
+        echo "# Merge Konfigurationen..."
         if [[ -f "$config_backup" ]]; then
-            cp "$config_backup" "$INSTALL_DIR/lib/config.sh"
+            merge_config "$config_backup" "$INSTALL_DIR/conf/disk2iso.conf"
         fi
         
         echo "65" ; sleep 0.3
@@ -935,8 +1005,8 @@ WantedBy=multi-user.target
 EOF
         
         # Aktualisiere config.sh
-        if [[ -f "$INSTALL_DIR/lib/config.sh" ]]; then
-            sed -i "s|DEFAULT_OUTPUT_DIR=.*|DEFAULT_OUTPUT_DIR=\"$output_dir\"|" "$INSTALL_DIR/lib/config.sh"
+        if [[ -f "$INSTALL_DIR/conf/disk2iso.conf" ]]; then
+            sed -i "s|DEFAULT_OUTPUT_DIR=.*|DEFAULT_OUTPUT_DIR=\"$output_dir\"|" "$INSTALL_DIR/conf/disk2iso.conf"
         fi
         
         # Erstelle Ausgabeverzeichnis mit Unterordnern
@@ -957,7 +1027,7 @@ EOF
             local output_dir=$(grep "ExecStart=" "$SERVICE_FILE" | sed -n 's/.*-o \([^ ]*\).*/\1/p')
             if [[ -z "$output_dir" ]]; then
                 # Fallback: Lese aus config.sh
-                output_dir=$(grep "DEFAULT_OUTPUT_DIR=" "$INSTALL_DIR/lib/config.sh" 2>/dev/null | cut -d'"' -f2)
+                output_dir=$(grep "DEFAULT_OUTPUT_DIR=" "$INSTALL_DIR/conf/disk2iso.conf" 2>/dev/null | cut -d'"' -f2)
             fi
             
             # Erstelle Verzeichnis falls es nicht existiert
@@ -1001,14 +1071,14 @@ EOF
                     
                     # Aktualisiere config.sh
                     local escaped_broker=$(echo "$mqtt_broker" | sed 's/[\/&]/\\&/g')
-                    sed -i "s|^MQTT_ENABLED=.*|MQTT_ENABLED=true|" "$INSTALL_DIR/lib/config.sh"
-                    sed -i "s|^MQTT_BROKER=.*|MQTT_BROKER=\"$escaped_broker\"|" "$INSTALL_DIR/lib/config.sh"
+                    sed -i "s|^MQTT_ENABLED=.*|MQTT_ENABLED=true|" "$INSTALL_DIR/conf/disk2iso.conf"
+                    sed -i "s|^MQTT_BROKER=.*|MQTT_BROKER=\"$escaped_broker\"|" "$INSTALL_DIR/conf/disk2iso.conf"
                     
                     if [[ -n "$mqtt_user" ]]; then
                         local escaped_user=$(echo "$mqtt_user" | sed 's/[\/&]/\\&/g')
                         local escaped_password=$(echo "$mqtt_password" | sed 's/[\/&]/\\&/g')
-                        sed -i "s|^MQTT_USER=.*|MQTT_USER=\"$escaped_user\"|" "$INSTALL_DIR/lib/config.sh"
-                        sed -i "s|^MQTT_PASSWORD=.*|MQTT_PASSWORD=\"$escaped_password\"|" "$INSTALL_DIR/lib/config.sh"
+                        sed -i "s|^MQTT_USER=.*|MQTT_USER=\"$escaped_user\"|" "$INSTALL_DIR/conf/disk2iso.conf"
+                        sed -i "s|^MQTT_PASSWORD=.*|MQTT_PASSWORD=\"$escaped_password\"|" "$INSTALL_DIR/conf/disk2iso.conf"
                     fi
                     
                     echo "XXX"
@@ -1033,10 +1103,10 @@ EOF
                 print_info "Installiere mosquitto-clients..."
                 apt-get update >/dev/null 2>&1
                 apt-get install -y mosquitto-clients >/dev/null 2>&1
-                sed -i "s|^MQTT_ENABLED=.*|MQTT_ENABLED=true|" "$INSTALL_DIR/lib/config.sh"
-                sed -i "s|^MQTT_BROKER=.*|MQTT_BROKER=\"$(echo "$mqtt_broker" | sed 's/[\/&]/\\&/g')\"|" "$INSTALL_DIR/lib/config.sh"
-                [[ -n "$mqtt_user" ]] && sed -i "s|^MQTT_USER=.*|MQTT_USER=\"$(echo "$mqtt_user" | sed 's/[\/&]/\\&/g')\"|" "$INSTALL_DIR/lib/config.sh"
-                [[ -n "$mqtt_password" ]] && sed -i "s|^MQTT_PASSWORD=.*|MQTT_PASSWORD=\"$(echo "$mqtt_password" | sed 's/[\/&]/\\&/g')\"|" "$INSTALL_DIR/lib/config.sh"
+                sed -i "s|^MQTT_ENABLED=.*|MQTT_ENABLED=true|" "$INSTALL_DIR/conf/disk2iso.conf"
+                sed -i "s|^MQTT_BROKER=.*|MQTT_BROKER=\"$(echo "$mqtt_broker" | sed 's/[\/&]/\\&/g')\"|" "$INSTALL_DIR/conf/disk2iso.conf"
+                [[ -n "$mqtt_user" ]] && sed -i "s|^MQTT_USER=.*|MQTT_USER=\"$(echo "$mqtt_user" | sed 's/[\/&]/\\&/g')\"|" "$INSTALL_DIR/conf/disk2iso.conf"
+                [[ -n "$mqtt_password" ]] && sed -i "s|^MQTT_PASSWORD=.*|MQTT_PASSWORD=\"$(echo "$mqtt_password" | sed 's/[\/&]/\\&/g')\"|" "$INSTALL_DIR/conf/disk2iso.conf"
                 print_success "MQTT installiert: $mqtt_broker"
             fi
         fi
@@ -1528,7 +1598,7 @@ Voraussetzungen:
 • Home Assistant mit MQTT Broker (Mosquitto)
 • Netzwerkverbindung zum MQTT Broker
 
-Hinweis: Kann später in /opt/disk2iso/lib/config.sh aktiviert werden."
+Hinweis: Kann später in /opt/disk2iso/conf/disk2iso.conf aktiviert werden."
 
         if whiptail --title "disk2iso Installation - Seite 8/10" \
             --yesno "$info" 20 70 \
@@ -1774,6 +1844,10 @@ install_disk2iso_files() {
     cp -rf "$SCRIPT_DIR/lib" "$INSTALL_DIR/"
     chmod +x "$INSTALL_DIR"/lib/*.sh
     
+    # Kopiere Konfiguration
+    mkdir -p "$INSTALL_DIR/conf"
+    cp -f "$SCRIPT_DIR/conf/disk2iso.conf" "$INSTALL_DIR/conf/"
+    
     # Kopiere Dokumentation (falls vorhanden)
     if [[ -d "$SCRIPT_DIR/doc" ]]; then
         cp -rf "$SCRIPT_DIR/doc" "$INSTALL_DIR/"
@@ -1847,7 +1921,7 @@ configure_service() {
     create_output_directory "$output_dir"
     
     # Aktualisiere config.sh mit gewähltem Ausgabeverzeichnis
-    sed -i "s|DEFAULT_OUTPUT_DIR=.*|DEFAULT_OUTPUT_DIR=\"$output_dir\"|" "$INSTALL_DIR/lib/config.sh"
+    sed -i "s|DEFAULT_OUTPUT_DIR=.*|DEFAULT_OUTPUT_DIR=\"$output_dir\"|" "$INSTALL_DIR/conf/disk2iso.conf"
     
     # Konfiguriere MQTT falls aktiviert
     configure_mqtt
@@ -1893,19 +1967,19 @@ configure_mqtt() {
     local escaped_broker=$(echo "$MQTT_BROKER" | sed 's/[\/&]/\\&/g')
     
     # Aktualisiere config.sh
-    sed -i "s|^MQTT_ENABLED=.*|MQTT_ENABLED=true|" "$INSTALL_DIR/lib/config.sh"
-    sed -i "s|^MQTT_BROKER=.*|MQTT_BROKER=\"$escaped_broker\"|" "$INSTALL_DIR/lib/config.sh"
+    sed -i "s|^MQTT_ENABLED=.*|MQTT_ENABLED=true|" "$INSTALL_DIR/conf/disk2iso.conf"
+    sed -i "s|^MQTT_BROKER=.*|MQTT_BROKER=\"$escaped_broker\"|" "$INSTALL_DIR/conf/disk2iso.conf"
     
     # Nur Username/Passwort setzen wenn auch angegeben
     if [[ -n "${MQTT_USER:-}" ]] && [[ -n "${MQTT_PASSWORD:-}" ]]; then
         local escaped_user=$(echo "$MQTT_USER" | sed 's/[\/&]/\\&/g')
         local escaped_password=$(echo "$MQTT_PASSWORD" | sed 's/[\/&]/\\&/g')
-        sed -i "s|^MQTT_USER=.*|MQTT_USER=\"$escaped_user\"|" "$INSTALL_DIR/lib/config.sh"
-        sed -i "s|^MQTT_PASSWORD=.*|MQTT_PASSWORD=\"$escaped_password\"|" "$INSTALL_DIR/lib/config.sh"
+        sed -i "s|^MQTT_USER=.*|MQTT_USER=\"$escaped_user\"|" "$INSTALL_DIR/conf/disk2iso.conf"
+        sed -i "s|^MQTT_PASSWORD=.*|MQTT_PASSWORD=\"$escaped_password\"|" "$INSTALL_DIR/conf/disk2iso.conf"
     else
         # Explizit leer lassen für keine Authentifizierung
-        sed -i "s|^MQTT_USER=.*|MQTT_USER=\"\"|" "$INSTALL_DIR/lib/config.sh"
-        sed -i "s|^MQTT_PASSWORD=.*|MQTT_PASSWORD=\"\"|" "$INSTALL_DIR/lib/config.sh"
+        sed -i "s|^MQTT_USER=.*|MQTT_USER=\"\"|" "$INSTALL_DIR/conf/disk2iso.conf"
+        sed -i "s|^MQTT_PASSWORD=.*|MQTT_PASSWORD=\"\"|" "$INSTALL_DIR/conf/disk2iso.conf"
     fi
     
     # Kopiere Home Assistant Beispiel-Konfiguration
