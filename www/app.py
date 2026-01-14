@@ -18,7 +18,7 @@ app = Flask(__name__)
 
 # Konfiguration
 INSTALL_DIR = Path("/opt/disk2iso")
-CONFIG_FILE = INSTALL_DIR / "lib" / "config.sh"
+CONFIG_FILE = INSTALL_DIR / "conf" / "disk2iso.conf"
 VERSION_FILE = INSTALL_DIR / "VERSION"
 API_DIR = INSTALL_DIR / "api"
 
