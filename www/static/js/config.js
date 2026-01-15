@@ -243,3 +243,46 @@ window.onclick = function(event) {
         closeDirectoryBrowser();
     }
 }
+
+// ============================================================================
+// Password Toggle Functions
+// ============================================================================
+
+let passwordHideTimer = null;
+
+function togglePasswordVisibility(fieldId) {
+    const input = document.getElementById(fieldId);
+    const icon = document.getElementById(fieldId + '_icon');
+    const button = icon.parentElement;
+    
+    if (input.type === 'password') {
+        // Zeige Passwort
+        input.type = 'text';
+        icon.textContent = '🙈'; // Geschlossenes Auge
+        button.classList.add('active');
+        
+        // Starte Auto-Hide Timer (20 Sekunden)
+        clearTimeout(passwordHideTimer);
+        passwordHideTimer = setTimeout(() => {
+            hidePassword(fieldId);
+        }, 20000);
+        
+        console.log('Passwort sichtbar für 20 Sekunden');
+    } else {
+        // Verberge Passwort
+        hidePassword(fieldId);
+    }
+}
+
+function hidePassword(fieldId) {
+    const input = document.getElementById(fieldId);
+    const icon = document.getElementById(fieldId + '_icon');
+    const button = icon.parentElement;
+    
+    input.type = 'password';
+    icon.textContent = '👁️'; // Offenes Auge
+    button.classList.remove('active');
+    clearTimeout(passwordHideTimer);
+    
+    console.log('Passwort verborgen');
+}

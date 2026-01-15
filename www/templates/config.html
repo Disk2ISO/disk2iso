@@ -226,8 +226,13 @@
             
             <div class="form-group">
                 <label for="mqtt_password">MQTT Passwort (optional)</label>
-                <input type="text" id="mqtt_password" name="mqtt_password" value="{{ config.mqtt_password }}" placeholder="">
-                <div class="help-text">Leer lassen wenn keine Authentifizierung erforderlich</div>
+                <div class="password-input-wrapper">
+                    <input type="password" id="mqtt_password" name="mqtt_password" class="password-input" value="{{ config.mqtt_password }}" placeholder="">
+                    <button type="button" class="password-toggle-btn" onclick="togglePasswordVisibility('mqtt_password')" title="Passwort anzeigen/verbergen">
+                        <span class="toggle-icon" id="mqtt_password_icon">👁️</span>
+                    </button>
+                </div>
+                <div class="help-text">Leer lassen wenn keine Authentifizierung erforderlich. Passwort wird nach 20 Sekunden automatisch verborgen.</div>
             </div>
         </div>
         
