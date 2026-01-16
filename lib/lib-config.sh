@@ -30,7 +30,256 @@ disc_block_size="" # Block Size des Mediums (wird gecacht)
 disc_volume_size="" # Volume Size des Mediums in Blöcken (wird gecacht)
 
 # ============================================================================
-# CONFIG MANAGEMENT FUNKTIONEN
+# CONFIG MANAGEMENT - NEUE ARCHITEKTUR
+# ============================================================================
+
+# Globale Service-Restart-Flags
+disk2iso_restart_required=false
+disk2iso_web_restart_required=false
+
+# Config-Metadaten: Key → Handler:RestartService
+declare -A CONFIG_HANDLERS=(
+    ["DEFAULT_OUTPUT_DIR"]="set_default_output_dir:disk2iso"
+    ["MP3_QUALITY"]="set_mp3_quality:none"
+    ["DDRESCUE_RETRIES"]="set_ddrescue_retries:none"
+    ["USB_DRIVE_DETECTION_ATTEMPTS"]="set_usb_detection_attempts:none"
+    ["USB_DRIVE_DETECTION_DELAY"]="set_usb_detection_delay:none"
+    ["MQTT_ENABLED"]="set_mqtt_enabled:disk2iso"
+    ["MQTT_BROKER"]="set_mqtt_broker:disk2iso"
+    ["MQTT_PORT"]="set_mqtt_port:disk2iso"
+    ["MQTT_USER"]="set_mqtt_user:disk2iso"
+    ["MQTT_PASSWORD"]="set_mqtt_password:disk2iso"
+    ["TMDB_API_KEY"]="set_tmdb_api_key:disk2iso-web"
+)
+
+# ============================================================================
+# CONFIG SETTER FUNCTIONS
+# ============================================================================
+
+set_default_output_dir() {
+    local value="$1"
+    local config_file="${INSTALL_DIR:-/opt/disk2iso}/conf/disk2iso.conf"
+    
+    if [[ ! -d "$value" ]]; then
+        echo '{"success": false, "message": "Verzeichnis existiert nicht"}' >&2
+        return 1
+    fi
+    if [[ ! -w "$value" ]]; then
+        echo '{"success": false, "message": "Verzeichnis nicht beschreibbar"}' >&2
+        return 1
+    fi
+    
+    /usr/bin/sed -i "s|^DEFAULT_OUTPUT_DIR=.*|DEFAULT_OUTPUT_DIR=\"${value}\"|" "$config_file" 2>/dev/null
+    return $?
+}
+
+set_mp3_quality() {
+    local value="$1"
+    local config_file="${INSTALL_DIR:-/opt/disk2iso}/conf/disk2iso.conf"
+    
+    if ! [[ "$value" =~ ^[0-9]$ ]]; then
+        echo '{"success": false, "message": "Ungültiger Wert (0-9 erlaubt)"}' >&2
+        return 1
+    fi
+    
+    /usr/bin/sed -i "s|^MP3_QUALITY=.*|MP3_QUALITY=${value}|" "$config_file" 2>/dev/null
+    return $?
+}
+
+set_ddrescue_retries() {
+    local value="$1"
+    local config_file="${INSTALL_DIR:-/opt/disk2iso}/conf/disk2iso.conf"
+    
+    if ! [[ "$value" =~ ^[0-9]+$ ]]; then
+        echo '{"success": false, "message": "Ungültiger Wert (Zahl erwartet)"}' >&2
+        return 1
+    fi
+    
+    /usr/bin/sed -i "s|^DDRESCUE_RETRIES=.*|DDRESCUE_RETRIES=${value}|" "$config_file" 2>/dev/null
+    return $?
+}
+
+set_usb_detection_attempts() {
+    local value="$1"
+    local config_file="${INSTALL_DIR:-/opt/disk2iso}/conf/disk2iso.conf"
+    
+    if ! [[ "$value" =~ ^[0-9]+$ ]]; then
+        echo '{"success": false, "message": "Ungültiger Wert (Zahl erwartet)"}' >&2
+        return 1
+    fi
+    
+    /usr/bin/sed -i "s|^USB_DRIVE_DETECTION_ATTEMPTS=.*|USB_DRIVE_DETECTION_ATTEMPTS=${value}|" "$config_file" 2>/dev/null
+    return $?
+}
+
+set_usb_detection_delay() {
+    local value="$1"
+    local config_file="${INSTALL_DIR:-/opt/disk2iso}/conf/disk2iso.conf"
+    
+    if ! [[ "$value" =~ ^[0-9]+$ ]]; then
+        echo '{"success": false, "message": "Ungültiger Wert (Zahl erwartet)"}' >&2
+        return 1
+    fi
+    
+    /usr/bin/sed -i "s|^USB_DRIVE_DETECTION_DELAY=.*|USB_DRIVE_DETECTION_DELAY=${value}|" "$config_file" 2>/dev/null
+    return $?
+}
+
+set_mqtt_enabled() {
+    local value="$1"
+    local config_file="${INSTALL_DIR:-/opt/disk2iso}/conf/disk2iso.conf"
+    
+    if [[ "$value" != "true" && "$value" != "false" ]]; then
+        echo '{"success": false, "message": "Ungültiger Wert (true/false)"}' >&2
+        return 1
+    fi
+    
+    /usr/bin/sed -i "s|^MQTT_ENABLED=.*|MQTT_ENABLED=${value}|" "$config_file" 2>/dev/null
+    return $?
+}
+
+set_mqtt_broker() {
+    local value="$1"
+    local config_file="${INSTALL_DIR:-/opt/disk2iso}/conf/disk2iso.conf"
+    
+    /usr/bin/sed -i "s|^MQTT_BROKER=.*|MQTT_BROKER=\"${value}\"|" "$config_file" 2>/dev/null
+    return $?
+}
+
+set_mqtt_port() {
+    local value="$1"
+    local config_file="${INSTALL_DIR:-/opt/disk2iso}/conf/disk2iso.conf"
+    
+    if ! [[ "$value" =~ ^[0-9]+$ ]] || [ "$value" -lt 1 ] || [ "$value" -gt 65535 ]; then
+        echo '{"success": false, "message": "Ungültiger Port (1-65535)"}' >&2
+        return 1
+    fi
+    
+    /usr/bin/sed -i "s|^MQTT_PORT=.*|MQTT_PORT=${value}|" "$config_file" 2>/dev/null
+    return $?
+}
+
+set_mqtt_user() {
+    local value="$1"
+    local config_file="${INSTALL_DIR:-/opt/disk2iso}/conf/disk2iso.conf"
+    
+    /usr/bin/sed -i "s|^MQTT_USER=.*|MQTT_USER=\"${value}\"|" "$config_file" 2>/dev/null
+    return $?
+}
+
+set_mqtt_password() {
+    local value="$1"
+    local config_file="${INSTALL_DIR:-/opt/disk2iso}/conf/disk2iso.conf"
+    
+    /usr/bin/sed -i "s|^MQTT_PASSWORD=.*|MQTT_PASSWORD=\"${value}\"|" "$config_file" 2>/dev/null
+    return $?
+}
+
+set_tmdb_api_key() {
+    local value="$1"
+    local config_file="${INSTALL_DIR:-/opt/disk2iso}/conf/disk2iso.conf"
+    
+    /usr/bin/sed -i "s|^TMDB_API_KEY=.*|TMDB_API_KEY=\"${value}\"|" "$config_file" 2>/dev/null
+    return $?
+}
+
+# ============================================================================
+# CONFIG MANAGEMENT - MAIN FUNCTIONS
+# ============================================================================
+
+apply_config_changes() {
+    local json_input="$1"
+    
+    if [[ -z "$json_input" ]]; then
+        echo '{"success": false, "message": "Keine Änderungen übergeben"}'
+        return 1
+    fi
+    
+    # Setze Restart-Flags zurück
+    disk2iso_restart_required=false
+    disk2iso_web_restart_required=false
+    
+    local errors=()
+    local processed=0
+    
+    # Iteriere über alle definierten Config-Handler
+    for config_key in "${!CONFIG_HANDLERS[@]}"; do
+        # Extrahiere Wert aus JSON (mit grep/awk da jq möglicherweise nicht verfügbar)
+        local value=$(echo "$json_input" | /usr/bin/grep -o "\"${config_key}\"[[:space:]]*:[[:space:]]*[^,}]*" | /usr/bin/awk -F':' '{gsub(/^[ \t"]+|[ \t"]+$/, "", $2); print $2}')
+        
+        if [[ -n "$value" ]]; then
+            # Parse Handler und Service
+            local handler=$(echo "${CONFIG_HANDLERS[$config_key]}" | /usr/bin/cut -d: -f1)
+            local restart_service=$(echo "${CONFIG_HANDLERS[$config_key]}" | /usr/bin/cut -d: -f2)
+            
+            # Rufe Setter auf
+            if $handler "$value" 2>&1; then
+                ((processed++))
+                
+                # Setze entsprechendes Restart-Flag
+                case "$restart_service" in
+                    disk2iso) disk2iso_restart_required=true ;;
+                    disk2iso-web) disk2iso_web_restart_required=true ;;
+                esac
+            else
+                errors+=("${config_key}: Setter fehlgeschlagen")
+            fi
+        fi
+    done
+    
+    # Führe Service-Neustarts durch
+    local restart_info=$(perform_service_restarts)
+    
+    # Erstelle Response
+    if [ ${#errors[@]} -eq 0 ]; then
+        echo "{\"success\": true, \"processed\": $processed, \"restart_info\": $restart_info}"
+        return 0
+    else
+        local error_list=""
+        for error in "${errors[@]}"; do
+            error_list="${error_list}\"${error}\","
+        done
+        error_list="${error_list%,}"  # Entferne letztes Komma
+        echo "{\"success\": false, \"processed\": $processed, \"errors\": [$error_list]}"
+        return 1
+    fi
+}
+
+perform_service_restarts() {
+    local disk2iso_restarted=false
+    local disk2iso_web_restarted=false
+    local disk2iso_error=""
+    local disk2iso_web_error=""
+    
+    # Starte disk2iso Service neu
+    if [ "$disk2iso_restart_required" = true ]; then
+        if /usr/bin/systemctl restart disk2iso 2>/dev/null; then
+            disk2iso_restarted=true
+        else
+            disk2iso_error="Service-Neustart fehlgeschlagen"
+        fi
+    fi
+    
+    # Starte disk2iso-web Service neu
+    if [ "$disk2iso_web_restart_required" = true ]; then
+        if /usr/bin/systemctl restart disk2iso-web 2>/dev/null; then
+            disk2iso_web_restarted=true
+        else
+            disk2iso_web_error="Service-Neustart fehlgeschlagen"
+        fi
+    fi
+    
+    # JSON-Response (kompakt)
+    local response="{\"disk2iso_restarted\":$disk2iso_restarted,\"disk2iso_web_restarted\":$disk2iso_web_restarted"
+    [[ -n "$disk2iso_error" ]] && response="${response},\"disk2iso_error\":\"$disk2iso_error\""
+    [[ -n "$disk2iso_web_error" ]] && response="${response},\"disk2iso_web_error\":\"$disk2iso_web_error\""
+    response="${response}}"
+    
+    echo "$response"
+}
+
+# ============================================================================
+# CONFIG MANAGEMENT FUNKTIONEN (LEGACY - für Kompatibilität)
 # ============================================================================
 
 # Funktion: Aktualisiere einzelnen Config-Wert in config.sh
@@ -56,7 +305,7 @@ update_config_value() {
     
     # Auto-detect quote mode basierend auf aktuellem Wert
     if [[ "$quote_mode" == "auto" ]]; then
-        local current_line=$(grep "^${key}=" "$config_file" | head -1)
+        local current_line=$(/usr/bin/grep "^${key}=" "$config_file" | /usr/bin/head -1)
         if [[ "$current_line" =~ =\".*\" ]]; then
             quote_mode="quoted"
         else
@@ -177,7 +426,7 @@ save_config_and_restart() {
     fi
     
     # Validiere output_dir falls vorhanden
-    local output_dir=$(echo "$json_input" | grep -o '"output_dir"[[:space:]]*:[[:space:]]*"[^"]*"' | cut -d'"' -f4)
+    local output_dir=$(echo "$json_input" | /usr/bin/grep -o '"output_dir"[[:space:]]*:[[:space:]]*"[^"]*"' | /usr/bin/cut -d'"' -f4)
     if [[ -n "$output_dir" ]]; then
         if [[ ! -d "$output_dir" ]]; then
             echo "{\"success\": false, \"message\": \"Ausgabeverzeichnis existiert nicht: ${output_dir}\"}"
@@ -213,16 +462,16 @@ save_config_and_restart() {
         local value
         if [[ "$json_key" == "mqtt_enabled" ]]; then
             # Boolean: true/false ohne Quotes
-            value=$(echo "$json_input" | grep -o "\"${json_key}\"[[:space:]]*:[[:space:]]*[^,}]*" | /usr/bin/awk -F':' '{gsub(/^[ \t]+|[ \t]+$/, "", $2); print $2}')
+            value=$(echo "$json_input" | /usr/bin/grep -o "\"${json_key}\"[[:space:]]*:[[:space:]]*[^,}]*" | /usr/bin/awk -F':' '{gsub(/^[ \t]+|[ \t]+$/, "", $2); print $2}')
         else
             # String oder Number
-            value=$(echo "$json_input" | grep -o "\"${json_key}\"[[:space:]]*:[[:space:]]*[^,}]*" | /usr/bin/awk -F':' '{gsub(/^[ \t"]+|[ \t"]+$/, "", $2); print $2}')
+            value=$(echo "$json_input" | /usr/bin/grep -o "\"${json_key}\"[[:space:]]*:[[:space:]]*[^,}]*" | /usr/bin/awk -F':' '{gsub(/^[ \t"]+|[ \t"]+$/, "", $2); print $2}')
         fi
         
         # Nur updaten wenn Wert vorhanden
         if [[ -n "$value" ]]; then
             local result=$(update_config_value "$config_key" "$value")
-            if ! echo "$result" | grep -q '"success": true'; then
+            if ! echo "$result" | /usr/bin/grep -q '"success": true'; then
                 failed=1
                 echo "$result"
                 return 1

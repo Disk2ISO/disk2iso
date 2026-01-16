@@ -97,6 +97,15 @@ textarea:hover {
     background: var(--form-bg-hover);
 }
 
+/* Changed State - Visuelles Feedback für geänderte Felder */
+input.changed,
+select.changed,
+textarea.changed {
+    border-color: #ffc107 !important;
+    background-color: #fff9e6 !important;
+    box-shadow: 0 0 0 2px rgba(255, 193, 7, 0.2) !important;
+}
+
 input[type="text"]:focus,
 input[type="number"]:focus,
 input[type="password"]:focus,

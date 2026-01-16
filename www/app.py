@@ -747,72 +747,53 @@ def api_config():
             return jsonify({'error': str(e)}), 500
     
     elif request.method == 'POST':
-        # Konfiguration speichern via Bash (inkl. Service-Neustart)
+        # Neue Architektur: Granulare Config-Updates mit intelligenten Service-Neustarts
         try:
-            data = request.get_json()
+            changes = request.get_json()
             
-            if not data:
+            if not changes or not isinstance(changes, dict):
                 return jsonify({'success': False, 'message': g.t.get('API_ERROR_NO_DATA', 'No data received')}), 400
             
-            # Validierung der Pflichtfelder
-            required_fields = ['output_dir', 'mp3_quality', 'ddrescue_retries', 
-                             'usb_detection_attempts', 'usb_detection_delay']
-            for field in required_fields:
-                if field not in data:
-                    return jsonify({'success': False, 'message': f"{g.t.get('API_ERROR_FIELD_MISSING', 'Field missing')}: {field}"}), 400
+            # Konvertiere zu JSON-String für Bash
+            changes_json = json.dumps(changes)
+            json_escaped = changes_json.replace("'", "'\\''")
             
-            # Konvertiere Python-Objekt zu JSON-String für Bash
-            # Spezialbehandlung für mqtt_enabled (boolean -> string)
-            bash_data = data.copy()
-            if 'mqtt_enabled' in bash_data:
-                bash_data['mqtt_enabled'] = bash_data['mqtt_enabled']  # bleibt boolean für json.dumps
-            
-            json_string = json.dumps(bash_data)
-            # Escape für Bash (einfache Quotes verwenden)
-            json_escaped = json_string.replace("'", "'\\''")
-            
-            # Rufe Bash-Funktion save_config_and_restart auf
-            # Diese Funktion macht:
-            # 1. Validierung (Pfad existiert, beschreibbar)
-            # 2. Config-Update (alle Werte)
-            # 3. Service-Neustart
+            # Rufe neue Bash-Funktion apply_config_changes auf
             script = f"""
             source {INSTALL_DIR}/lib/lib-config.sh
-            save_config_and_restart '{json_escaped}'
+            apply_config_changes '{json_escaped}'
             """
             
             result = subprocess.run(
                 ['/bin/bash', '-c', script],
                 capture_output=True,
                 text=True,
-                timeout=15  # Timeout erhöht wegen Service-Restart
+                timeout=30
             )
             
-            if result.returncode != 0:
-                return jsonify({
-                    'success': False,
-                    'message': g.t.get('API_ERROR_CONFIG_SAVE', 'Error saving configuration'),
-                    'error': result.stderr
-                }), 500
-            
-            # Parse JSON-Response von Bash
-            try:
-                response_data = json.loads(result.stdout)
-                if response_data.get('success'):
-                    return jsonify(response_data)
-                else:
-                    return jsonify(response_data), 400
-            except json.JSONDecodeError as e:
-                return jsonify({
-                    'success': False,
-                    'message': f"{g.t.get('API_ERROR_INVALID_JSON', 'Invalid JSON response')}: {str(e)}",
-                    'stdout': result.stdout
-                }), 500
-            
+            # Parse Response
+            if result.returncode == 0:
+                try:
+                    response_data = json.loads(result.stdout)
+                    return jsonify(response_data), 200
+                except json.JSONDecodeError:
+                    return jsonify({
+                        'success': False,
+                        'message': f"{g.t.get('API_ERROR_INVALID_JSON', 'Invalid JSON response')}",
+                        'stdout': result.stdout
+                    }), 500
+            else:
+                error_msg = result.stderr if result.stderr else g.t.get('API_ERROR_CONFIG_SAVE', 'Unknown error')
+                return jsonify({'success': False, 'message': error_msg}), 500
+                
         except subprocess.TimeoutExpired:
-            return jsonify({'success': False, 'message': f"{g.t.get('API_ERROR_TIMEOUT', 'Timeout')}: Config-Write"}), 500
+            return jsonify({'success': False, 'message': f"{g.t.get('API_ERROR_TIMEOUT', 'Timeout')}: Config-Update"}), 500
         except Exception as e:
-            return jsonify({'success': False, 'message': f'Fehler beim Speichern: {str(e)}'}), 500
+            # Debug: Logge vollständigen Fehler
+            import traceback
+            print(f"ERROR in POST /api/config: {str(e)}", flush=True)
+            print(traceback.format_exc(), flush=True)
+            return jsonify({'success': False, 'message': f'Fehler: {str(e)}'}), 500
 
 @app.route('/api/browse_directories', methods=['POST'])
 def browse_directories():

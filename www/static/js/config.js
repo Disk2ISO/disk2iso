@@ -1,28 +1,37 @@
 /**
  * disk2iso - Configuration Page JavaScript
- * Version: 1.2.0
+ * Version: 1.2.0 - Neue Architektur mit Change-Tracking
  */
 
+// Globale Variablen
+const changedValues = {};
+const originalValues = {};
+
+/**
+ * Lädt Config-Werte vom Server
+ */
 function loadConfig() {
     console.log('loadConfig() wird aufgerufen...');
     fetch('/api/config')
         .then(response => response.json())
         .then(data => {
             console.log('Config geladen:', data);
-            document.getElementById('output_dir').value = data.output_dir || '/media/iso';
-            document.getElementById('mp3_quality').value = data.mp3_quality || 2;
-            document.getElementById('ddrescue_retries').value = data.ddrescue_retries || 1;
-            document.getElementById('usb_detection_attempts').value = data.usb_detection_attempts || 5;
-            document.getElementById('usb_detection_delay').value = data.usb_detection_delay || 10;
-            document.getElementById('mqtt_enabled').checked = data.mqtt_enabled || false;
-            document.getElementById('mqtt_broker').value = data.mqtt_broker || '';
-            document.getElementById('mqtt_port').value = data.mqtt_port || 1883;
-            document.getElementById('mqtt_user').value = data.mqtt_user || '';
-            document.getElementById('mqtt_password').value = data.mqtt_password || '';
-            document.getElementById('tmdb_api_key').value = data.tmdb_api_key || '';
-            console.log('TMDB API Key gesetzt auf:', document.getElementById('tmdb_api_key').value);
+            
+            // Setze Werte und speichere Originale
+            setFieldValue('output_dir', data.output_dir || '/media/iso', 'DEFAULT_OUTPUT_DIR');
+            setFieldValue('mp3_quality', data.mp3_quality || 2, 'MP3_QUALITY');
+            setFieldValue('ddrescue_retries', data.ddrescue_retries || 1, 'DDRESCUE_RETRIES');
+            setFieldValue('usb_detection_attempts', data.usb_detection_attempts || 5, 'USB_DRIVE_DETECTION_ATTEMPTS');
+            setFieldValue('usb_detection_delay', data.usb_detection_delay || 10, 'USB_DRIVE_DETECTION_DELAY');
+            setFieldValue('mqtt_enabled', data.mqtt_enabled || false, 'MQTT_ENABLED', true);
+            setFieldValue('mqtt_broker', data.mqtt_broker || '', 'MQTT_BROKER');
+            setFieldValue('mqtt_port', data.mqtt_port || 1883, 'MQTT_PORT');
+            setFieldValue('mqtt_user', data.mqtt_user || '', 'MQTT_USER');
+            setFieldValue('mqtt_password', data.mqtt_password || '', 'MQTT_PASSWORD');
+            setFieldValue('tmdb_api_key', data.tmdb_api_key || '', 'TMDB_API_KEY');
             
             toggleMqttFields();
+            updateSaveButtonState();
         })
         .catch(error => {
             console.error('Fehler beim Laden der Konfiguration:', error);
@@ -30,58 +39,158 @@ function loadConfig() {
         });
 }
 
-function saveConfig() {
-    const config = {
-        output_dir: document.getElementById('output_dir').value,
-        mp3_quality: parseInt(document.getElementById('mp3_quality').value),
-        ddrescue_retries: parseInt(document.getElementById('ddrescue_retries').value),
-        usb_detection_attempts: parseInt(document.getElementById('usb_detection_attempts').value),
-        usb_detection_delay: parseInt(document.getElementById('usb_detection_delay').value),
-        mqtt_enabled: document.getElementById('mqtt_enabled').checked,
-        mqtt_broker: document.getElementById('mqtt_broker').value,
-        mqtt_port: parseInt(document.getElementById('mqtt_port').value),
-        mqtt_user: document.getElementById('mqtt_user').value,
-        mqtt_password: document.getElementById('mqtt_password').value,
-        tmdb_api_key: document.getElementById('tmdb_api_key').value
-    };
+/**
+ * Setzt Feldwert und speichert Original
+ */
+function setFieldValue(fieldId, value, configKey, isCheckbox = false) {
+    const field = document.getElementById(fieldId);
+    if (!field) return;
     
-    console.log('saveConfig() wird aufgerufen mit:', config);
+    if (isCheckbox) {
+        field.checked = value;
+    } else {
+        field.value = value;
+    }
+    
+    // Setze data-config-key Attribut
+    field.setAttribute('data-config-key', configKey);
+    
+    // Speichere Original-Wert
+    originalValues[configKey] = isCheckbox ? value : value.toString();
+    
+    // Registriere Event-Listener
+    if (!field.hasAttribute('data-listener-attached')) {
+        if (isCheckbox) {
+            field.addEventListener('change', handleFieldChange);
+        } else {
+            field.addEventListener('blur', handleFieldChange);
+        }
+        field.setAttribute('data-listener-attached', 'true');
+    }
+}
+
+/**
+ * Handler für Feld-Änderungen
+ */
+function handleFieldChange(event) {
+    const field = event.target;
+    const configKey = field.getAttribute('data-config-key');
+    
+    if (!configKey) return;
+    
+    let newValue, originalValue;
+    
+    if (field.type === 'checkbox') {
+        newValue = field.checked;
+        originalValue = originalValues[configKey];
+    } else {
+        newValue = field.value;
+        originalValue = originalValues[configKey];
+    }
+    
+    // Vergleiche: Wurde geändert?
+    if (newValue.toString() !== originalValue.toString()) {
+        changedValues[configKey] = newValue;
+        field.classList.add('changed');
+    } else {
+        delete changedValues[configKey];
+        field.classList.remove('changed');
+    }
+    
+    updateSaveButtonState();
+}
+
+/**
+ * Speichert nur geänderte Werte
+ */
+function saveConfig() {
+    if (Object.keys(changedValues).length === 0) {
+        showMessage('Keine Änderungen zum Speichern', 'info');
+        return;
+    }
+    
+    const saveButton = document.getElementById('save-config-button');
+    if (saveButton) {
+        saveButton.disabled = true;
+        saveButton.textContent = 'Speichert...';
+    }
+    
+    console.log('saveConfig() - Sende nur Änderungen:', changedValues);
     
     fetch('/api/config', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json'
         },
-        body: JSON.stringify(config)
+        body: JSON.stringify(changedValues)
     })
     .then(response => response.json())
     .then(data => {
         if (data.success) {
-            showMessage(data.message, 'success');
+            showMessage(`Konfiguration gespeichert (${data.processed} Werte)`, 'success');
             
-            // Lade Konfiguration neu um anzuzeigen dass sie gespeichert wurde
-            setTimeout(() => {
-                loadConfig();
-            }, 1000);
+            // Reset: Neue Original-Werte setzen
+            Object.keys(changedValues).forEach(key => {
+                originalValues[key] = changedValues[key].toString();
+                const field = document.querySelector(`[data-config-key="${key}"]`);
+                if (field) {
+                    field.classList.remove('changed');
+                }
+            });
+            
+            // Zeige Restart-Info
+            if (data.restart_info) {
+                const restartInfo = data.restart_info;
+                if (restartInfo.disk2iso_restarted || restartInfo.disk2iso_web_restarted) {
+                    let msg = 'Services neu gestartet: ';
+                    if (restartInfo.disk2iso_restarted) msg += 'disk2iso ';
+                    if (restartInfo.disk2iso_web_restarted) msg += 'disk2iso-web';
+                    showMessage(msg, 'info');
+                }
+            }
+            
+            // Leere Änderungs-Array
+            Object.keys(changedValues).forEach(key => delete changedValues[key]);
+            updateSaveButtonState();
         } else {
-            showMessage(data.message, 'error');
+            const errorMsg = data.message || 'Unbekannter Fehler';
+            showMessage(`Fehler: ${errorMsg}`, 'error');
+            if (data.errors) {
+                console.error('Detaillierte Fehler:', data.errors);
+            }
         }
     })
     .catch(error => {
-        console.error('Fehler beim Speichern der Konfiguration:', error);
-        showMessage('Fehler beim Speichern der Konfiguration', 'error');
+        console.error('Fehler beim Speichern:', error);
+        showMessage(`Netzwerkfehler: ${error.message}`, 'error');
+    })
+    .finally(() => {
+        if (saveButton) {
+            saveButton.disabled = false;
+            updateSaveButtonState();
+        }
     });
 }
 
-function restartService() {
-    showMessage('Service wird neu gestartet...', 'info');
-    // Hier könnte ein API-Call zum Neustarten des Services gemacht werden
-    // Für jetzt nur eine Info-Nachricht
-    setTimeout(() => {
-        showMessage('Konfiguration gespeichert. Bitte starten Sie den Service manuell neu.', 'success');
-    }, 1500);
+/**
+ * Update Save-Button Status
+ */
+function updateSaveButtonState() {
+    const saveButton = document.getElementById('save-config-button');
+    if (!saveButton) return;
+    
+    const changeCount = Object.keys(changedValues).length;
+    const hasChanges = changeCount > 0;
+    
+    saveButton.disabled = !hasChanges;
+    saveButton.textContent = hasChanges 
+        ? `Speichern (${changeCount} Änderung${changeCount > 1 ? 'en' : ''})` 
+        : 'Speichern';
 }
 
+/**
+ * Toggle MQTT Felder
+ */
 function toggleMqttFields() {
     const mqttEnabled = document.getElementById('mqtt_enabled').checked;
     const mqttFields = document.querySelectorAll('.mqtt-field');
@@ -96,74 +205,50 @@ function toggleMqttFields() {
     });
 }
 
+/**
+ * Zeige Nachricht
+ */
 function showMessage(message, type) {
-    const messageDiv = document.getElementById('config-message');
-    messageDiv.textContent = message;
-    messageDiv.className = 'config-message ' + type;
-    messageDiv.style.display = 'block';
+    const alertContainer = document.getElementById('alert-container');
+    if (!alertContainer) return;
     
-    // Nachricht nach 5 Sekunden ausblenden
+    const alertDiv = document.createElement('div');
+    alertDiv.className = `alert alert-${type}`;
+    alertDiv.textContent = message;
+    
+    alertContainer.innerHTML = '';
+    alertContainer.appendChild(alertDiv);
+    
     setTimeout(() => {
-        messageDiv.style.display = 'none';
+        alertDiv.remove();
     }, 5000);
 }
 
-function resetToDefaults() {
-    if (confirm('Möchten Sie wirklich alle Einstellungen auf die Standardwerte zurücksetzen?')) {
-        document.getElementById('output_dir').value = '/media/iso';
-        document.getElementById('mp3_quality').value = 2;
-        document.getElementById('ddrescue_retries').value = 1;
-        document.getElementById('usb_detection_attempts').value = 5;
-        document.getElementById('usb_detection_delay').value = 10;
-        document.getElementById('mqtt_enabled').checked = false;
-        document.getElementById('mqtt_broker').value = '';
-        document.getElementById('mqtt_port').value = 1883;
-        document.getElementById('mqtt_user').value = '';
-        document.getElementById('mqtt_password').value = '';
-        
-        toggleMqttFields();
-        showMessage('Einstellungen wurden auf Standardwerte zurückgesetzt (noch nicht gespeichert)', 'info');
-    }
-}
-
-// Initialisierung beim Laden der Seite
-document.addEventListener('DOMContentLoaded', function() {
-    loadConfig();
-    
-    // Event-Listener für MQTT-Toggle
-    document.getElementById('mqtt_enabled').addEventListener('change', toggleMqttFields);
-    
-    // Event-Listener für Formular-Submit
-    document.getElementById('config-form').addEventListener('submit', function(e) {
-        e.preventDefault(); // Verhindere normalen Form-Submit
-        saveConfig();
-    });
-});
-
 // ============================================================================
-// Directory Browser Functions
+// Directory Browser Functions (aus alter config.js übernommen)
 // ============================================================================
-
-let currentBrowserPath = '/';
 
 function openDirectoryBrowser() {
     const currentOutputDir = document.getElementById('output_dir').value || '/';
-    currentBrowserPath = currentOutputDir;
+    loadDirectories(currentOutputDir);
     
-    document.getElementById('directoryBrowserModal').style.display = 'block';
-    loadDirectories(currentBrowserPath);
+    const modal = document.getElementById('directoryModal');
+    if (modal) {
+        modal.style.display = 'block';
+    }
 }
 
 function closeDirectoryBrowser() {
-    document.getElementById('directoryBrowserModal').style.display = 'none';
+    const modal = document.getElementById('directoryModal');
+    if (modal) {
+        modal.style.display = 'none';
+    }
 }
 
+let currentBrowserPath = '/';
+
 function loadDirectories(path) {
-    const listElement = document.getElementById('directoryList');
-    const pathElement = document.getElementById('currentPath');
-    
-    listElement.innerHTML = '<div class="loading">Lade Verzeichnisse...</div>';
-    pathElement.textContent = path;
+    currentBrowserPath = path;
     
     fetch('/api/browse_directories', {
         method: 'POST',
@@ -175,77 +260,81 @@ function loadDirectories(path) {
     .then(response => response.json())
     .then(data => {
         if (data.success) {
-            currentBrowserPath = data.current_path;
-            pathElement.textContent = data.current_path;
-            renderDirectoryList(data.directories, data.writable);
+            renderDirectoryList(data.current_path, data.directories, data.writable);
         } else {
-            listElement.innerHTML = `<div class="error">❌ ${data.message}</div>`;
+            showMessage(`Fehler: ${data.message}`, 'error');
         }
     })
     .catch(error => {
-        console.error('Fehler beim Laden der Verzeichnisse:', error);
-        listElement.innerHTML = '<div class="error">❌ Fehler beim Laden der Verzeichnisse</div>';
+        showMessage(`Fehler beim Laden der Verzeichnisse: ${error.message}`, 'error');
     });
 }
 
-function renderDirectoryList(directories, currentDirWritable) {
-    const listElement = document.getElementById('directoryList');
+function renderDirectoryList(currentPath, directories, writable) {
+    const pathDisplay = document.getElementById('currentPath');
+    const dirList = document.getElementById('directoryList');
+    const selectBtn = document.getElementById('selectDirectoryBtn');
     
-    if (directories.length === 0) {
-        listElement.innerHTML = '<div class="empty">Keine Unterverzeichnisse vorhanden</div>';
-        return;
+    if (pathDisplay) {
+        pathDisplay.textContent = currentPath;
     }
     
-    let html = '<ul class="dir-list">';
+    if (selectBtn) {
+        selectBtn.disabled = !writable;
+        selectBtn.title = writable ? 'Diesen Ordner wählen' : 'Ordner nicht beschreibbar';
+    }
     
-    directories.forEach(dir => {
-        const icon = dir.is_parent ? '⬆️' : '📁';
-        const writableIcon = dir.writable ? '✓' : '🔒';
-        const writableClass = dir.writable ? 'writable' : 'readonly';
-        const writableTitle = dir.writable ? 'Beschreibbar' : 'Nur Lesezugriff';
+    if (dirList) {
+        dirList.innerHTML = '';
         
-        html += `
-            <li class="dir-item ${writableClass}" onclick="loadDirectories('${dir.path}')" title="${writableTitle}">
-                <span class="dir-icon">${icon}</span>
-                <span class="dir-name">${escapeHtml(dir.name)}</span>
-                <span class="dir-writable" title="${writableTitle}">${writableIcon}</span>
-            </li>
-        `;
-    });
-    
-    html += '</ul>';
-    listElement.innerHTML = html;
+        // Parent directory (..)
+        if (currentPath !== '/') {
+            const parentItem = document.createElement('div');
+            parentItem.className = 'directory-item';
+            parentItem.innerHTML = '<span class="dir-icon">📁</span><span class="dir-name">..</span>';
+            parentItem.onclick = () => {
+                const parentPath = currentPath.split('/').slice(0, -1).join('/') || '/';
+                loadDirectories(parentPath);
+            };
+            dirList.appendChild(parentItem);
+        }
+        
+        // Subdirectories
+        directories.forEach(dir => {
+            const dirItem = document.createElement('div');
+            dirItem.className = 'directory-item';
+            dirItem.innerHTML = `<span class="dir-icon">📁</span><span class="dir-name">${dir}</span>`;
+            dirItem.onclick = () => {
+                const newPath = currentPath === '/' ? `/${dir}` : `${currentPath}/${dir}`;
+                loadDirectories(newPath);
+            };
+            dirList.appendChild(dirItem);
+        });
+    }
 }
 
 function selectCurrentDirectory() {
-    const pathElement = document.getElementById('currentPath');
-    const selectedPath = pathElement.textContent;
+    const outputDirField = document.getElementById('output_dir');
+    const oldValue = outputDirField.value;
     
-    // Pfad ins Input-Feld übernehmen
-    document.getElementById('output_dir').value = selectedPath;
+    outputDirField.value = currentBrowserPath;
     
-    // Modal schließen
-    closeDirectoryBrowser();
-    
-    console.log('Verzeichnis ausgewählt:', selectedPath);
-}
-
-function escapeHtml(text) {
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
-}
-
-// Modal schließen bei Klick außerhalb
-window.onclick = function(event) {
-    const modal = document.getElementById('directoryBrowserModal');
-    if (event.target === modal) {
-        closeDirectoryBrowser();
+    // Triggere Änderungs-Logik
+    const configKey = outputDirField.getAttribute('data-config-key');
+    if (currentBrowserPath !== originalValues[configKey]) {
+        changedValues[configKey] = currentBrowserPath;
+        outputDirField.classList.add('changed');
+    } else {
+        delete changedValues[configKey];
+        outputDirField.classList.remove('changed');
     }
+    
+    updateSaveButtonState();
+    closeDirectoryBrowser();
 }
 
 // ============================================================================
-// Password Toggle Functions
+// Password Toggle Functions (aus alter config.js übernommen)
 // ============================================================================
 
 let passwordHideTimer = null;
@@ -256,20 +345,14 @@ function togglePasswordVisibility(fieldId) {
     const button = icon.parentElement;
     
     if (input.type === 'password') {
-        // Zeige Passwort
         input.type = 'text';
-        icon.textContent = '🙈'; // Geschlossenes Auge
+        icon.textContent = '🙈';
         button.classList.add('active');
         
-        // Starte Auto-Hide Timer (20 Sekunden)
-        clearTimeout(passwordHideTimer);
-        passwordHideTimer = setTimeout(() => {
-            hidePassword(fieldId);
-        }, 20000);
-        
-        console.log('Passwort sichtbar für 20 Sekunden');
+        // Auto-Hide nach 20 Sekunden
+        if (passwordHideTimer) clearTimeout(passwordHideTimer);
+        passwordHideTimer = setTimeout(() => hidePassword(fieldId), 20000);
     } else {
-        // Verberge Passwort
         hidePassword(fieldId);
     }
 }
@@ -280,9 +363,31 @@ function hidePassword(fieldId) {
     const button = icon.parentElement;
     
     input.type = 'password';
-    icon.textContent = '👁️'; // Offenes Auge
+    icon.textContent = '👁️';
     button.classList.remove('active');
-    clearTimeout(passwordHideTimer);
     
-    console.log('Passwort verborgen');
+    if (passwordHideTimer) {
+        clearTimeout(passwordHideTimer);
+        passwordHideTimer = null;
+    }
 }
+
+// ============================================================================
+// Initialisierung
+// ============================================================================
+
+document.addEventListener('DOMContentLoaded', function() {
+    loadConfig();
+    
+    // Event-Listener für MQTT-Toggle
+    const mqttEnabledField = document.getElementById('mqtt_enabled');
+    if (mqttEnabledField) {
+        mqttEnabledField.addEventListener('change', toggleMqttFields);
+    }
+    
+    // Event-Listener für Save-Button
+    const saveButton = document.getElementById('save-config-button');
+    if (saveButton) {
+        saveButton.addEventListener('click', saveConfig);
+    }
+});
