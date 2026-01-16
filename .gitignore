@@ -31,3 +31,6 @@ Thumbs.db
 # Exclude deployment helper scripts
 todo/deploy.sh
 todo/validate_deployment.sh
+
+# Exclude local configuration (use conf/disk2iso.conf.template as base)
+conf/disk2iso.conf
