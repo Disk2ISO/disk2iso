@@ -5,6 +5,11 @@ Die aktuelle Lösung zum Speichern von Einstellungen in der WebUI speichert nich
 Alle Einstellen gehen sofort nach Verlassen oder Neuladen der Seite verloren.
 Außerdem werden bei jeder Änderung alle Services neu gestartet, was ineffizient und störend ist.
 
+Löung für 
+Issue #8
+Issue #16
+Issue #17
+
 ## Lösung
 Granulare Updates: Nur geänderte Werte werden geschrieben, Service-Neustarts nur bei Bedarf.
 
