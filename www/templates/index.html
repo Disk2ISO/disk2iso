@@ -25,26 +25,25 @@
                     <span id="live-status-label">{{ status_text }}</span>
                 </span>
             </div>
-            <div class="info-row" id="disc-medium-row" style="display: none;">
+            <div class="info-row inactive" id="disc-medium-row">
                 <span class="info-label">Medium</span>
                 <span class="info-value" id="disc-medium">-</span>
             </div>
-            <div class="info-row" id="disc-mode-row" style="display: none;">
+            <div class="info-row inactive" id="disc-mode-row">
                 <span class="info-label">Modus</span>
                 <span class="info-value" id="disc-mode">-</span>
             </div>
-            <div id="progress-section" style="display: none;">
-                <div class="info-row">
-                    <span class="info-label">{{ t.INDEX_PROGRESS }}</span>
-                    <span class="info-value"><span id="progress-percent">0</span>% (<span id="progress-mb">0</span> / <span id="total-mb">0</span> <span id="progress-unit">MB</span>)</span>
-                </div>
-                <div class="progress-bar" data-label="0%">
-                    <div class="progress-fill" id="progress-bar-fill" style="width: 0%"></div>
-                </div>
-                <div class="info-row">
-                    <span class="info-label">{{ t.INDEX_TIME }}</span>
-                    <span class="info-value" id="eta-text">-</span>
-                </div>
+            <div class="info-row inactive" id="progress-row">
+                <span class="info-label">{{ t.INDEX_PROGRESS }}</span>
+                <span class="info-value"><span id="progress-percent">0</span>% (<span id="progress-mb">0</span> / <span id="total-mb">0</span> <span id="progress-unit">MB</span>)</span>
+            </div>
+            <div class="progress-bar inactive" id="progress-bar" data-label="0%">
+                <div class="progress-background-copying"></div>
+                <div class="progress-overlay-copying" style="width: 100%"></div>
+            </div>
+            <div class="info-row inactive" id="eta-row">
+                <span class="info-label">{{ t.INDEX_TIME }}</span>
+                <span class="info-value" id="eta-text">-</span>
             </div>
         </div>
     </div>

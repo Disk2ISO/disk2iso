@@ -78,25 +78,33 @@ function updateLiveStatus() {
             
             // Medium anzeigen (ISO-Dateiname)
             if (live.disc_label) {
-                discMediumRow.style.display = '';
+                discMediumRow.classList.remove('inactive');
                 discMedium.textContent = live.disc_label;
             } else {
-                discMediumRow.style.display = 'none';
+                discMediumRow.classList.add('inactive');
+                discMedium.textContent = '-';
             }
             
             // Modus anzeigen (Disc-Typ + Methode)
-            if (live.disc_type || live.method) {
-                discModeRow.style.display = '';
-                const discType = live.disc_type || '-';
+            if (live.disc_type && live.disc_type !== '-' && live.disc_type !== '') {
+                discModeRow.classList.remove('inactive');
                 const method = live.method && live.method !== 'unknown' ? ` (${live.method})` : '';
-                discMode.textContent = `${discType}${method}`;
+                discMode.textContent = `${live.disc_type}${method}`;
             } else {
-                discModeRow.style.display = 'none';
+                discModeRow.classList.add('inactive');
+                discMode.textContent = '-';
             }
             
             // Fortschritt anzeigen wenn kopiert wird
+            const progressRow = document.getElementById('progress-row');
+            const progressBarContainer = document.getElementById('progress-bar');
+            const etaRow = document.getElementById('eta-row');
+            
             if (live.status === 'copying' && live.progress_percent > 0) {
-                progressSection.style.display = '';
+                progressRow.classList.remove('inactive');
+                progressBarContainer.classList.remove('inactive');
+                etaRow.classList.remove('inactive');
+                
                 document.getElementById('progress-percent').textContent = live.progress_percent;
                 document.getElementById('progress-mb').textContent = live.progress_mb;
                 document.getElementById('total-mb').textContent = live.total_mb;
@@ -110,12 +118,27 @@ function updateLiveStatus() {
                     progressUnit.textContent = 'MB';
                 }
                 
-                const progressBar = document.getElementById('progress-bar-fill');
-                const progressBarContainer = progressBar.parentElement;
-                progressBar.style.width = live.progress_percent + '%';
+                // Overlay zeigt verbleibenden Teil (100 - Fortschritt)
+                const progressOverlay = progressBarContainer.querySelector('.progress-overlay-copying');
+                const remainingPercent = 100 - live.progress_percent;
+                progressOverlay.style.width = remainingPercent + '%';
                 progressBarContainer.setAttribute('data-label', live.progress_percent + '%');
             } else {
-                progressSection.style.display = 'none';
+                progressRow.classList.add('inactive');
+                progressBarContainer.classList.add('inactive');
+                etaRow.classList.add('inactive');
+                
+                document.getElementById('progress-percent').textContent = '0';
+                document.getElementById('progress-mb').textContent = '0';
+                document.getElementById('total-mb').textContent = '0';
+                document.getElementById('eta-text').textContent = '-';
+                
+                // Overlay auf 100% (alles grau)
+                const progressOverlay = progressBarContainer.querySelector('.progress-overlay-copying');
+                if (progressOverlay) {
+                    progressOverlay.style.width = '100%';
+                }
+                progressBarContainer.setAttribute('data-label', '0%');
             }
             
             // Archive-Counts aktualisieren
