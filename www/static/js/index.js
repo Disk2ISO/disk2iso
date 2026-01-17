@@ -181,3 +181,34 @@ document.addEventListener('DOMContentLoaded', function() {
     // Alle 5 Sekunden aktualisieren
     updateInterval = setInterval(updateLiveStatus, 5000);
 });
+
+/**
+ * Startet einen Service von der Home-Seite neu
+ */
+function restartServiceHome(serviceName) {
+    if (!confirm(`Service "${serviceName}" wirklich neu starten?`)) {
+        return;
+    }
+    
+    fetch('/api/service/restart', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ service: serviceName })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert(`✅ ${data.message}`);
+            // Aktualisiere Status sofort
+            window.location.reload();
+        } else {
+            alert(`❌ Fehler: ${data.message}`);
+        }
+    })
+    .catch(error => {
+        console.error('Fehler:', error);
+        alert(`❌ Fehler beim Neustart: ${error}`);
+    });
+}

@@ -68,6 +68,9 @@ function displayDisk2IsoInfo(info) {
             <span class="info-value">
                 <span class="status-indicator-small ${statusClass}"></span>
                 ${info.service_status || 'Unbekannt'}
+                <button class="btn-restart-service" onclick="restartService('disk2iso')" title="Service neu starten">
+                    <img src="/static/img/refresh.svg" style="width:14px;height:14px;vertical-align:middle;">
+                </button>
             </span>
         </div>
         <div class="info-item">
@@ -241,6 +244,68 @@ function showError(message) {
             ${message}
         </div>
     `;
+}
+
+/**
+ * Startet einen Service neu
+ */
+function restartService(serviceName) {
+    if (!confirm(`Service "${serviceName}" wirklich neu starten?`)) {
+        return;
+    }
+    
+    fetch('/api/service/restart', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ service: serviceName })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert(`✅ ${data.message}`);
+            // Aktualisiere System-Info nach 2 Sekunden
+            setTimeout(() => loadSystemInfo(), 2000);
+        } else {
+            alert(`❌ Fehler: ${data.message}`);
+        }
+    })
+    .catch(error => {
+        console.error('Fehler:', error);
+        alert(`❌ Fehler beim Neustart: ${error}`);
+    });
+}
+
+/**
+ * Startet einen Service neu
+ */
+function restartService(serviceName) {
+    if (!confirm(`Service "${serviceName}" wirklich neu starten?`)) {
+        return;
+    }
+    
+    fetch('/api/service/restart', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ service: serviceName })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert(`✅ ${data.message}`);
+            // Aktualisiere System-Info nach 2 Sekunden
+            setTimeout(() => loadSystemInfo(), 2000);
+        } else {
+            alert(`❌ Fehler: ${data.message}`);
+        }
+    })
+    .catch(error => {
+        console.error('Fehler:', error);
+        alert(`❌ Fehler beim Neustart: ${error}`);
+    });
 }
 
 // Initialisierung beim Laden der Seite

@@ -279,6 +279,32 @@ perform_service_restarts() {
 }
 
 # ============================================================================
+# SERVICE MANAGEMENT FUNKTIONEN
+# ============================================================================
+
+# Funktion: Startet einzelnen Service manuell neu
+# Parameter: $1 = Service-Name ("disk2iso" oder "disk2iso-web")
+# Rückgabe: JSON mit Success-Status
+restart_service() {
+    local service_name="$1"
+    
+    # Validierung: Nur erlaubte Services
+    if [[ "$service_name" != "disk2iso" && "$service_name" != "disk2iso-web" ]]; then
+        echo '{"success": false, "message": "Ungültiger Service-Name"}'
+        return 1
+    fi
+    
+    # Service neu starten
+    if /usr/bin/systemctl restart "$service_name" 2>/dev/null; then
+        echo "{\"success\": true, \"message\": \"Service ${service_name} wurde neu gestartet\"}"
+        return 0
+    else
+        echo "{\"success\": false, \"message\": \"Neustart von ${service_name} fehlgeschlagen\"}"
+        return 1
+    fi
+}
+
+# ============================================================================
 # CONFIG MANAGEMENT FUNKTIONEN (LEGACY - für Kompatibilität)
 # ============================================================================
 

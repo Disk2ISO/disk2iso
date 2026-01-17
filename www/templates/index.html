@@ -17,7 +17,7 @@
     <!-- Live Status (volle Breite) -->
     <div class="live-status-wrapper">
         <div class="card live-status-card" id="live-status-card">
-            <h2><img src="{{ url_for('static', filename='img/live.svg') }}" alt="" style="width:24px;height:24px;vertical-align:middle;margin-right:8px;">Live Status</h2>
+            <h2>Live Status</h2>
             <div class="info-row">
                 <span class="info-label">{{ t.INDEX_HEADER }}</span>
                 <span class="info-value" id="live-status-text">
@@ -93,7 +93,12 @@
     <div class="three-column-grid">
         <!-- disk2iso Service -->
         <div class="card">
-            <h2>disk2iso Service</h2>
+            <h2>
+                disk2iso Service
+                <button class="btn-restart-service-small" onclick="restartServiceHome('disk2iso')" title="Service neu starten">
+                    <img src="{{ url_for('static', filename='img/refresh.svg') }}" style="width:14px;height:14px;">
+                </button>
+            </h2>
             <div class="info-row">
                 <span class="info-label">{{ t.INDEX_STATE }}</span>
                 <span class="info-value">
@@ -118,7 +123,12 @@
         
         <!-- WEB-UI Service -->
         <div class="card">
-            <h2>WEB-UI Service</h2>
+            <h2>
+                WEB-UI Service
+                <button class="btn-restart-service-small" onclick="restartServiceHome('disk2iso-web')" title="Service neu starten">
+                    <img src="{{ url_for('static', filename='img/refresh.svg') }}" style="width:14px;height:14px;">
+                </button>
+            </h2>
             <div class="info-row">
                 <span class="info-label">{{ t.INDEX_STATE }}</span>
                 <span class="info-value">

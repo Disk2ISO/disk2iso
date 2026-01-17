@@ -795,6 +795,56 @@ def api_config():
             print(traceback.format_exc(), flush=True)
             return jsonify({'success': False, 'message': f'Fehler: {str(e)}'}), 500
 
+@app.route('/api/service/restart', methods=['POST'])
+def restart_service():
+    """
+    Startet einen Service manuell neu
+    POST body: { "service": "disk2iso" } oder { "service": "disk2iso-web" }
+    Returns: { "success": true, "message": "..." }
+    """
+    try:
+        data = request.get_json()
+        service_name = data.get('service')
+        
+        if not service_name:
+            return jsonify({'success': False, 'message': 'Service-Name erforderlich'}), 400
+        
+        # Validierung
+        if service_name not in ['disk2iso', 'disk2iso-web']:
+            return jsonify({'success': False, 'message': 'Ungültiger Service-Name'}), 400
+        
+        # Rufe Bash-Funktion auf
+        script = f"""
+        source {INSTALL_DIR}/lib/lib-config.sh
+        restart_service '{service_name}'
+        """
+        
+        result = subprocess.run(
+            ['/bin/bash', '-c', script],
+            capture_output=True,
+            text=True,
+            timeout=15
+        )
+        
+        # Parse Response
+        if result.returncode == 0:
+            try:
+                response_data = json.loads(result.stdout)
+                return jsonify(response_data), 200
+            except json.JSONDecodeError:
+                return jsonify({
+                    'success': False,
+                    'message': 'Ungültige JSON-Antwort'
+                }), 500
+        else:
+            error_msg = result.stderr if result.stderr else 'Unbekannter Fehler'
+            return jsonify({'success': False, 'message': error_msg}), 500
+            
+    except subprocess.TimeoutExpired:
+        return jsonify({'success': False, 'message': 'Timeout beim Service-Neustart'}), 500
+    except Exception as e:
+        return jsonify({'success': False, 'message': str(e)}), 500
+
 @app.route('/api/browse_directories', methods=['POST'])
 def browse_directories():
     """
