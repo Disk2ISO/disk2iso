@@ -100,8 +100,6 @@ def get_config():
                             value = value.split('#')[0]
                         value = value.strip().strip('"').strip()
                         config['mqtt_password'] = value
-                    
-                    # TMDB API Key
                     elif line.startswith('TMDB_API_KEY='):
                         value = line.split('=', 1)[1].strip()
                         if '#' in value:
@@ -1553,7 +1551,8 @@ fi
                 local_poster_file = thumbs_dir / f"{iso_basename}_{tmdb_id}.jpg"
                 
                 try:
-                    response = requests.get(poster_url, timeout=10)
+                    headers = {'User-Agent': 'disk2iso/1.2.0 (DVD/Blu-ray Metadata Client)'}
+                    response = requests.get(poster_url, headers=headers, timeout=10)
                     if response.status_code == 200:
                         thumbs_dir.mkdir(parents=True, exist_ok=True)
                         with open(local_poster_file, 'wb') as f:

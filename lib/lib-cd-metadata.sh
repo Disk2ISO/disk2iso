@@ -11,18 +11,293 @@
 #   - rebuild_audio_iso() - Neue ISO mit korrekten Tags erstellen
 #
 # Version: 1.2.0
-# Datum: 13.01.2026
+# Datum: 18.01.2026
 ################################################################################
+
+# ============================================================================
+# MUSICBRAINZ API CONFIGURATION
+# ============================================================================
+readonly MUSICBRAINZ_API_BASE_URL="https://musicbrainz.org/ws/2"
+readonly COVERART_API_BASE_URL="https://coverartarchive.org"
+readonly MUSICBRAINZ_USER_AGENT="disk2iso/1.2.0"
+
+# ============================================================================
+# CONFIGURATIONS KONSTANTEN
+# ============================================================================
+readonly MUSICBRAINZ_TMP_DIR="musicbrainz"
+readonly MUSICBRAINZ_COVERS_DIR="covers"
+
+# ============================================================================
+# Globale Variablen 
+# ============================================================================
+MUSICBRAINZ_CACHE_DIR=""
+MUSICBRAINZ_COVERS_DIR_PATH=""
+
+# ===========================================================================
+# init_musicbrainz_cache_dirs
+# ---------------------------------------------------------------------------
+# Funktion: Initialisiere MusicBrainz Cache-Verzeichnisse (Lazy Initialization)
+# ......... Nutzt ensure_subfolder() aus lib-folders.sh für konsistente 
+# ......... Verzeichnisverwaltung
+# Parameter: Keine
+# Rückgabe: 0 = Erfolg, 1 = Fehler
+# ===========================================================================
+init_musicbrainz_cache_dirs() {
+    if [[ -z "$MUSICBRAINZ_CACHE_DIR" ]]; then
+        # Prüfen ob ensure_subfolder Funktion geladen ist
+        if ! declare -f ensure_subfolder >/dev/null 2>&1; then
+            log_message "MusicBrainz: Fehler - lib-folders.sh nicht geladen"
+            return 1
+        fi
+
+        # Prüfen ob get_disk2iso_temp_dir Funktion geladen ist
+        if ! declare -f get_disk2iso_temp_dir >/dev/null 2>&1; then
+            log_message "MusicBrainz: Fehler - get_disk2iso_temp_dir nicht verfügbar"
+            return 1
+        fi
+
+        # Temp-Verzeichnis für disk2iso abfragen
+        local disk2iso_tmp_dir
+        disk2iso_tmp_dir=$(get_disk2iso_temp_dir) || return 1
+        
+        # MusicBrainz Cache-Verzeichnis erstellen
+        MUSICBRAINZ_CACHE_DIR=$(ensure_subfolder "${disk2iso_tmp_dir}/${MUSICBRAINZ_TMP_DIR}") || return 1
+        if [[ ! -d "$MUSICBRAINZ_CACHE_DIR" ]]; then
+            log_message "MusicBrainz: Cache-Verzeichnis ungültig: $MUSICBRAINZ_CACHE_DIR"
+            return 1
+        fi
+        log_message "MusicBrainz: Cache-Verzeichnis initialisiert: $MUSICBRAINZ_CACHE_DIR"
+
+        # MusicBrainz Covers Verzeichnis erstellen
+        MUSICBRAINZ_COVERS_DIR_PATH=$(ensure_subfolder "${MUSICBRAINZ_CACHE_DIR}/${MUSICBRAINZ_COVERS_DIR}") || return 1 
+        if [[ ! -d "$MUSICBRAINZ_COVERS_DIR_PATH" ]]; then
+            log_message "MusicBrainz: Covers-Verzeichnis ungültig: $MUSICBRAINZ_COVERS_DIR_PATH"
+            return 1
+        fi
+        log_message "MusicBrainz: Covers-Verzeichnis initialisiert: $MUSICBRAINZ_COVERS_DIR_PATH"
+    fi
+    return 0
+}
+
+# ===========================================================================
+# url_encode
+# ---------------------------------------------------------------------------
+# Funktion: URL-Encode String (ohne jq-Abhängigkeit)
+# Parameter: $1 = String zum Encoden
+# Rückgabe: URL-encoded String via stdout
+# Hinweis: Implementiert RFC 3986 (außer -.~_ werden alle Zeichen encoded)
+# ===========================================================================
+url_encode() {
+    local string="$1"
+    local strlen=${#string}
+    local encoded=""
+    local pos c o
+
+    for ((pos=0; pos<strlen; pos++)); do
+        c=${string:$pos:1}
+        case "$c" in
+            [-_.~a-zA-Z0-9] ) o="${c}" ;;
+            * ) printf -v o '%%%02x' "'$c" ;;
+        esac
+        encoded+="${o}"
+    done
+    echo "${encoded}"
+}
+
+# ============================================================================
+# DEPENDENCY CHECK
+# ============================================================================
+
+# Funktion: Prüfe Audio-CD Metadata Abhängigkeiten
+# Rückgabe: 0 = Alle kritischen Tools OK, 1 = Kritische Tools fehlen
+check_audio_metadata_dependencies() {
+    local missing_critical=()
+    local missing_optional=()
+    
+    # Kritische Tools für Metadata-Funktionen
+    command -v jq >/dev/null 2>&1 || missing_critical+=("jq")
+    command -v curl >/dev/null 2>&1 || missing_critical+=("curl")
+    
+    if [[ ${#missing_critical[@]} -gt 0 ]]; then
+        log_message "MusicBrainz: Metadata-Support nicht verfügbar - fehlende Tools: ${missing_critical[*]}"
+        log_message "MusicBrainz: Installieren Sie: apt-get install ${missing_critical[*]}"
+        return 1
+    fi
+    
+    # Optionale Tools für erweiterte Funktionen
+    command -v eyeD3 >/dev/null 2>&1 || missing_optional+=("eyeD3")
+    command -v id3v2 >/dev/null 2>&1 || missing_optional+=("id3v2")
+    command -v genisoimage >/dev/null 2>&1 || missing_optional+=("genisoimage")
+    command -v mkisofs >/dev/null 2>&1 || missing_optional+=("mkisofs")
+    
+    if [[ ${#missing_optional[@]} -gt 0 ]]; then
+        log_message "MusicBrainz: Erweiterte Funktionen eingeschränkt - optionale Tools fehlen: ${missing_optional[*]}"
+        log_message "MusicBrainz: Für ISO-Remastering installieren Sie: apt-get install ${missing_optional[*]}"
+    fi
+    
+    log_message "MusicBrainz: Metadata-Support verfügbar"
+    return 0
+}
+
+# ============================================================================
+# MUSICBRAINZ API FUNCTIONS - RAW REQUESTS (Cache-basiert)
+# ============================================================================
+
+# Funktion: Führe MusicBrainz-Anfrage durch und speichere RAW Response
+# Parameter: $1 = artist (Künstler-Name)
+#            $2 = album (Album-Titel)
+#            $3 = iso_basename (ohne .iso, für Cache-Dateinamen)
+# Rückgabe: 0 bei Erfolg, 1 bei Fehler
+# WICHTIG: Speichert nur die unverarbeitete API Response im Cache
+fetch_musicbrainz_raw() {
+    local artist="$1"
+    local album="$2"
+    local iso_basename="$3"
+    
+    # Validierung
+    if [[ -z "$artist" ]] && [[ -z "$album" ]]; then
+        log_message "MusicBrainz-Request: Artist oder Album erforderlich"
+        return 1
+    fi
+    
+    # Initialisiere Cache-Verzeichnisse (Lazy Initialization)
+    init_musicbrainz_cache_dirs || return 1
+    
+    local cache_file="${MUSICBRAINZ_CACHE_DIR}/${iso_basename}_raw.json"
+    
+    log_message "MusicBrainz-Request: Suche Artist='$artist', Album='$album'"
+    
+    # Baue Query
+    local query_parts=()
+    [[ -n "$artist" ]] && query_parts+=("artist:${artist}")
+    [[ -n "$album" ]] && query_parts+=("release:${album}")
+    
+    local query=$(IFS=' AND '; echo "${query_parts[*]}")
+    
+    # URL-Encoding mit nativer Bash-Funktion (keine jq-Abhängigkeit)
+    local encoded_query=$(url_encode "$query")
+    
+    local url="${MUSICBRAINZ_API_BASE_URL}/release/?query=${encoded_query}&fmt=json&limit=10&inc=artists+labels+recordings+media"
+    
+    log_message "MusicBrainz-Request: URL = $url" >&2
+    
+    # API-Anfrage - speichere direkt in Datei (vermeidet Bash String-Length-Limits)
+    if ! curl -s -f -m 10 -H "User-Agent: ${MUSICBRAINZ_USER_AGENT}" "$url" -o "$cache_file" 2>/dev/null; then
+        local curl_exit=$?
+        log_message "MusicBrainz-Request: API-Anfrage fehlgeschlagen (exit $curl_exit)" >&2
+        echo '{"error": "API request failed"}' > "$cache_file"
+        return 1
+    fi
+    
+    # Prüfe ob Response JSON ist (mindestens '{}')
+    if [[ ! -s "$cache_file" ]]; then
+        log_message "MusicBrainz-Request: Leere Response erhalten"
+        echo '{"error": "Empty response"}' > "$cache_file"
+        return 1
+    fi
+    
+    log_message "MusicBrainz-Request: Raw response gespeichert: $(basename "$cache_file")"
+    return 0
+}
+
+# Funktion: Lade Cover von CoverArtArchive mit Caching
+# Parameter: $1 = Release-ID
+# Rückgabe: Pfad zur Cover-Datei als JSON oder Fehler
+# Nutzt globale Variable MUSICBRAINZ_COVERS_DIR_PATH (keine Parameter)
+fetch_coverart() {
+    local release_id="$1"
+    
+    if [[ -z "$release_id" ]]; then
+        echo '{"success": false, "message": "Release-ID erforderlich"}'
+        return 1
+    fi
+    
+    # Initialisiere Cache-Verzeichnisse (Lazy Initialization)
+    init_musicbrainz_cache_dirs || return 1
+    
+    local cover_file="${MUSICBRAINZ_COVERS_DIR_PATH}/cover_${release_id}.jpg"
+    
+    # Wenn Cover bereits existiert, gib Pfad zurück
+    if [[ -f "$cover_file" ]]; then
+        log_message "MusicBrainz: Cover aus Cache: $(basename "$cover_file")"
+        echo "{\"success\": true, \"path\": \"${cover_file}\", \"cached\": true}"
+        return 0
+    fi
+    
+    # Lade Cover von CoverArtArchive
+    local cover_url="${COVERART_API_BASE_URL}/release/${release_id}/front-250"
+    
+    log_message "MusicBrainz: Lade Cover für Release-ID: $release_id"
+    
+    if curl -s -f -m 10 -o "$cover_file" "$cover_url" 2>/dev/null; then
+        # Prüfe ob Download erfolgreich (Datei > 0 Bytes)
+        if [[ -s "$cover_file" ]]; then
+            log_message "MusicBrainz: Cover heruntergeladen: $(basename "$cover_file")"
+            echo "{\"success\": true, \"path\": \"${cover_file}\", \"cached\": false}"
+            return 0
+        else
+            rm -f "$cover_file"
+            echo '{"success": false, "message": "Cover-Download leer"}'
+            return 1
+        fi
+    else
+        echo '{"success": false, "message": "Cover nicht verfügbar"}'
+        return 1
+    fi
+}
+
+# ============================================================================
+# CACHING FUNCTIONS (Analog zu lib-dvd-metadata.sh)
+# ============================================================================
+
+# Funktion: Suche und Cache MusicBrainz-Metadaten (Hauptfunktion)
+# Parameter: $1 = ISO-Dateiname (z.B. "artist_album.iso")
+#            $2 = Artist (optional, wenn im Dateinamen nicht erkennbar)
+#            $3 = Album (optional, wenn im Dateinamen nicht erkennbar)
+# Rückgabe: 0 bei Erfolg, 1 bei Fehler
+# WICHTIG: Diese Funktion speichert nur die raw API Response
+#          Python übernimmt die JSON-Verarbeitung und Cover-Downloads
+search_and_cache_musicbrainz() {
+    local iso_filename="$1"
+    local artist="${2:-}"
+    local album="${3:-}"
+    local iso_basename="${iso_filename%.iso}"
+    
+    log_message "MusicBrainz: Starte Suche für: $iso_filename"
+    
+    # Falls Artist/Album nicht übergeben, versuche aus Dateinamen zu extrahieren
+    if [[ -z "$artist" ]] && [[ -z "$album" ]]; then
+        # Einfache Extraktion: artist_album.iso → artist=artist, album=album
+        if [[ "$iso_basename" =~ ^([^_]+)_(.+)$ ]]; then
+            artist="${BASH_REMATCH[1]}"
+            album="${BASH_REMATCH[2]}"
+            log_message "MusicBrainz: Extrahiert aus Dateinamen - Artist: '$artist', Album: '$album'"
+        else
+            log_message "MusicBrainz: Kann Artist/Album nicht aus Dateinamen extrahieren"
+            return 1
+        fi
+    fi
+    
+    # MusicBrainz-Anfrage durchführen (nur raw API call)
+    if ! fetch_musicbrainz_raw "$artist" "$album" "$iso_basename"; then
+        log_message "MusicBrainz: Anfrage fehlgeschlagen"
+        return 1
+    fi
+    
+    log_message "MusicBrainz: Raw response bereit - Python übernimmt Verarbeitung"
+    return 0
+}
 
 # ============================================================================
 # WEB API WRAPPER FUNCTIONS (für Python Flask Integration)
 # ============================================================================
 
-# Funktion: MusicBrainz Suche mit JSON-Return für Web-API
+# Funktion: MusicBrainz Suche mit JSON-Return für Web-API (mit Caching)
 # Parameter: $1 = Artist (optional bei .mbquery)
 #            $2 = Album (optional bei .mbquery)
 #            $3 = ISO-Pfad (optional, für .mbquery Lookup)
 # Rückgabe: JSON-String mit {"success": true/false, "results": [...], "used_mbquery": true/false}
+# WICHTIG: Speichert API-Response im Cache für spätere Nutzung durch Python
 # Diese Funktion wird vom Python Web-Interface aufgerufen
 search_musicbrainz_json() {
     local artist="$1"
@@ -31,6 +306,22 @@ search_musicbrainz_json() {
     
     local used_mbquery=false
     local mb_response=""
+    
+    # Initialisiere Cache-Verzeichnisse (Lazy Initialization)
+    init_musicbrainz_cache_dirs || {
+        echo '{"success": false, "message": "Cache-Initialisierung fehlgeschlagen"}'
+        return 1
+    }
+    
+    # Bestimme Cache-Dateinamen (basierend auf ISO-Pfad oder Artist+Album)
+    local cache_file=""
+    if [[ -n "$iso_path" ]]; then
+        local iso_basename=$(basename "${iso_path%.iso}")
+        cache_file="${MUSICBRAINZ_CACHE_DIR}/${iso_basename}_search.json"
+    else
+        local safe_name=$(echo "${artist}_${album}" | tr ' ' '_' | tr -cd 'a-zA-Z0-9_-')
+        cache_file="${MUSICBRAINZ_CACHE_DIR}/${safe_name}_search.json"
+    fi
     
     # Prüfe ob .mbquery Datei existiert
     if [[ -n "$iso_path" ]]; then
@@ -50,11 +341,11 @@ search_musicbrainz_json() {
             
             if [[ -n "$disc_id" ]] && [[ -n "$toc" ]]; then
                 # Nutze disc-id + TOC für exakte Suche
-                local url="https://musicbrainz.org/ws/2/discid/${disc_id}?toc=${toc}&fmt=json&inc=artists+labels+recordings+media"
+                local url="${MUSICBRAINZ_API_BASE_URL}/discid/${disc_id}?toc=${toc}&fmt=json&inc=artists+labels+recordings+media"
                 
-                mb_response=$(curl -s -m 10 -H "User-Agent: disk2iso/1.2.0" "$url" 2>/dev/null)
-                
-                if [[ $? -eq 0 ]] && [[ -n "$mb_response" ]]; then
+                # Speichere Response direkt in Cache-Datei
+                if curl -s -f -m 10 -H "User-Agent: ${MUSICBRAINZ_USER_AGENT}" "$url" -o "$cache_file" 2>/dev/null; then
+                    mb_response=$(cat "$cache_file")
                     used_mbquery=true
                 else
                     # Fallback zu normaler Suche
@@ -78,18 +369,27 @@ search_musicbrainz_json() {
         
         local query=$(IFS=' AND '; echo "${query_parts[*]}")
         
-        # URL-Encoding mit jq (sicherer als sed)
-        local encoded_query=$(echo -n "$query" | jq -sRr @uri)
+        # URL-Encoding mit nativer Bash-Funktion (keine jq-Abhängigkeit)
+        local encoded_query=$(url_encode "$query")
         
-        local url="https://musicbrainz.org/ws/2/release/?query=${encoded_query}&fmt=json&limit=10&inc=artists+labels+recordings+media"
+        local url="${MUSICBRAINZ_API_BASE_URL}/release/?query=${encoded_query}&fmt=json&limit=10&inc=artists+labels+recordings+media"
         
-        mb_response=$(curl -s -m 10 -H "User-Agent: disk2iso/1.2.0" "$url" 2>/dev/null)
-        
-        if [[ $? -ne 0 ]] || [[ -z "$mb_response" ]]; then
+        # Speichere Response direkt in Cache-Datei
+        if ! curl -s -f -m 10 -H "User-Agent: ${MUSICBRAINZ_USER_AGENT}" "$url" -o "$cache_file" 2>/dev/null; then
             echo '{"success": false, "message": "MusicBrainz-Suche fehlgeschlagen"}'
             return 1
         fi
+        
+        mb_response=$(cat "$cache_file")
     fi
+    
+    # Prüfe ob Response vorhanden
+    if [[ -z "$mb_response" ]]; then
+        echo '{"success": false, "message": "Keine API-Response erhalten"}'
+        return 1
+    fi
+    
+    log_message "MusicBrainz: API-Response gespeichert in $(basename "$cache_file")"
     
     # Formatiere Ergebnisse mit jq
     local results=$(echo "$mb_response" | jq -c '[.releases[:10] | .[] | {
@@ -114,48 +414,18 @@ search_musicbrainz_json() {
     return 0
 }
 
-# Funktion: MusicBrainz Cover-Art Download mit Caching
+# Funktion: MusicBrainz Cover-Art Download (Legacy Wrapper für Kompatibilität)
 # Parameter: $1 = Release-ID
-#            $2 = Cache-Verzeichnis (optional, default: .temp)
+#            $2 = Cache-Verzeichnis (DEPRECATED - wird ignoriert)
 # Rückgabe: Pfad zur Cover-Datei oder Fehler
-# Diese Funktion lädt Cover von CoverArtArchive und cached sie lokal
+# HINWEIS: Nutzt jetzt globale MUSICBRAINZ_COVERS_DIR_PATH statt Parameter
+#          Parameter $2 wird aus Kompatibilitätsgründen akzeptiert aber ignoriert
 get_musicbrainz_cover() {
     local release_id="$1"
-    local cache_dir="${2:-.temp}"
+    # local cache_dir="${2:-.temp}"  # DEPRECATED - Parameter wird ignoriert
     
-    if [[ -z "$release_id" ]]; then
-        echo '{"success": false, "message": "Release-ID erforderlich"}'
-        return 1
-    fi
-    
-    # Erstelle Cache-Verzeichnis
-    mkdir -p "$cache_dir" 2>/dev/null
-    
-    local cover_file="${cache_dir}/cover_${release_id}.jpg"
-    
-    # Wenn Cover bereits existiert, gib Pfad zurück
-    if [[ -f "$cover_file" ]]; then
-        echo "{\"success\": true, \"path\": \"${cover_file}\"}"
-        return 0
-    fi
-    
-    # Lade Cover von CoverArtArchive
-    local cover_url="https://coverartarchive.org/release/${release_id}/front-250"
-    
-    if curl -s -f -m 10 -o "$cover_file" "$cover_url" 2>/dev/null; then
-        # Prüfe ob Download erfolgreich (Datei > 0 Bytes)
-        if [[ -s "$cover_file" ]]; then
-            echo "{\"success\": true, \"path\": \"${cover_file}\"}"
-            return 0
-        else
-            rm -f "$cover_file"
-            echo '{"success": false, "message": "Cover-Download leer"}'
-            return 1
-        fi
-    else
-        echo '{"success": false, "message": "Cover nicht verfügbar"}'
-        return 1
-    fi
+    # Delegiere an neue Cache-basierte Funktion
+    fetch_coverart "$release_id"
 }
 
 # ============================================================================
@@ -227,7 +497,8 @@ remaster_audio_iso_with_metadata() {
     
     # Lade Cover von Cover Art Archive (mit redirect-follow)
     local cover_file=""
-    local cover_url="https://coverartarchive.org/release/${mb_release_id}/front-500"
+    # Nutze API-Konstante statt hardcoded URL
+    local cover_url="${COVERART_API_BASE_URL}/release/${mb_release_id}/front-500"
     
     cover_file="${temp_extract}/cover.jpg"
     if curl -L -s -f "$cover_url" -o "$cover_file" 2>/dev/null; then
@@ -431,8 +702,10 @@ update_mp3_tags_from_musicbrainz() {
         fi
         
         # Erstelle sauberen Dateinamen: "Artist - Title.mp3"
+        # Säubere BEIDE Komponenten (artist + title) für sichere Pfade
+        local clean_artist=$(echo "$artist" | sed 's/[^a-zA-Z0-9 ()!_-]/_/g' | sed 's/  */ /g')
         local clean_title=$(echo "$track_title" | sed 's/[^a-zA-Z0-9 ()!_-]/_/g' | sed 's/  */ /g')
-        local new_filename="${artist} - ${clean_title}.mp3"
+        local new_filename="${clean_artist} - ${clean_title}.mp3"
         local target_file="$target_dir/$new_filename"
         
         # Kopiere MP3
@@ -558,9 +831,11 @@ EOF
 get_musicbrainz_release_details() {
     local release_id="$1"
     
-    local url="https://musicbrainz.org/ws/2/release/${release_id}?fmt=json&inc=artists+recordings+artist-credits"
+    # Nutze API-Konstante statt hardcoded URL
+    local url="${MUSICBRAINZ_API_BASE_URL}/release/${release_id}?fmt=json&inc=artists+recordings+artist-credits"
     
-    local response=$(curl -s -f "$url" 2>/dev/null)
+    # Füge User-Agent Header hinzu (MusicBrainz API-Richtlinie)
+    local response=$(curl -s -f -m 10 -H "User-Agent: ${MUSICBRAINZ_USER_AGENT}" "$url" 2>/dev/null)
     
     if [[ $? -eq 0 ]] && [[ -n "$response" ]]; then
         echo "$response"

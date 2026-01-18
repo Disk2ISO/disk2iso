@@ -1,7 +1,7 @@
 # GitHub Issues - disk2iso v1.2.0
-**Stand:** 15.01.2026  
+**Stand:** 18.01.2026  
 **Quelle:** https://github.com/DirkGoetze/disk2iso/issues  
-**Status:** 19 Open, 1 Closed
+**Status:** 14 Open, 6 Closed/Teilweise behoben
 
 ---
 
@@ -10,18 +10,13 @@
 ### 🎵 AUDIO-CD / MP3 TAGGING (lib-cd.sh, lib-cd-metadata.sh)
 - [#22](https://github.com/DirkGoetze/disk2iso/issues/22) - Taggen von MP3 bei mehreren Interpreten (enhancement)
 - [#21](https://github.com/DirkGoetze/disk2iso/issues/21) - Taggen von MP3 bei Samplern (enhancement)
-- [#5](https://github.com/DirkGoetze/disk2iso/issues/5) - Audio CD - Meta Daten erfassen (bug)
 
 ### 📀 DVD/BLU-RAY METADATEN (lib-dvd.sh, lib-bluray.sh, lib-dvd-metadata.sh)
-- [#7](https://github.com/DirkGoetze/disk2iso/issues/7) - DVD/BD Metadaten funktioniert nicht (bug)
 - [#6](https://github.com/DirkGoetze/disk2iso/issues/6) - DVD Metadaten (feat)
 - [#4](https://github.com/DirkGoetze/disk2iso/issues/4) - Archiv - Metadaten hinzufügen funktioniert nicht (bug)
 
 ### 🌐 WEB-UI INTERFACE (www/app.py, www/templates/, www/static/)
-- [#20](https://github.com/DirkGoetze/disk2iso/issues/20) - Formatierungsproblem Fortschritt
 - [#19](https://github.com/DirkGoetze/disk2iso/issues/19) - Archivierte Logs über WEB-UI öffnen
-- [#16](https://github.com/DirkGoetze/disk2iso/issues/16) - Passwort Feld nicht verschlüsselt (bug)
-- [#14](https://github.com/DirkGoetze/disk2iso/issues/14) - Menü verschwindet wenn Seite länger (feat)
 - [#13](https://github.com/DirkGoetze/disk2iso/issues/13) - Anzeige zum Service (enhancement)
 - [#12](https://github.com/DirkGoetze/disk2iso/issues/12) - Home Seite unruhig (enhancement)
 - [#10](https://github.com/DirkGoetze/disk2iso/issues/10) - Feat. Anzeige kompakter machen (feat)
@@ -29,8 +24,6 @@
 - [#8](https://github.com/DirkGoetze/disk2iso/issues/8) - Einstellungen Ausgabeverzeichnis (feat)
 
 ### 🐛 SYSTEM / SERVICE (disk2iso.sh, lib-common.sh)
-- [#18](https://github.com/DirkGoetze/disk2iso/issues/18) - LOG oder CODE Fehler (Doppelter Slash im Pfad)
-- [#17](https://github.com/DirkGoetze/disk2iso/issues/17) - Fehlender Neustart (bug/feat)
 - [#15](https://github.com/DirkGoetze/disk2iso/issues/15) - Fehlgeschlagene Kopiervorgänge (feat)
 
 ### 📡 MQTT INTEGRATION (lib-mqtt.sh)
@@ -39,39 +32,6 @@
 ---
 
 ## 🔥 KRITISCH - BUGS (Priorität: HOCH)
-
-### #18 - LOG oder CODE Fehler ❌ BUG
-**Bereich:** lib-folders.sh / lib-common.sh  
-**Beschreibung:**  
-Doppelter Slash im Ausgabepfad:
-```
-/mnt/pve/Public/images//dvd/supernatural_season_12_disc_3.iso
-                      ^^
-```
-**Ursache:** Wahrscheinlich `OUTPUT_DIR` endet bereits mit `/` oder Pfad-Verkettung falsch  
-**Betroffene Dateien:**
-- `lib/lib-folders.sh` - Funktion `get_output_dir_for_type()`
-- `lib/lib-common.sh` - Pfad-Konstruktion
-
-**Lösung:** Prüfe alle `"${OUTPUT_DIR}/"` → sollte `"${OUTPUT_DIR%/}/"` sein
-
----
-
-### #16 - Passwort Feld nicht verschlüsselt ❌ BUG
-**Bereich:** www/templates/config.html  
-**Beschreibung:**  
-MQTT-Passwort wird als Klartext angezeigt statt als `<input type="password">`
-
-**Betroffene Dateien:**
-- `www/templates/config.html` - MQTT Password Feld
-
-**Lösung:**
-```html
-<input type="password" id="mqtt_password" name="mqtt_password" 
-       value="{{ config.mqtt_password }}" autocomplete="new-password">
-```
-
----
 
 ### #11 - MQTT Meldungen kommen doppelt ❌ BUG
 **Bereich:** lib-mqtt.sh  
@@ -85,9 +45,9 @@ MQTT-Nachrichten werden doppelt gesendet
 
 **Betroffene Dateien:**
 - `lib/lib-mqtt.sh`
-- Alle Stellen die `publish_mqtt()` aufrufen
+- Alle Stellen die MQTT-Funktionen aufrufen
 
-**Diagnose nötig:** Logging aktivieren, MQTT-Broker Logs prüfen
+**Status:** Offen - Diagnose nötig: Logging aktivieren, MQTT-Broker Logs prüfen
 
 ---
 
@@ -101,38 +61,7 @@ ISO-Dateien werden nicht korrekt angezeigt im Archiv
 - `www/templates/archive.html`
 - Möglicherweise `get_iso_files_by_type()` Funktion
 
-**Diagnose nötig:** Detaillierte Beschreibung was nicht funktioniert
-
----
-
-### #7 - DVD/BD Metadaten funktioniert nicht ❌ BUG
-**Bereich:** lib-dvd-metadata.sh  
-**Beschreibung:**  
-TMDB-Metadaten-Abruf für DVDs/Blu-rays funktioniert nicht
-
-**Betroffene Dateien:**
-- `lib/lib-dvd-metadata.sh`
-- TMDB API Integration
-
-**Mögliche Ursachen:**
-- API-Key fehlt/ungültig
-- Netzwerk-Problem
-- API-Antwort-Format geändert
-
-**Diagnose nötig:** Error-Logs, TMDB API Response prüfen
-
----
-
-### #5 - Audio CD - Meta Daten erfassen ❌ BUG
-**Bereich:** lib-cd-metadata.sh  
-**Beschreibung:**  
-MusicBrainz-Metadaten für Audio-CDs werden nicht korrekt abgerufen
-
-**Betroffene Dateien:**
-- `lib/lib-cd-metadata.sh`
-- MusicBrainz API Integration
-
-**Diagnose nötig:** Error-Logs, MusicBrainz Response prüfen
+**Status:** Offen - Diagnose nötig: Detaillierte Beschreibung was nicht funktioniert
 
 ---
 
@@ -145,30 +74,11 @@ Nachträgliches Hinzufügen von Metadaten über Web-UI schlägt fehl
 - `www/app.py` - Metadata-Update Endpoints
 - `www/templates/archive.html`
 
-**Diagnose nötig:** Detaillierte Beschreibung, Error-Logs
+**Status:** Offen - Diagnose nötig: Detaillierte Beschreibung, Error-Logs
 
 ---
 
 ## ⚡ WICHTIG - SERVICE / SYSTEM
-
-### #17 - Fehlender Neustart ❌ BUG + ✨ FEATURE
-**Bereich:** www/app.py - Config-Management  
-**Beschreibung:**  
-Nach Speichern der Einstellungen wird Service nicht automatisch neu gestartet
-
-**Betroffene Dateien:**
-- `www/app.py` - `/api/config` POST Route
-- Zeile ~800: Service-Neustart fehlt
-
-**Lösung:**
-```python
-# Nach erfolgreichem Config-Update:
-subprocess.run(['sudo', 'systemctl', 'restart', 'disk2iso'], check=False)
-```
-
-**Hinweis:** Sudoers-Eintrag nötig für passwortlosen Neustart!
-
----
 
 ### #15 - Fehlgeschlagene Kopiervorgänge ✨ FEATURE
 **Bereich:** lib-common.sh / disk2iso.sh  
@@ -183,30 +93,11 @@ Bessere Behandlung fehlgeschlagener Kopiervorgänge
 - `disk2iso.sh` - State-Machine
 - `lib/lib-mqtt.sh` - Error-Notifications
 
-**Enhancement:** Robustness-Verbesserungen
+**Status:** Offen - Enhancement für Robustness-Verbesserungen
 
 ---
 
 ## 🎨 UI/UX VERBESSERUNGEN
-
-### #20 - Formatierungsproblem Fortschritt 🎨 UI-BUG
-**Bereich:** www/static/js/index.js + www/static/css/style.css  
-**Beschreibung:**  
-Fortschrittsbalken Speicherplatz zeigt falsche Richtung:
-- Aktuell: Balken wird kleiner bei mehr Belegung (falsch)
-- Soll: Balken wächst von links nach rechts mit Belegung
-- Farbe: Grün (0%) → Gelb (50%) → Rot (100%)
-- Anzeige: 5294.85 GB / 11081.08 GB (korrekt)
-- Prozent: Korrekt, aber Balken falsch
-
-**Betroffene Dateien:**
-- `www/static/js/index.js` - Disk-Space Berechnung
-- `www/static/css/style.css` - Progress-Bar Styling
-
-**Lösung:**  
-Verwendet-% statt Frei-% für Balkenlänge
-
----
 
 ### #19 - Archivierte Logs über WEB-UI öffnen ✨ FEATURE
 **Bereich:** www/app.py + www/templates/logs.html  
@@ -217,28 +108,7 @@ Archivierte Logs können gesucht, aber nicht angezeigt werden
 - `www/app.py` - Neue Route `/logs/view/<filename>`
 - `www/templates/logs.html` - Link zu archivierten Logs
 
-**Lösung:**  
-Endpoint zum Anzeigen archivierter Log-Dateien
-
----
-
-### #14 - Menü verschwindet wenn Seite länger ✨ FEATURE
-**Bereich:** www/templates/base.html + www/static/css/style.css  
-**Beschreibung:**  
-Sticky-Navigation fehlt - Menü scrollt weg bei langen Seiten
-
-**Betroffene Dateien:**
-- `www/templates/base.html` - Navigation
-- `www/static/css/style.css` - Sticky Header
-
-**Lösung:**
-```css
-header {
-    position: sticky;
-    top: 0;
-    z-index: 1000;
-}
-```
+**Status:** Offen - Endpoint zum Anzeigen archivierter Log-Dateien fehlt
 
 ---
 
@@ -256,6 +126,8 @@ Bessere Visualisierung des Service-Status
 - `www/app.py` - `/api/status` erweitern
 - `www/templates/index.html`
 
+**Status:** Offen - Enhancement
+
 ---
 
 ### #12 - Home Seite unruhig ✨ ENHANCEMENT
@@ -271,6 +143,8 @@ AJAX-Polling verursacht flackernde UI-Updates
 **Betroffene Dateien:**
 - `www/static/js/index.js` - `updateStatus()`
 
+**Status:** Offen - UX-Verbesserung
+
 ---
 
 ### #10 - Feat. Anzeige kompakter machen ✨ FEATURE
@@ -282,6 +156,8 @@ UI optimieren für weniger Scrolling
 - Kollapsbare Sektionen
 - Kompaktere Layouts
 - Responsive Design verbessern
+
+**Status:** Offen - Enhancement
 
 ---
 
@@ -295,7 +171,7 @@ Ausgabeverzeichnis in Web-UI änderbar machen
 - `www/app.py` - `/api/config` POST erweitern
 - `lib/lib-config.sh` - `update_config_value()` nutzen
 
-**Hinweis:** Validierung ob Pfad existiert & beschreibbar!
+**Status:** Offen - Validierung ob Pfad existiert & beschreibbar!
 
 ---
 
@@ -322,7 +198,7 @@ Ordnerstruktur: /Chris Rea/Album/Track.mp3
 - `lib/lib-cd-metadata.sh` - Tag-Logik
 - MusicBrainz API - Artist-Parsing
 
-**Komplexität:** Mittel - MusicBrainz Artist-Credits nutzen
+**Status:** Offen - Komplexität: Mittel - MusicBrainz Artist-Credits nutzen
 
 ---
 
@@ -352,49 +228,193 @@ Soll werden:
 - `lib/lib-folders.sh` - Mehrere Ordner pro CD
 - MusicBrainz API - Recording-Lookup
 
-**Komplexität:** HOCH - Erfordert zusätzliche API-Calls pro Track
+**Status:** Offen - Komplexität: HOCH - Erfordert zusätzliche API-Calls pro Track
+
+---
+
+### #6 - DVD Metadaten (feat)
+**Bereich:** lib-dvd-metadata.sh  
+**Beschreibung:** Details unklar
+
+**Status:** Offen - Detaillierte Beschreibung erforderlich
 
 ---
 
 ## 📋 PRIORITÄTEN-EMPFEHLUNG
 
 ### 🔴 KRITISCH (Sofort)
-1. **#18** - Doppelter Slash im Pfad (Daten-Integrität)
-2. **#16** - Passwort-Feld Klartext (Sicherheit)
-3. **#11** - MQTT doppelte Meldungen (Funktionalität)
+1. **#11** - MQTT doppelte Meldungen (Funktionalität)
+2. **#9** - ISO-Dateien Anzeige-Bug (Details unklar)
+3. **#4** - Metadaten nachträglich hinzufügen
 
 ### 🟡 HOCH (Bald)
-4. **#17** - Service-Neustart nach Config-Änderung
-5. **#20** - Fortschrittsbalken Formatierung (UX)
-6. **#7** - DVD/BD Metadaten funktionieren nicht
-7. **#5** - Audio-CD Metadaten funktionieren nicht
+4. **#15** - Fehlerbehandlung verbessern
+5. **#19** - Archivierte Logs anzeigen
+6. **#8** - Ausgabeverzeichnis über UI ändern
 
 ### 🟢 MITTEL (Geplant)
-8. **#14** - Sticky Navigation
-9. **#19** - Archivierte Logs anzeigen
-10. **#15** - Fehlerbehandlung verbessern
-11. **#8** - Ausgabeverzeichnis über UI ändern
-
-### 🔵 NIEDRIG (Nice-to-have)
-12. **#13** - Service-Anzeige verbessern
-13. **#12** - UI-Flackern reduzieren
-14. **#10** - Kompaktere Anzeige
-15. **#9** - ISO-Dateien Anzeige-Bug (Details unklar)
-16. **#4** - Metadaten nachträglich hinzufügen
+7. **#13** - Service-Anzeige verbessern
+8. **#12** - UI-Flackern reduzieren
+9. **#10** - Kompaktere Anzeige
+10. **#6** - DVD Metadaten (Details unklar)
 
 ### 🎨 ENHANCEMENTS (Features)
-17. **#22** - MP3-Tagging feat. Artists (Komplex)
-18. **#21** - MP3-Tagging Sampler (Sehr komplex)
-19. **#6** - DVD Metadaten (Details unklar)
+11. **#22** - MP3-Tagging feat. Artists (Komplex)
+12. **#21** - MP3-Tagging Sampler (Sehr komplex)
+
+---
+
+## ✅ ERLEDIGTE ISSUES
+
+### #18 - LOG oder CODE Fehler (Doppelter Slash im Pfad) ✅ BEHOBEN
+**Status:** ✅ **BEHOBEN**  
+**Behoben am:** 18.01.2026
+
+**Ursprüngliches Problem:**
+Doppelter Slash im Ausgabepfad: `/mnt/pve/Public/images//dvd/...`
+
+**Lösung implementiert:**
+- [lib-folders.sh:45](l:\clouds\onedrive\Dirk\projects\disk2iso\lib\lib-folders.sh#L45): `"${OUTPUT_DIR%/}/"` verwendet
+- Alle anderen Stellen bereits korrekt: `"${OUTPUT_DIR}/${SUBFOLDER}"`
+- lib-logging.sh, lib-dvd.sh, lib-bluray.sh, lib-dvd-metadata.sh geprüft
+
+**Verifikation:** ✅ Kein doppelter Slash mehr möglich
+
+---
+
+### #17 - Fehlender Neustart nach Config-Änderung ✅ BEHOBEN
+**Status:** ✅ **BEHOBEN**  
+**Behoben am:** 18.01.2026
+
+**Ursprüngliches Problem:**
+Nach Speichern der Einstellungen wurde Service nicht automatisch neu gestartet
+
+**Lösung implementiert:**
+- [lib-config.sh:190-275](l:\clouds\onedrive\Dirk\projects\disk2iso\lib\lib-config.sh#L190-L275): `apply_config_changes()` Funktion
+- [lib-config.sh:246-275](l:\clouds\onedrive\Dirk\projects\disk2iso\lib\lib-config.sh#L246-L275): `perform_service_restarts()` Funktion
+- Intelligente Service-Neustarts basierend auf geänderten Config-Keys
+- Config-Handler mit Service-Mapping (disk2iso vs disk2iso-web)
+- [www/app.py:714-800](l:\clouds\onedrive\Dirk\projects\disk2iso\www\app.py#L714-L800): Integration via Bash-Funktion
+
+**Verifikation:** ✅ Services werden automatisch neu gestartet wenn nötig
+
+---
+
+### #16 - Passwort Feld nicht verschlüsselt ✅ BEHOBEN
+**Status:** ✅ **BEHOBEN**  
+**Behoben am:** 18.01.2026
+
+**Ursprüngliches Problem:**
+MQTT-Passwort wurde als Klartext angezeigt statt als `<input type="password">`
+
+**Lösung implementiert:**
+- [www/templates/config.html:230](l:\clouds\onedrive\Dirk\projects\disk2iso\www\templates\config.html#L230): Korrektes `type="password"` Feld vorhanden
+
+**Verifikation:** ✅ Passwort-Feld ist maskiert
+
+---
+
+### #14 - Menü verschwindet wenn Seite länger ✅ BEHOBEN
+**Status:** ✅ **BEHOBEN**  
+**Behoben am:** 18.01.2026
+
+**Ursprüngliches Problem:**
+Sticky-Navigation fehlte - Menü scrollte weg bei langen Seiten
+
+**Lösung implementiert:**
+- [www/static/css/style.css:29-31](l:\clouds\onedrive\Dirk\projects\disk2iso\www\static\css\style.css#L29-L31): Sticky Header mit `position: sticky; top: 0; z-index: 1000;`
+
+**Verifikation:** ✅ Navigation bleibt beim Scrollen sichtbar
+
+---
+
+### #20 - Formatierungsproblem Fortschritt ⚠️ TEILWEISE BEHOBEN
+**Status:** ⚠️ **TEILWEISE BEHOBEN**  
+**Problem noch vorhanden am:** 18.01.2026
+
+**Ursprüngliches Problem:**
+Fortschrittsbalken Speicherplatz zeigte falsche Richtung:
+- Aktuell: Balken wird kleiner bei mehr Belegung (falsch)
+- Soll: Balken wächst von links nach rechts mit Belegung
+
+**Aktueller Code:**
+```html
+<div class="progress-bar" data-label="{{ disk_space.used_percent }}% belegt">
+    <div class="progress-background"></div>
+    <div class="progress-overlay" style="width: {{ disk_space.free_percent }}%"></div>
+</div>
+```
+
+**Problem:** `width: {{ disk_space.free_percent }}%` → sollte `width: {{ disk_space.used_percent }}%` sein
+
+**Betroffene Dateien:**
+- [www/templates/index.html:65-67](l:\clouds\onedrive\Dirk\projects\disk2iso\www\templates\index.html#L65-L67)
+
+**Noch zu tun:** Template korrigieren: `free_percent` → `used_percent`
+
+---
+
+### #7 - DVD/BD Metadaten funktioniert nicht ⚠️ TEILWEISE BEHOBEN
+**Status:** ⚠️ **TEILWEISE BEHOBEN**  
+**Verbessert am:** 18.01.2026
+
+**Ursprüngliches Problem:**
+TMDB-Metadaten-Abruf für DVDs/Blu-rays funktionierte nicht
+
+**Implementierte Verbesserungen:**
+- [lib-dvd-metadata.sh:90-118](l:\clouds\onedrive\Dirk\projects\disk2iso\lib\lib-dvd-metadata.sh#L90-L118): `check_dvd_metadata_dependencies()` Funktion
+- Runtime-Prüfung von jq, curl und TMDB_API_KEY
+- User-Agent Header bei allen TMDB API-Calls
+- Klare Fehlermeldungen bei fehlenden Dependencies
+- Integration in disk2iso.sh Startup
+
+**Noch offen:**
+- **Laufzeit-Tests erforderlich** mit realem TMDB_API_KEY
+- Error-Handling bei API-Fehlern könnte verbessert werden
+- Diagnose warum Metadaten konkret nicht funktionieren
+
+**Nächste Schritte:**
+1. TMDB_API_KEY konfigurieren
+2. Live-Test mit DVD/Blu-ray
+3. Log-Analyse bei Fehlern
+
+---
+
+### #5 - Audio CD - Meta Daten erfassen ⚠️ TEILWEISE BEHOBEN
+**Status:** ⚠️ **TEILWEISE BEHOBEN**  
+**Verbessert am:** 18.01.2026
+
+**Ursprüngliches Problem:**
+MusicBrainz-Metadaten für Audio-CDs wurden nicht korrekt abgerufen
+
+**Implementierte Verbesserungen:**
+- [lib-cd-metadata.sh:40-69](l:\clouds\onedrive\Dirk\projects\disk2iso\lib\lib-cd-metadata.sh#L40-L69): `check_audio_metadata_dependencies()` Funktion
+- Runtime-Prüfung von jq, curl, eyeD3, id3v2
+- User-Agent Header in allen MusicBrainz API-Calls (RFC-konform)
+- URL-Encoding Funktion für sichere API-Requests
+- API-Konstanten (MUSICBRAINZ_API_BASE_URL, COVERART_API_BASE_URL)
+- Cache-basierte API-Funktionen (`fetch_musicbrainz_raw()`, `fetch_coverart()`)
+- Artist-Sanitization für sichere Dateinamen
+- Integration in disk2iso.sh Startup
+
+**Noch offen:**
+- **Laufzeit-Tests erforderlich** mit realen Audio-CDs
+- Diagnose warum Metadaten konkret nicht funktionieren
+- Cover-Art Download könnte optimiert werden
+
+**Nächste Schritte:**
+1. Live-Test mit Audio-CD
+2. Log-Analyse bei Fehlern
+3. MusicBrainz API Response prüfen
 
 ---
 
 ## 📝 HINWEISE FÜR BEARBEITUNG
 
 - **Bugs zuerst!** Funktionalität > Features
-- **Sicherheit:** #16 hat Priorität (Passwort-Leak)
-- **Datenintegrität:** #18 kann zu falschen Pfaden führen
+- **MQTT #11:** Benötigt Debugging mit MQTT-Broker Logs
+- **ISO-Anzeige #9:** Detaillierte Fehlerbeschreibung erforderlich
 - **Komplexe Features (#21, #22):** Erfordern MusicBrainz-Expertise
-- **Viele UI-Issues:** Könnten gebündelt in einem "UI-Polish" Sprint bearbeitet werden
+- **Metadaten-Issues (#5, #7):** Teilweise behoben, Runtime-Tests ausstehend
 
-**Empfohlene Reihenfolge:** #18 → #16 → #11 → #17 → #20 → #7 → #5
+**Empfohlene Reihenfolge:** #20 Template-Fix → #11 MQTT Debug → #9 ISO-Anzeige → #4 Metadaten nachträglich → #5/#7 Runtime-Tests

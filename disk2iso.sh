@@ -143,12 +143,34 @@ else
     log_message "$MSG_VIDEO_DVD_NOT_INSTALLED"
 fi
 
-# DVD/Blu-ray Metadata Support (optional, benötigt TMDB API-Key)
+# DVD/Blu-ray Metadata Support (optional, benötigt TMDB API-Key + jq)
+DVD_METADATA_SUPPORT=false
 if [[ -f "${SCRIPT_DIR}/lib/lib-dvd-metadata.sh" ]]; then
     source "${SCRIPT_DIR}/lib/lib-dvd-metadata.sh"
-    if [[ -n "$TMDB_API_KEY" ]]; then
-        log_message "TMDB Metadaten-Support aktiviert"
+    
+    if check_dvd_metadata_dependencies; then
+        DVD_METADATA_SUPPORT=true
+        log_message "TMDB: Metadaten-Support aktiviert"
+    else
+        log_message "TMDB: Metadaten-Support deaktiviert"
     fi
+else
+    log_message "TMDB: Modul nicht installiert"
+fi
+
+# Audio-CD Metadata Support (optional, benötigt jq + curl)
+AUDIO_METADATA_SUPPORT=false
+if [[ -f "${SCRIPT_DIR}/lib/lib-cd-metadata.sh" ]]; then
+    source "${SCRIPT_DIR}/lib/lib-cd-metadata.sh"
+    
+    if check_audio_metadata_dependencies; then
+        AUDIO_METADATA_SUPPORT=true
+        log_message "MusicBrainz: Metadaten-Support aktiviert"
+    else
+        log_message "MusicBrainz: Metadaten-Support deaktiviert"
+    fi
+else
+    log_message "MusicBrainz: Modul nicht installiert"
 fi
 
 # Blu-ray Support (optional)

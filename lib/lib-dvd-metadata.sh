@@ -19,24 +19,96 @@
 # ============================================================================
 # TMDB API CONFIGURATION
 # ============================================================================
-
 readonly TMDB_API_BASE_URL="https://api.themoviedb.org/3"
 readonly TMDB_IMAGE_BASE_URL="https://image.tmdb.org/t/p/w500"
+readonly TMDB_USER_AGENT="disk2iso/1.2.0"
 
-# Globale Cache-Verzeichnis Variable (Lazy Initialization)
+# ============================================================================
+# CONFIGURATIONS KONSTANTEN
+# ============================================================================
+readonly METADATA_TMP_DIR="tmdb"
+readonly METADATA_THUMBS_DIR="thumbs"
+
+# ============================================================================
+# Globale Variablen 
+# ============================================================================
 TMDB_CACHE_DIR=""
 TMDB_THUMBS_DIR=""
 
+# ===========================================================================
+# init_tmdb_cache_dirs
+# ---------------------------------------------------------------------------
 # Funktion: Initialisiere TMDB Cache-Verzeichnisse (Lazy Initialization)
-# Nutzt ensure_subfolder() aus lib-folders.sh für konsistente Verzeichnisverwaltung
-# Wird beim ersten Aufruf von make_tmdb_request() oder get_cached_tmdb_results() aufgerufen
+# ......... Nutzt ensure_subfolder() aus lib-folders.sh für konsistente 
+# ......... Verzeichnisverwaltung
+# Parameter: Keine
+# Rückgabe: 0 = Erfolg, 1 = Fehler
+# ===========================================================================
 init_tmdb_cache_dirs() {
     if [[ -z "$TMDB_CACHE_DIR" ]]; then
-        TMDB_CACHE_DIR=$(ensure_subfolder ".temp/tmdb") || return 1
-        TMDB_THUMBS_DIR="${TMDB_CACHE_DIR}/thumbs"
-        mkdir -p "$TMDB_THUMBS_DIR" 2>/dev/null || return 1
+        # Prüfen ob ensure_subfolder Funktion geladen ist
+        if ! declare -f ensure_subfolder >/dev/null 2>&1; then
+            log_message "TMDB: Fehler - lib-folders.sh nicht geladen"
+            return 1
+        fi
+
+        # Prüfen ob get_disk2iso_temp_dir Funktion geladen ist
+        if ! declare -f get_disk2iso_temp_dir >/dev/null 2>&1; then
+            log_message "TMDB: Fehler - get_disk2iso_temp_dir nicht verfügbar"
+            return 1
+        fi
+
+        # Temp-Verzeichnis für disk2iso abfragen
+        local disk2iso_tmp_dir
+        disk2iso_tmp_dir=$(get_disk2iso_temp_dir) || return 1
+        
+        # Metadaten Cache-Verzeichnis erstellen
+        TMDB_CACHE_DIR=$(ensure_subfolder "${disk2iso_tmp_dir}/${METADATA_TMP_DIR}") || return 1
+        if [[ ! -d "$TMDB_CACHE_DIR" ]]; then
+            log_message "TMDB: Cache-Verzeichnis ungültig: $TMDB_CACHE_DIR"
+            return 1
+        fi
         log_message "TMDB: Cache-Verzeichnis initialisiert: $TMDB_CACHE_DIR"
+
+        # Metadaten Thumbnails Verzeichnis erstellen
+        TMDB_THUMBS_DIR=$(ensure_subfolder "${TMDB_CACHE_DIR}/${METADATA_THUMBS_DIR}") || return 1 
+        if [[ ! -d "$TMDB_THUMBS_DIR" ]]; then
+            log_message "TMDB: Thumbnail-Verzeichnis ungültig: $TMDB_THUMBS_DIR"
+            return 1
+        fi
+        log_message "TMDB: Thumbnail-Verzeichnis initialisiert: $TMDB_THUMBS_DIR"
     fi
+    return 0
+}
+
+# ============================================================================
+# DEPENDENCY CHECK
+# ============================================================================
+
+# Funktion: Prüfe DVD/Blu-ray Metadata Abhängigkeiten
+# Rückgabe: 0 = Alle kritischen Tools OK, 1 = Kritische Tools fehlen
+check_dvd_metadata_dependencies() {
+    local missing_critical=()
+    local missing_optional=()
+    
+    # Kritische Tools für Metadata-Funktionen
+    command -v jq >/dev/null 2>&1 || missing_critical+=("jq")
+    command -v curl >/dev/null 2>&1 || missing_critical+=("curl")
+    
+    if [[ ${#missing_critical[@]} -gt 0 ]]; then
+        log_message "TMDB: Metadata-Support nicht verfügbar - fehlende Tools: ${missing_critical[*]}"
+        log_message "TMDB: Installieren Sie: apt-get install ${missing_critical[*]}"
+        return 1
+    fi
+    
+    # Prüfe ob TMDB_API_KEY konfiguriert ist
+    if [[ -z "$TMDB_API_KEY" ]]; then
+        log_message "TMDB: API-Key nicht konfiguriert - Metadata-Funktionen deaktiviert"
+        log_message "TMDB: Konfigurieren Sie TMDB_API_KEY in disk2iso.conf"
+        return 1
+    fi
+    
+    log_message "TMDB: Metadata-Support verfügbar"
     return 0
 }
 
@@ -62,7 +134,7 @@ search_tmdb_movie() {
     # API-Anfrage (language=de-DE für deutsche Titel)
     local url="${TMDB_API_BASE_URL}/search/movie?api_key=${TMDB_API_KEY}&language=de-DE&query=${encoded_query}&page=1"
     
-    local response=$(curl -s -f "$url" 2>/dev/null)
+    local response=$(curl -s -f -H "User-Agent: ${TMDB_USER_AGENT}" "$url" 2>/dev/null)
     
     if [[ $? -eq 0 ]] && [[ -n "$response" ]]; then
         echo "$response"
@@ -86,7 +158,7 @@ get_tmdb_movie_details() {
     # API-Anfrage mit Credits (für Director)
     local url="${TMDB_API_BASE_URL}/movie/${movie_id}?api_key=${TMDB_API_KEY}&language=de-DE&append_to_response=credits"
     
-    local response=$(curl -s -f "$url" 2>/dev/null)
+    local response=$(curl -s -f -H "User-Agent: ${TMDB_USER_AGENT}" "$url" 2>/dev/null)
     
     if [[ $? -eq 0 ]] && [[ -n "$response" ]]; then
         echo "$response"
@@ -115,7 +187,7 @@ search_tmdb_tv() {
     local encoded_query=$(echo "$query" | sed 's/ /%20/g')
     local url="${TMDB_API_BASE_URL}/search/tv?api_key=${TMDB_API_KEY}&language=de-DE&query=${encoded_query}&page=1"
     
-    local response=$(curl -s -f "$url" 2>/dev/null)
+    local response=$(curl -s -f -H "User-Agent: ${TMDB_USER_AGENT}" "$url" 2>/dev/null)
     
     if [[ $? -eq 0 ]] && [[ -n "$response" ]]; then
         echo "$response"
@@ -140,7 +212,7 @@ get_tmdb_tv_season_details() {
     
     local url="${TMDB_API_BASE_URL}/tv/${tv_id}/season/${season_number}?api_key=${TMDB_API_KEY}&language=de-DE"
     
-    local response=$(curl -s -f "$url" 2>/dev/null)
+    local response=$(curl -s -f -H "User-Agent: ${TMDB_USER_AGENT}" "$url" 2>/dev/null)
     
     if [[ $? -eq 0 ]] && [[ -n "$response" ]]; then
         echo "$response"
@@ -172,7 +244,7 @@ download_tmdb_poster() {
     local poster_url="${TMDB_IMAGE_BASE_URL}${poster_path}"
     
     # Lade Poster herunter
-    if curl -s -f "$poster_url" -o "$output_file" 2>/dev/null; then
+    if curl -s -f -H "User-Agent: ${TMDB_USER_AGENT}" "$poster_url" -o "$output_file" 2>/dev/null; then
         log_message "TMDB: Poster heruntergeladen: $(basename "$output_file")"
         return 0
     else
@@ -217,7 +289,7 @@ search_tmdb_json() {
     fi
     
     # API-Anfrage
-    local response=$(curl -s -f "$url" 2>/dev/null)
+    local response=$(curl -s -f -H "User-Agent: ${TMDB_USER_AGENT}" "$url" 2>/dev/null)
     
     if [[ $? -ne 0 ]] || [[ -z "$response" ]]; then
         echo '{"success": false, "message": "TMDB-Suche fehlgeschlagen"}'
@@ -401,7 +473,7 @@ create_dvd_archive_metadata() {
         
         # Hole Creator (entspricht Director bei Filmen)
         local creator="Unknown Creator"
-        local tv_full=$(curl -s -f "${TMDB_API_BASE_URL}/tv/${tv_id}?api_key=${TMDB_API_KEY}&language=de-DE" 2>/dev/null)
+        local tv_full=$(curl -s -f -H "User-Agent: ${TMDB_USER_AGENT}" "${TMDB_API_BASE_URL}/tv/${tv_id}?api_key=${TMDB_API_KEY}&language=de-DE" 2>/dev/null)
         if [[ -n "$tv_full" ]]; then
             creator=$(echo "$tv_full" | jq -r '.created_by[0].name // "Unknown Creator"')
             # Genre-Namen statt IDs
@@ -596,7 +668,7 @@ fetch_tmdb_raw() {
     # API-Anfrage - speichere direkt in Datei (vermeidet Bash String-Length-Limits)
     log_message "TMDB-Request: URL = $url" >&2
     
-    if ! curl -s -f "$url" -o "$cache_file" 2>/dev/null; then
+    if ! curl -s -f -H "User-Agent: ${TMDB_USER_AGENT}" "$url" -o "$cache_file" 2>/dev/null; then
         local curl_exit=$?
         log_message "TMDB-Request: API-Anfrage fehlgeschlagen (exit $curl_exit)" >&2
         echo '{"error": "API request failed"}' > "$cache_file"
