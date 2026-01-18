@@ -46,35 +46,17 @@ init_musicbrainz_cache_dirs() {
     if [[ -z "$MUSICBRAINZ_CACHE_DIR" ]]; then
         # Prüfen ob ensure_subfolder Funktion geladen ist
         if ! declare -f ensure_subfolder >/dev/null 2>&1; then
-            log_message "MusicBrainz: Fehler - lib-folders.sh nicht geladen"
+            log_message "MusicBrainz: Fehler - lib-folders.sh nicht geladen" >&2
             return 1
         fi
 
-        # Prüfen ob get_disk2iso_temp_dir Funktion geladen ist
-        if ! declare -f get_disk2iso_temp_dir >/dev/null 2>&1; then
-            log_message "MusicBrainz: Fehler - get_disk2iso_temp_dir nicht verfügbar"
-            return 1
-        fi
-
-        # Temp-Verzeichnis für disk2iso abfragen
-        local disk2iso_tmp_dir
-        disk2iso_tmp_dir=$(get_disk2iso_temp_dir) || return 1
-        
-        # MusicBrainz Cache-Verzeichnis erstellen
-        MUSICBRAINZ_CACHE_DIR=$(ensure_subfolder "${disk2iso_tmp_dir}/${MUSICBRAINZ_TMP_DIR}") || return 1
-        if [[ ! -d "$MUSICBRAINZ_CACHE_DIR" ]]; then
-            log_message "MusicBrainz: Cache-Verzeichnis ungültig: $MUSICBRAINZ_CACHE_DIR"
-            return 1
-        fi
-        log_message "MusicBrainz: Cache-Verzeichnis initialisiert: $MUSICBRAINZ_CACHE_DIR"
+        # MusicBrainz Cache-Verzeichnis erstellen (relativ zu OUTPUT_DIR)
+        MUSICBRAINZ_CACHE_DIR=$(ensure_subfolder ".temp/${MUSICBRAINZ_TMP_DIR}") || return 1
+        log_message "MusicBrainz: Cache-Verzeichnis initialisiert: $MUSICBRAINZ_CACHE_DIR" >&2
 
         # MusicBrainz Covers Verzeichnis erstellen
-        MUSICBRAINZ_COVERS_DIR_PATH=$(ensure_subfolder "${MUSICBRAINZ_CACHE_DIR}/${MUSICBRAINZ_COVERS_DIR}") || return 1 
-        if [[ ! -d "$MUSICBRAINZ_COVERS_DIR_PATH" ]]; then
-            log_message "MusicBrainz: Covers-Verzeichnis ungültig: $MUSICBRAINZ_COVERS_DIR_PATH"
-            return 1
-        fi
-        log_message "MusicBrainz: Covers-Verzeichnis initialisiert: $MUSICBRAINZ_COVERS_DIR_PATH"
+        MUSICBRAINZ_COVERS_DIR_PATH=$(ensure_subfolder ".temp/${MUSICBRAINZ_TMP_DIR}/${MUSICBRAINZ_COVERS_DIR}") || return 1
+        log_message "MusicBrainz: Covers-Verzeichnis initialisiert: $MUSICBRAINZ_COVERS_DIR_PATH" >&2
     fi
     return 0
 }
@@ -308,7 +290,7 @@ search_musicbrainz_json() {
     local mb_response=""
     
     # Initialisiere Cache-Verzeichnisse (Lazy Initialization)
-    init_musicbrainz_cache_dirs || {
+    init_musicbrainz_cache_dirs >&2 || {
         echo '{"success": false, "message": "Cache-Initialisierung fehlgeschlagen"}'
         return 1
     }
@@ -400,7 +382,7 @@ search_musicbrainz_json() {
         country: (.country // "unknown"),
         tracks: (.media[0]."track-count" // 0),
         label: (."label-info"[0]?.label?.name // "Unknown"),
-        duration: (.media[0].tracks | map(.length // 0) | add),
+        duration: (if .media[0].tracks then (.media[0].tracks | map(.length // 0) | add) else 0 end),
         cover_url: (if (."cover-art-archive".front == true) then ("https://coverartarchive.org/release/" + .id + "/front-250") else null end)
     }]' 2>/dev/null)
     

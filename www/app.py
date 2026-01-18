@@ -1686,29 +1686,49 @@ def api_musicbrainz_search():
         album = data.get('album', '').strip()
         iso_path = data.get('iso_path', '').strip()
         
-        # Rufe Bash-Funktion auf
-        script = """
-        source /opt/disk2iso/lib/lib-cd-metadata.sh
-        search_musicbrainz_json "$1" "$2" "$3"
+        # Rufe Bash-Funktion auf (mit allen Dependencies wie bei TMDB)
+        script = f"""
+export PATH=/usr/local/bin:/usr/bin:/bin:/usr/local/sbin:/usr/sbin:/sbin
+source {INSTALL_DIR}/conf/disk2iso.conf 2>/dev/null
+source {INSTALL_DIR}/lib/lib-config.sh 2>/dev/null
+source {INSTALL_DIR}/lib/lib-logging.sh 2>/dev/null
+source {INSTALL_DIR}/lib/lib-common.sh 2>/dev/null
+source {INSTALL_DIR}/lib/lib-folders.sh 2>/dev/null
+source {INSTALL_DIR}/lib/lib-cd-metadata.sh 2>/dev/null
+
+# Setze OUTPUT_DIR explizit aus DEFAULT_OUTPUT_DIR
+OUTPUT_DIR="${{DEFAULT_OUTPUT_DIR:-/media/iso}}"
+
+search_musicbrainz_json "$1" "$2" "$3"
         """
         
         result = subprocess.run(
             ['/bin/bash', '-c', script, '--', artist, album, iso_path],
             capture_output=True,
             text=True,
-            timeout=30
+            timeout=30,
+            env={**os.environ, 'PATH': '/usr/local/bin:/usr/bin:/bin:/usr/local/sbin:/usr/sbin:/sbin'}
         )
         
+        # Debug: Logge stdout und stderr
+        print(f"[DEBUG] MusicBrainz Bash returncode: {result.returncode}", file=sys.stderr)
+        print(f"[DEBUG] MusicBrainz Bash stdout: {result.stdout[:500]}", file=sys.stderr)
+        print(f"[DEBUG] MusicBrainz Bash stderr: {result.stderr[:500]}", file=sys.stderr)
+        
         if result.returncode != 0:
+            print(f"[ERROR] MusicBrainz search failed with returncode {result.returncode}", file=sys.stderr)
             return jsonify({
                 'success': False,
                 'message': 'MusicBrainz-Suche fehlgeschlagen',
-                'error': result.stderr
+                'error': result.stderr,
+                'stdout': result.stdout
             }), 500
         
-        # Parse JSON-Output
+        # Parse JSON-Output (nur letzte Zeile = JSON Response)
         try:
-            response_data = json.loads(result.stdout)
+            # Nimm letzte nicht-leere Zeile (Bash gibt JSON als letzte Zeile aus)
+            json_line = result.stdout.strip().split('\n')[-1]
+            response_data = json.loads(json_line)
             return jsonify(response_data)
         except json.JSONDecodeError as e:
             return jsonify({

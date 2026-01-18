@@ -52,26 +52,12 @@ init_tmdb_cache_dirs() {
             return 1
         fi
 
-        # Prüfen ob get_disk2iso_temp_dir Funktion geladen ist
-        if ! declare -f get_disk2iso_temp_dir >/dev/null 2>&1; then
-            log_message "TMDB: Fehler - get_disk2iso_temp_dir nicht verfügbar"
-            return 1
-        fi
-
-        # Temp-Verzeichnis für disk2iso abfragen
-        local disk2iso_tmp_dir
-        disk2iso_tmp_dir=$(get_disk2iso_temp_dir) || return 1
-        
-        # Metadaten Cache-Verzeichnis erstellen
-        TMDB_CACHE_DIR=$(ensure_subfolder "${disk2iso_tmp_dir}/${METADATA_TMP_DIR}") || return 1
-        if [[ ! -d "$TMDB_CACHE_DIR" ]]; then
-            log_message "TMDB: Cache-Verzeichnis ungültig: $TMDB_CACHE_DIR"
-            return 1
-        fi
+        # Metadaten Cache-Verzeichnis erstellen (relativ zu OUTPUT_DIR)
+        TMDB_CACHE_DIR=$(ensure_subfolder ".temp/${METADATA_TMP_DIR}") || return 1
         log_message "TMDB: Cache-Verzeichnis initialisiert: $TMDB_CACHE_DIR"
 
         # Metadaten Thumbnails Verzeichnis erstellen
-        TMDB_THUMBS_DIR=$(ensure_subfolder "${TMDB_CACHE_DIR}/${METADATA_THUMBS_DIR}") || return 1 
+        TMDB_THUMBS_DIR=$(ensure_subfolder ".temp/${METADATA_TMP_DIR}/${METADATA_THUMBS_DIR}") || return 1 
         if [[ ! -d "$TMDB_THUMBS_DIR" ]]; then
             log_message "TMDB: Thumbnail-Verzeichnis ungültig: $TMDB_THUMBS_DIR"
             return 1
