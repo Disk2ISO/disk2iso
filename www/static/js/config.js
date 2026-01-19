@@ -109,6 +109,34 @@ function saveConfig() {
         return;
     }
     
+    // Prüfe ob ein Kopiervorgang läuft und ob ein Neustart erforderlich ist
+    fetch('/api/live_status')
+        .then(response => response.json())
+        .then(status => {
+            // Prüfe ob Änderungen einen Neustart erfordern (alle außer Web-UI Einstellungen)
+            const requiresRestart = Object.keys(changedValues).some(key => 
+                !key.startsWith('WEB_') && key !== 'LANGUAGE'
+            );
+            
+            if (requiresRestart && (status.status === 'copying' || status.status === 'analyzing')) {
+                const confirmMsg = `⚠️ ACHTUNG!\n\nEin Kopiervorgang läuft gerade!\n\nDie Änderungen erfordern einen Service-Neustart. Wenn Sie jetzt speichern, gehen alle Daten des laufenden Kopiervorgangs verloren.\n\nMöchten Sie trotzdem fortfahren?`;
+                
+                if (!confirm(confirmMsg)) {
+                    return;
+                }
+            }
+            
+            // Speichern durchführen
+            performSave();
+        })
+        .catch(error => {
+            console.error('Fehler beim Status-Abruf:', error);
+            // Fallback: Speichern ohne Warnung
+            performSave();
+        });
+}
+
+function performSave() {
     const saveButton = document.getElementById('save-config-button');
     if (saveButton) {
         saveButton.disabled = true;

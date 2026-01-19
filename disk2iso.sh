@@ -283,6 +283,24 @@ select_copy_method() {
 
 # Funktion zum Kopieren der CD/DVD/BD als ISO
 copy_disc_to_iso() {
+    # Wähle Kopiermethode basierend auf Disc-Typ und verfügbaren Tools
+    local method=$(select_copy_method "$disc_type")
+    
+    # Audio-CDs behandeln init_filenames selbst (wegen speziellem Workflow)
+    if [[ "$method" == "audio-cd" ]]; then
+        if [[ "$AUDIO_CD_SUPPORT" == true ]] && declare -f copy_audio_cd >/dev/null 2>&1; then
+            if copy_audio_cd; then
+                return 0
+            else
+                return 1
+            fi
+        else
+            log_message "$MSG_ERROR_AUDIO_CD_NOT_AVAILABLE"
+            return 1
+        fi
+    fi
+    
+    # Für alle anderen Medien: Standard-Workflow
     # Initialisiere alle Dateinamen
     init_filenames
     
@@ -293,9 +311,6 @@ copy_disc_to_iso() {
     touch "$log_filename"
     
     log_message "$MSG_START_COPY_PROCESS $disc_label -> $iso_filename"
-    
-    # Wähle Kopiermethode basierend auf Disc-Typ und verfügbaren Tools
-    local method=$(select_copy_method "$disc_type")
     
     # Speichere Methode für MQTT-Attribute (MUSS vor api_update_status gesetzt werden!)
     COPY_METHOD="$method"
@@ -313,14 +328,7 @@ copy_disc_to_iso() {
     
     case "$method" in
         audio-cd)
-            if [[ "$AUDIO_CD_SUPPORT" == true ]] && declare -f copy_audio_cd >/dev/null 2>&1; then
-                if copy_audio_cd; then
-                    copy_success=true
-                fi
-            else
-                log_message "$MSG_ERROR_AUDIO_CD_NOT_AVAILABLE"
-                return 1
-            fi
+            # Wird oben behandelt
             ;;
         dvdbackup)
             if [[ "$VIDEO_DVD_SUPPORT" == true ]] && declare -f copy_video_dvd >/dev/null 2>&1; then

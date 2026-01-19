@@ -484,6 +484,11 @@ def help_page():
         page_title='HELP_TITLE'
     )
 
+@app.route('/api/live_status')
+def api_live_status():
+    """API-Endpoint für Live-Status (für Service-Restart-Warnung)"""
+    return jsonify(get_live_status())
+
 @app.route('/api/status')
 def api_status():
     """API-Endpoint für Status-Abfrage (AJAX)"""
@@ -540,13 +545,20 @@ def api_musicbrainz_releases():
 def api_musicbrainz_cover(release_id):
     """API-Endpoint zum Abrufen von Cover-Art (via Bash)"""
     try:
-        # Temp-Verzeichnis
-        temp_dir = INSTALL_DIR / '.temp'
+        config = get_config()
+        output_dir = config.get('output_dir', '/media/iso')
         
-        # Rufe Bash-Funktion auf
+        # Rufe Bash-Funktion auf (vollständige Library-Kette + OUTPUT_DIR setzen)
         script = f"""
+        export PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+        source {INSTALL_DIR}/lib/lib-config.sh
+        source {INSTALL_DIR}/lib/lib-logging.sh
+        source {INSTALL_DIR}/lib/lib-files.sh
+        source {INSTALL_DIR}/lib/lib-folders.sh
         source {INSTALL_DIR}/lib/lib-cd-metadata.sh
-        get_musicbrainz_cover "{release_id}" "{temp_dir}"
+        export OUTPUT_DIR="{output_dir}"
+        export DEFAULT_OUTPUT_DIR="{output_dir}"
+        fetch_coverart "{release_id}"
         """
         
         result = subprocess.run(
@@ -1686,6 +1698,31 @@ def api_musicbrainz_search():
         album = data.get('album', '').strip()
         iso_path = data.get('iso_path', '').strip()
         
+        # Zähle Tracks in ISO für präzisere Suche
+        track_count = 0
+        if iso_path and os.path.isfile(iso_path):
+            try:
+                # Mount ISO temporär und zähle MP3-Dateien
+                import tempfile
+                with tempfile.TemporaryDirectory() as mount_point:
+                    mount_result = subprocess.run(
+                        ['sudo', 'mount', '-o', 'loop,ro', iso_path, mount_point],
+                        capture_output=True,
+                        timeout=5
+                    )
+                    if mount_result.returncode == 0:
+                        try:
+                            # Zähle MP3-Dateien
+                            mp3_files = []
+                            for root, dirs, files in os.walk(mount_point):
+                                mp3_files.extend([f for f in files if f.lower().endswith('.mp3')])
+                            track_count = len(mp3_files)
+                            print(f"[DEBUG] Gefunden: {track_count} MP3-Dateien in ISO", file=sys.stderr)
+                        finally:
+                            subprocess.run(['sudo', 'umount', mount_point], timeout=5)
+            except Exception as e:
+                print(f"[WARNING] Track-Anzahl konnte nicht ermittelt werden: {e}", file=sys.stderr)
+        
         # Rufe Bash-Funktion auf (mit allen Dependencies wie bei TMDB)
         script = f"""
 export PATH=/usr/local/bin:/usr/bin:/bin:/usr/local/sbin:/usr/sbin:/sbin
@@ -1699,11 +1736,11 @@ source {INSTALL_DIR}/lib/lib-cd-metadata.sh 2>/dev/null
 # Setze OUTPUT_DIR explizit aus DEFAULT_OUTPUT_DIR
 OUTPUT_DIR="${{DEFAULT_OUTPUT_DIR:-/media/iso}}"
 
-search_musicbrainz_json "$1" "$2" "$3"
+search_musicbrainz_json "$1" "$2" "$3" "$4"
         """
         
         result = subprocess.run(
-            ['/bin/bash', '-c', script, '--', artist, album, iso_path],
+            ['/bin/bash', '-c', script, '--', artist, album, iso_path, str(track_count)],
             capture_output=True,
             text=True,
             timeout=30,
@@ -1761,12 +1798,19 @@ def api_musicbrainz_apply():
             return jsonify({'success': False, 'message': g.t.get('API_ERROR_RELEASE_ID_REQUIRED', 'MusicBrainz Release ID required')}), 400
         
         # Starte Remaster-Prozess im Hintergrund
+        config = get_config()
+        output_dir = config.get('output_dir', '/media/iso')
+        
         script = f"""
 export PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+export OUTPUT_DIR="{output_dir}"
+export DEFAULT_OUTPUT_DIR="{output_dir}"
 
-source {INSTALL_DIR}/lib/config.sh
-source {INSTALL_DIR}/lib/lib-common.sh
+source {INSTALL_DIR}/lib/lib-config.sh
 source {INSTALL_DIR}/lib/lib-logging.sh
+source {INSTALL_DIR}/lib/lib-files.sh
+source {INSTALL_DIR}/lib/lib-folders.sh
+source {INSTALL_DIR}/lib/lib-common.sh
 source {INSTALL_DIR}/lib/lib-cd-metadata.sh
 
 remaster_audio_iso_with_metadata "{iso_path}" "{release_id}"

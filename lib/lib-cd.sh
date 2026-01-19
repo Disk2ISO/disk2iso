@@ -619,17 +619,17 @@ copy_audio_cd() {
     
     # Prüfe benötigte Tools
     if ! command -v cdparanoia >/dev/null 2>&1; then
-        log_message "$MSG_ERROR_CDPARANOIA_MISSING"
+        log_error "$MSG_ERROR_CDPARANOIA_MISSING"
         return 1
     fi
     
     if ! command -v lame >/dev/null 2>&1; then
-        log_message "$MSG_ERROR_LAME_MISSING"
+        log_error "$MSG_ERROR_LAME_MISSING"
         return 1
     fi
     
     if ! command -v genisoimage >/dev/null 2>&1; then
-        log_message "$MSG_ERROR_GENISOIMAGE_MISSING"
+        log_error "$MSG_ERROR_GENISOIMAGE_MISSING"
         return 1
     fi
     
@@ -644,7 +644,7 @@ copy_audio_cd() {
     local skip_metadata=false
     
     if ! get_musicbrainz_metadata; then
-        log_message "$MSG_CONTINUE_WITHOUT_METADATA"
+        log_info "$MSG_CONTINUE_WITHOUT_METADATA"
         skip_metadata=true
     elif [[ "${MUSICBRAINZ_NEEDS_CONFIRMATION:-false}" == "true" ]]; then
         # Mehrere Releases gefunden - verwende generische Namen
@@ -718,7 +718,6 @@ copy_audio_cd() {
     fi
     
     mkdir -p "$album_dir"
-    log_message "$MSG_ALBUM_DIRECTORY: $album_dir"
     
     # Ermittle Anzahl der Tracks ZUERST (für korrekte Fortschrittsanzeige)
     local track_info
@@ -726,12 +725,21 @@ copy_audio_cd() {
     local track_count=$(echo "$track_info" | wc -l)
     
     if [[ $track_count -eq 0 ]]; then
-        log_message "$MSG_ERROR_NO_TRACKS"
+        log_error "$MSG_ERROR_NO_TRACKS"
         rm -rf "$temp_pathname"
         return 1
     fi
     
-    log_message "$MSG_TRACKS_FOUND: $track_count"
+    # Initialisiere Kopiervorgang-Log (NEUES SYSTEM)
+    init_copy_log "$disc_label" "audio-cd"
+    
+    # Setze ISO- und MD5-Dateinamen (früher von init_filenames())
+    local target_dir="$(get_path_audio)"
+    iso_filename="${target_dir}/${disc_label}.iso"
+    md5_filename="${target_dir}/${disc_label}.md5"
+    
+    log_copying "$MSG_TRACKS_FOUND: $track_count"
+    log_copying "$MSG_ALBUM_DIRECTORY: $album_dir"
     
     # API: Aktualisiere Status
     if declare -f api_update_status >/dev/null 2>&1; then
@@ -762,17 +770,18 @@ copy_audio_cd() {
     local processed_tracks=0
     
     # Rippe alle Tracks mit cdparanoia
-    log_message "$MSG_START_CDPARANOIA_RIPPING"
+    log_copying "$MSG_START_CDPARANOIA_RIPPING"
     local track
     for track in $(seq 1 "$track_count"); do
         local track_num=$(printf "%02d" "$track")
         local wav_file="${temp_pathname}/track_${track_num}.wav"
         
-        log_message "$MSG_RIPPING_TRACK $track / $track_count"
+        log_copying "$MSG_RIPPING_TRACK $track / $track_count"
         
-        if ! cdparanoia -d "$CD_DEVICE" "$track" "$wav_file" >>"$log_filename" 2>&1; then
-            log_message "$MSG_ERROR_TRACK_RIP_FAILED $track"
+        if ! cdparanoia -d "$CD_DEVICE" "$track" "$wav_file" >>"$copy_log_filename" 2>&1; then
+            log_error "$MSG_ERROR_TRACK_RIP_FAILED $track"
             rm -rf "$temp_pathname"
+            finish_copy_log
             return 1
         fi
         
@@ -791,50 +800,51 @@ copy_audio_cd() {
                 local safe_artist=$(echo "$cd_artist" | sed 's/[\/\\:*?"<>|]/_/g')
                 local safe_title=$(echo "$track_title" | sed 's/[\/\\:*?"<>|]/_/g')
                 mp3_filename="${safe_artist} - ${safe_title}.mp3"
-                log_message "$MSG_ENCODING_TRACK_WITH_TITLE $track: $track_title"
+                log_copying "$MSG_ENCODING_TRACK_WITH_TITLE $track: $track_title"
             else
                 mp3_filename="Track ${track_num}.mp3"
-                log_message "$MSG_ENCODING_TRACK $track"
+                log_copying "$MSG_ENCODING_TRACK $track"
             fi
         else
             # Keine Metadaten - einfacher Dateiname
             mp3_filename="Track ${track_num}.mp3"
-            log_message "$MSG_ENCODING_TRACK $track"
+            log_copying "$MSG_ENCODING_TRACK $track"
         fi
         
         mp3_file="${album_dir}/${mp3_filename}"
         
-        # lame Optionen: VBR Qualität aus Konfiguration
-        local lame_opts="-V${MP3_QUALITY} --quiet"
+        # lame Optionen: VBR Qualität aus Konfiguration (Array für sauberes Quoting)
+        local lame_opts=("-V${MP3_QUALITY}" "--quiet")
         
         # Füge ID3-Tags hinzu (falls Metadaten verfügbar)
         if [[ "$skip_metadata" == "false" ]]; then
             if [[ -n "$cd_artist" ]]; then
-                lame_opts="$lame_opts --ta \"$cd_artist\""
+                lame_opts+=("--ta" "$cd_artist")
             fi
             if [[ -n "$cd_album" ]]; then
-                lame_opts="$lame_opts --tl \"$cd_album\""
+                lame_opts+=("--tl" "$cd_album")
             fi
             if [[ -n "$cd_year" ]]; then
-                lame_opts="$lame_opts --ty \"$cd_year\""
+                lame_opts+=("--ty" "$cd_year")
             fi
             if [[ -n "$track_title" ]]; then
-                lame_opts="$lame_opts --tt \"$track_title\""
+                lame_opts+=("--tt" "$track_title")
             fi
         fi
-        lame_opts="$lame_opts --tn \"$track/$track_count\""
+        lame_opts+=("--tn" "$track/$track_count")
         
-        if ! eval lame $lame_opts \"$wav_file\" \"$mp3_file\" >>"$log_filename" 2>&1; then
-            log_message "$MSG_ERROR_MP3_ENCODING_FAILED $track"
+        if ! lame "${lame_opts[@]}" "$wav_file" "$mp3_file" >>"$copy_log_filename" 2>&1; then
+            log_error "$MSG_ERROR_MP3_ENCODING_FAILED $track"
             rm -rf "$temp_pathname"
             [[ -n "$cover_file" ]] && rm -f "$cover_file"
+            finish_copy_log
             return 1
         fi
         
         # Bette Cover-Art ein (falls vorhanden)
         if [[ "$skip_metadata" == "false" ]] && [[ -n "$cover_file" ]] && [[ -f "$cover_file" ]]; then
             if command -v eyeD3 >/dev/null 2>&1; then
-                eyeD3 --quiet --add-image "${cover_file}:FRONT_COVER" "$mp3_file" >>"$log_filename" 2>&1
+                eyeD3 --quiet --add-image "${cover_file}:FRONT_COVER" "$mp3_file" >>"$copy_log_filename" 2>&1
             fi
         fi
         
@@ -845,9 +855,6 @@ copy_audio_cd() {
         processed_tracks=$((processed_tracks + 1))
         local percent=$((processed_tracks * 100 / total_tracks))
         
-        # DEBUG: Zeige aktuelle Werte
-        log_message "DEBUG: Track $processed_tracks/$total_tracks abgeschlossen ($percent%)"
-        
         # API: Fortschritt senden
         if declare -f api_update_progress >/dev/null 2>&1; then
             # Schätze verbleibende Zeit (ca. 4 Minuten pro Track als Durchschnitt)
@@ -855,7 +862,6 @@ copy_audio_cd() {
             local eta_minutes=$((remaining_tracks * 4))
             local eta=$(printf "%02d:%02d:00" $((eta_minutes / 60)) $((eta_minutes % 60)))
             
-            log_message "DEBUG: api_update_progress $percent $processed_tracks $total_tracks $eta"
             api_update_progress "$percent" "$processed_tracks" "$total_tracks" "$eta"
         fi
         
@@ -876,26 +882,24 @@ copy_audio_cd() {
             log_message "$MSG_COVER_SAVED_FOLDER_JPG"
     fi
     
-    log_message "$MSG_RIPPING_COMPLETE_CREATE_ISO"
+    log_copying "$MSG_RIPPING_COMPLETE_CREATE_ISO"
     
     # Erstelle album.nfo für Jellyfin (falls Metadaten verfügbar)
     if [[ "$skip_metadata" == "false" ]] && [[ -n "$mb_response" ]]; then
         create_album_nfo "$album_dir"
     fi
     
-    # Sichere temp_pathname bevor init_filenames es überschreibt
+    # Sichere temp_pathname bevor check_disk_space es braucht
     local audio_temp_path="$temp_pathname"
-    
-    # Initialisiere Dateinamen (verwendet disc_label)
-    init_filenames
     
     # Prüfe Speicherplatz (MP3s sind ~10x kleiner als WAV, aber ISO braucht Overhead)
     local album_size_mb=$(du -sm "$album_dir" | awk '{print $1}')
     local required_mb=$((album_size_mb + album_size_mb / 10 + 50))  # +10% + 50MB Puffer
     
     if ! check_disk_space "$required_mb"; then
-        log_message "$MSG_ERROR_INSUFFICIENT_SPACE_ISO"
+        log_error "$MSG_ERROR_INSUFFICIENT_SPACE_ISO"
         rm -rf "$audio_temp_path"
+        finish_copy_log
         return 1
     fi
     
@@ -911,8 +915,8 @@ copy_audio_cd() {
         volume_id="AUDIO_CD"
     fi
     
-    log_message "$MSG_CREATE_ISO: $iso_filename"
-    log_message "$MSG_VOLUME_ID: $volume_id"
+    log_copying "$MSG_CREATE_ISO: $iso_filename"
+    log_copying "$MSG_VOLUME_ID: $volume_id"
     
     # Erstelle ISO aus audio_temp_path
     # ISO-Struktur abhängig von Metadaten:
@@ -921,10 +925,11 @@ copy_audio_cd() {
     if ! genisoimage -R -J -joliet-long \
         -V "$volume_id" \
         -o "$iso_filename" \
-        "$audio_temp_path" >>"$log_filename" 2>&1; then
-        log_message "$MSG_ERROR_ISO_CREATION_FAILED"
+        "$audio_temp_path" >>"$copy_log_filename" 2>&1; then
+        log_error "$MSG_ERROR_ISO_CREATION_FAILED"
         rm -rf "$audio_temp_path"
         [[ -n "$cover_file" ]] && rm -f "$cover_file"
+        finish_copy_log
         return 1
     fi
     
@@ -934,17 +939,18 @@ copy_audio_cd() {
     
     # Prüfe ISO-Größe
     if [[ ! -f "$iso_filename" ]]; then
-        log_message "$MSG_ERROR_ISO_NOT_CREATED"
+        log_error "$MSG_ERROR_ISO_NOT_CREATED"
+        finish_copy_log
         return 1
     fi
     
     local iso_size_mb=$(du -m "$iso_filename" | awk '{print $1}')
-    log_message "$MSG_ISO_CREATED: ${iso_size_mb} $MSG_PROGRESS_MB"
+    log_copying "$MSG_ISO_CREATED: ${iso_size_mb} $MSG_PROGRESS_MB"
     
     # Erstelle MD5-Checksumme
-    log_message "$MSG_CREATE_MD5"
-    if ! md5sum "$iso_filename" > "$md5_filename" 2>>"$log_filename"; then
-        log_message "$MSG_WARNING_MD5_FAILED"
+    log_copying "$MSG_CREATE_MD5"
+    if ! md5sum "$iso_filename" > "$md5_filename" 2>>"$copy_log_filename"; then
+        log_warning "$MSG_WARNING_MD5_FAILED"
     fi
     
     # Erstelle Archiv-Metadaten (falls Metadaten verfügbar)
@@ -955,6 +961,7 @@ copy_audio_cd() {
         save_mbquery_for_iso "$iso_filename" "$SAVED_DISCID" "$SAVED_TOC" "$SAVED_TRACK_COUNT"
     fi
     
-    log_message "$MSG_AUDIO_CD_SUCCESS"
+    log_copying "$MSG_AUDIO_CD_SUCCESS"
+    finish_copy_log
     return 0
 }

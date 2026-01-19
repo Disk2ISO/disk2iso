@@ -86,6 +86,98 @@ url_encode() {
     echo "${encoded}"
 }
 
+# ===========================================================================
+# populate_musicbrainz_cache
+# ---------------------------------------------------------------------------
+# Funktion: Erstelle .nfo + Thumbnail für jeden MusicBrainz-Treffer
+# Parameter: $1 = RAW API Response (JSON)
+#            $2 = Suchbegriff (z.B. "ronan_keating_ronan")
+# Rückgabe: 0 = Erfolg, Anzahl gecachter Releases
+# ===========================================================================
+populate_musicbrainz_cache() {
+    local raw_json="$1"
+    local search_label="$2"
+    
+    # Initialisiere Cache
+    init_musicbrainz_cache_dirs >&2 || return 1
+    
+    # Extrahiere Release-Count
+    local release_count=$(echo "$raw_json" | jq -r '.releases | length')
+    
+    if [[ "$release_count" -eq 0 ]]; then
+        log_message "MusicBrainz: Keine Releases zum Cachen" >&2
+        return 0
+    fi
+    
+    log_message "MusicBrainz: Cache $release_count Releases..." >&2
+    
+    local cached=0
+    for i in $(seq 0 $((release_count - 1))); do
+        # Extrahiere Metadaten
+        local release_id=$(echo "$raw_json" | jq -r ".releases[$i].id")
+        local title=$(echo "$raw_json" | jq -r ".releases[$i].title")
+        local artist=$(echo "$raw_json" | jq -r ".releases[$i].\"artist-credit\"[0].name")
+        local country=$(echo "$raw_json" | jq -r ".releases[$i].country // \"XX\"")
+        local date=$(echo "$raw_json" | jq -r ".releases[$i].date // \"0000\"")
+        local year=$(echo "$date" | cut -d'-' -f1)
+        local tracks=$(echo "$raw_json" | jq -r ".releases[$i].media[0].\"track-count\" // 0")
+        local label=$(echo "$raw_json" | jq -r ".releases[$i].\"label-info\"[0]?.label?.name // \"Unknown\"")
+        local duration=$(echo "$raw_json" | jq -r "if .releases[$i].media[0].tracks then (.releases[$i].media[0].tracks | map(.length // 0) | add) else 0 end")
+        
+        # Cover-URL: Probiere CoverArt Archive direkt (MusicBrainz /release/ gibt oft null zurück)
+        # curl wird 404 zurückgeben falls Cover nicht verfügbar
+        local cover_url="https://coverartarchive.org/release/${release_id}/front-250"
+        
+        # Normalisiere für Dateinamen
+        local safe_artist=$(echo "$artist" | tr '[:upper:]' '[:lower:]' | tr -cd 'a-z0-9_')
+        local safe_title=$(echo "$title" | tr '[:upper:]' '[:lower:]' | tr -cd 'a-z0-9_')
+        local safe_label=$(echo "$label" | tr '[:upper:]' '[:lower:]' | tr -cd 'a-z0-9_')
+        local release_id_short="${release_id:0:8}"
+        
+        # Generiere Dateinamen
+        local nfo_name="${safe_artist}_${safe_title}_${country}_${year}_${safe_label}_${tracks}tracks_${release_id_short}"
+        local nfo_file="${MUSICBRAINZ_CACHE_DIR}/${nfo_name}.nfo"
+        local thumb_file="${MUSICBRAINZ_CACHE_DIR}/covers/${nfo_name}-thumb.jpg"
+        
+        # Prüfe ob bereits gecacht
+        if [[ -f "$nfo_file" ]]; then
+            log_message "MusicBrainz: Cache-Hit - überspringe ${nfo_name:0:40}..." >&2
+            continue
+        fi
+        
+        # Erstelle .nfo
+        cat > "$nfo_file" <<EOF
+SEARCH_RESULT_FOR=${search_label}
+RELEASE_ID=${release_id}
+TITLE=${title}
+ARTIST=${artist}
+DATE=${date}
+COUNTRY=${country}
+TRACKS=${tracks}
+LABEL=${label}
+DURATION=${duration}
+COVER_URL=${cover_url}
+TYPE=audio-cd
+CACHED_AT=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+CACHE_VERSION=1.0
+EOF
+        
+        # Lade Cover-Thumbnail (falls verfügbar, folge Redirects mit -L)
+        if [[ -n "$cover_url" ]]; then
+            if curl -L -s -f -m 5 -H "User-Agent: ${MUSICBRAINZ_USER_AGENT}" "$cover_url" -o "$thumb_file" 2>/dev/null; then
+                log_message "MusicBrainz: Cover gecacht für ${nfo_name:0:40}..." >&2
+            else
+                log_message "MusicBrainz: Cover-Download fehlgeschlagen für ${nfo_name:0:40}..." >&2
+            fi
+        fi
+        
+        cached=$((cached + 1))
+    done
+    
+    log_message "MusicBrainz: $cached von $release_count Releases neu gecacht" >&2
+    return 0
+}
+
 # ============================================================================
 # DEPENDENCY CHECK
 # ============================================================================
@@ -194,14 +286,32 @@ fetch_coverart() {
         return 1
     fi
     
-    # Initialisiere Cache-Verzeichnisse (Lazy Initialization)
-    init_musicbrainz_cache_dirs || return 1
+    # Initialisiere Cache-Verzeichnisse (oder fallback zu hartkodiertem Pfad)
+    if ! init_musicbrainz_cache_dirs 2>/dev/null; then
+        # Fallback: Verwende OUTPUT_DIR direkt (für Web-API Kontext)
+        if [[ -n "$OUTPUT_DIR" ]]; then
+            MUSICBRAINZ_COVERS_DIR_PATH="${OUTPUT_DIR}/.temp/musicbrainz/covers"
+        else
+            echo '{"success": false, "message": "Keine Cache-Verzeichnisse verfügbar"}'
+            return 1
+        fi
+    fi
     
+    # Suche zuerst in populate_musicbrainz_cache()-Thumbnails (Pattern: *_<release_id_short>-thumb.jpg)
+    local release_id_short="${release_id:0:8}"
+    local cached_thumb=$(find "$MUSICBRAINZ_COVERS_DIR_PATH" -name "*_${release_id_short}-thumb.jpg" 2>/dev/null | head -1)
+    
+    if [[ -n "$cached_thumb" && -f "$cached_thumb" ]]; then
+        log_message "MusicBrainz: Cover aus populate_cache: $(basename "$cached_thumb")" >&2
+        echo "{\"success\": true, \"path\": \"${cached_thumb}\", \"cached\": true}"
+        return 0
+    fi
+    
+    # Fallback: Legacy cover_<release_id>.jpg Format
     local cover_file="${MUSICBRAINZ_COVERS_DIR_PATH}/cover_${release_id}.jpg"
     
-    # Wenn Cover bereits existiert, gib Pfad zurück
     if [[ -f "$cover_file" ]]; then
-        log_message "MusicBrainz: Cover aus Cache: $(basename "$cover_file")"
+        log_message "MusicBrainz: Cover aus Legacy-Cache: $(basename "$cover_file")" >&2
         echo "{\"success\": true, \"path\": \"${cover_file}\", \"cached\": true}"
         return 0
     fi
@@ -278,6 +388,7 @@ search_and_cache_musicbrainz() {
 # Parameter: $1 = Artist (optional bei .mbquery)
 #            $2 = Album (optional bei .mbquery)
 #            $3 = ISO-Pfad (optional, für .mbquery Lookup)
+#            $4 = track_count (optional, für Filterung nach Track-Anzahl)
 # Rückgabe: JSON-String mit {"success": true/false, "results": [...], "used_mbquery": true/false}
 # WICHTIG: Speichert API-Response im Cache für spätere Nutzung durch Python
 # Diese Funktion wird vom Python Web-Interface aufgerufen
@@ -285,6 +396,7 @@ search_musicbrainz_json() {
     local artist="$1"
     local album="$2"
     local iso_path="$3"
+    local track_count="${4:-0}"  # Optional: 0 = keine Filterung
     
     local used_mbquery=false
     local mb_response=""
@@ -371,20 +483,56 @@ search_musicbrainz_json() {
         return 1
     fi
     
-    log_message "MusicBrainz: API-Response gespeichert in $(basename "$cache_file")"
+    log_message "MusicBrainz: API-Response gespeichert in $(basename "$cache_file")" >&2
+    
+    # NEU: Befülle lokale .nfo-Cache-Datenbank
+    if [[ -n "$iso_path" ]]; then
+        local iso_basename=$(basename "${iso_path%.iso}")
+        populate_musicbrainz_cache "$mb_response" "$iso_basename" >&2
+    else
+        local safe_name=$(echo "${artist}_${album}" | tr ' ' '_' | tr -cd 'a-z0-9_')
+        populate_musicbrainz_cache "$mb_response" "$safe_name" >&2
+    fi
     
     # Formatiere Ergebnisse mit jq
-    local results=$(echo "$mb_response" | jq -c '[.releases[:10] | .[] | {
+    # WICHTIG: cover_url wird nicht aus API gelesen (oft null), sondern auf unseren Endpoint gesetzt
+    # fetch_coverart() sucht dann im Cache oder lädt bei Bedarf herunter
+    # FILTERUNG: Wenn track_count > 0, filtere Ergebnisse nach Track-Anzahl (±1 Toleranz)
+    local jq_filter='.releases[:10]'
+    if [[ $track_count -gt 0 ]]; then
+        local min_tracks=$((track_count - 1))
+        local max_tracks=$((track_count + 1))
+        jq_filter=".releases | [.[] | select(.media[0].\"track-count\" >= $min_tracks and .media[0].\"track-count\" <= $max_tracks)][:10]"
+        log_message "MusicBrainz: Filtere nach $track_count Tracks (±1 Toleranz: ${min_tracks}-${max_tracks})" >&2
+    fi
+    
+    # Bestimme bevorzugte Länder basierend auf User-Sprache
+    local preferred_countries=""
+    case "${LANGUAGE:-de}" in
+        de) preferred_countries="DE|AT|CH|XE" ;;  # DACH + Europa-Release
+        en) preferred_countries="GB|US|AU|CA|NZ|IE" ;;  # Englischsprachige Länder
+        fr) preferred_countries="FR|BE|CH|CA" ;;  # Französischsprachige Länder
+        es) preferred_countries="ES|MX|AR|CO|CL" ;;  # Spanischsprachige Länder
+        *) preferred_countries="" ;;
+    esac
+    
+    log_message "MusicBrainz: Bevorzugte Länder für Sprache '$LANGUAGE': $preferred_countries" >&2
+    
+    # Extrahiere und sortiere Ergebnisse
+    # 1. Erst Releases aus bevorzugten Ländern
+    # 2. Dann alle anderen
+    local results=$(echo "$mb_response" | jq -c "[$jq_filter | .[] | {
         id: .id,
-        title: (.title // "Unknown Album"),
-        artist: (."artist-credit"[0].name // "Unknown"),
-        date: (.date // "unknown"),
-        country: (.country // "unknown"),
-        tracks: (.media[0]."track-count" // 0),
-        label: (."label-info"[0]?.label?.name // "Unknown"),
+        title: (.title // \"Unknown Album\"),
+        artist: (.\"artist-credit\"[0].name // \"Unknown\"),
+        date: (.date // \"unknown\"),
+        country: (.country // \"unknown\"),
+        tracks: (.media[0].\"track-count\" // 0),
+        label: (.\"label-info\"[0]?.label?.name // \"Unknown\"),
         duration: (if .media[0].tracks then (.media[0].tracks | map(.length // 0) | add) else 0 end),
-        cover_url: (if (."cover-art-archive".front == true) then ("https://coverartarchive.org/release/" + .id + "/front-250") else null end)
-    }]' 2>/dev/null)
+        cover_url: .id,
+        country_priority: (if (.country // \"unknown\") | test(\"$preferred_countries\") then 0 else 1 end)
+    }] | sort_by(.country_priority, .date) | reverse" 2>/dev/null)
     
     if [[ $? -ne 0 ]] || [[ -z "$results" ]]; then
         echo '{"success": false, "message": "JSON-Formatierung fehlgeschlagen"}'
@@ -473,6 +621,7 @@ remaster_audio_iso_with_metadata() {
     local artist=$(echo "$mb_data" | jq -r '."artist-credit"[0].name // "Unknown Artist"')
     local album=$(echo "$mb_data" | jq -r '.title // "Unknown Album"')
     local year=$(echo "$mb_data" | jq -r '.date // "" | split("-")[0]')
+    local track_count=$(echo "$mb_data" | jq -r '.media[0]."track-count" // 0')
     local cover_url=$(echo "$mb_data" | jq -r '.["cover-art-archive"].front // empty')
     
     log_message "Audio-Remaster: Album: $artist - $album ($year)"
@@ -510,12 +659,12 @@ remaster_audio_iso_with_metadata() {
         return 1
     fi
     
-    # Ersetze alte ISO
+    # Ersetze alte ISO durch neue
     if mv -f "$temp_iso" "$iso_path"; then
-        log_message "Audio-Remaster: ISO erfolgreich aktualisiert"
+        log_message "Audio-Remaster: ISO erfolgreich aktualisiert: $(basename "$iso_path")"
         
         # Erstelle .nfo mit Metadaten
-        create_audio_nfo "$iso_path" "$artist" "$album" "$year" "$cover_file"
+        create_audio_nfo "$iso_path" "$artist" "$album" "$year" "$track_count" "$cover_file"
         
         # Benenne ISO nach Artist - Album Schema um
         local clean_artist=$(echo "$artist" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9]/_/g' | sed 's/__*/_/g' | sed 's/^_//;s/_$//')
@@ -778,13 +927,15 @@ rebuild_audio_iso() {
 #   $2 = artist
 #   $3 = album
 #   $4 = year
-#   $5 = cover_file (optional)
+#   $5 = track_count
+#   $6 = cover_file (optional)
 create_audio_nfo() {
     local iso_path="$1"
     local artist="$2"
     local album="$3"
     local year="$4"
-    local cover_file="$5"
+    local track_count="${5:-0}"
+    local cover_file="$6"
     
     local nfo_file="${iso_path%.iso}.nfo"
     local thumb_file="${iso_path%.iso}-thumb.jpg"
@@ -796,6 +947,7 @@ ALBUM=$album
 TITLE=$album
 DATE=$year
 YEAR=$year
+TRACKS=$track_count
 TYPE=audio-cd
 EOF
     

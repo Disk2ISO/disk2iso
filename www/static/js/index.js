@@ -183,8 +183,17 @@ document.addEventListener('DOMContentLoaded', function() {
  * Startet einen Service von der Home-Seite neu
  */
 function restartServiceHome(serviceName) {
-    if (!confirm(`Service "${serviceName}" wirklich neu starten?`)) {
-        return;
+    // Prüfe ob gerade ein Kopiervorgang läuft
+    if (window.liveStatus && (window.liveStatus.status === 'copying' || window.liveStatus.status === 'analyzing')) {
+        const confirmMsg = `⚠️ ACHTUNG!\n\nEin Kopiervorgang läuft gerade!\n\nWenn Sie den Service jetzt neu starten, gehen alle Daten des laufenden Kopiervorgangs verloren.\n\nMöchten Sie trotzdem fortfahren?`;
+        
+        if (!confirm(confirmMsg)) {
+            return;
+        }
+    } else {
+        if (!confirm(`Service "${serviceName}" wirklich neu starten?`)) {
+            return;
+        }
     }
     
     fetch('/api/service/restart', {

@@ -499,7 +499,7 @@ function displayMusicBrainzResults(results) {
             }
         }
         
-        const coverUrl = item.cover_url || '/static/img/audio-cd-placeholder.png';
+        const coverUrl = item.id ? `/api/musicbrainz/cover/${item.id}` : '/static/img/audio-cd-placeholder.png';
         
         itemDiv.innerHTML = `
             <div class="result-layout">

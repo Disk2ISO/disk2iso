@@ -250,62 +250,71 @@ function showError(message) {
  * Startet einen Service neu
  */
 function restartService(serviceName) {
-    if (!confirm(`Service "${serviceName}" wirklich neu starten?`)) {
-        return;
-    }
-    
-    fetch('/api/service/restart', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ service: serviceName })
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            alert(`✅ ${data.message}`);
-            // Aktualisiere System-Info nach 2 Sekunden
-            setTimeout(() => loadSystemInfo(), 2000);
-        } else {
-            alert(`❌ Fehler: ${data.message}`);
-        }
-    })
-    .catch(error => {
-        console.error('Fehler:', error);
-        alert(`❌ Fehler beim Neustart: ${error}`);
-    });
-}
-
-/**
- * Startet einen Service neu
- */
-function restartService(serviceName) {
-    if (!confirm(`Service "${serviceName}" wirklich neu starten?`)) {
-        return;
-    }
-    
-    fetch('/api/service/restart', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ service: serviceName })
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            alert(`✅ ${data.message}`);
-            // Aktualisiere System-Info nach 2 Sekunden
-            setTimeout(() => loadSystemInfo(), 2000);
-        } else {
-            alert(`❌ Fehler: ${data.message}`);
-        }
-    })
-    .catch(error => {
-        console.error('Fehler:', error);
-        alert(`❌ Fehler beim Neustart: ${error}`);
-    });
+    // Prüfe ob gerade ein Kopiervorgang läuft (hole Status von API)
+    fetch('/api/live_status')
+        .then(response => response.json())
+        .then(status => {
+            let confirmMsg;
+            
+            if (status.status === 'copying' || status.status === 'analyzing') {
+                confirmMsg = `⚠️ ACHTUNG!\n\nEin Kopiervorgang läuft gerade!\n\nWenn Sie den Service jetzt neu starten, gehen alle Daten des laufenden Kopiervorgangs verloren.\n\nMöchten Sie trotzdem fortfahren?`;
+            } else {
+                confirmMsg = `Service "${serviceName}" wirklich neu starten?`;
+            }
+            
+            if (!confirm(confirmMsg)) {
+                return;
+            }
+            
+            // Neustart durchführen
+            fetch('/api/service/restart', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ service: serviceName })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert(`✅ ${data.message}`);
+                    // Aktualisiere System-Info nach 2 Sekunden
+                    setTimeout(() => loadSystemInfo(), 2000);
+                } else {
+                    alert(`❌ Fehler: ${data.message}`);
+                }
+            })
+            .catch(error => {
+                console.error('Fehler:', error);
+                alert(`❌ Fehler beim Neustart: ${error}`);
+            });
+        })
+        .catch(error => {
+            console.error('Fehler beim Status-Abruf:', error);
+            // Fallback: Normaler Confirm-Dialog
+            if (confirm(`Service "${serviceName}" wirklich neu starten?`)) {
+                fetch('/api/service/restart', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ service: serviceName })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        alert(`✅ ${data.message}`);
+                        setTimeout(() => loadSystemInfo(), 2000);
+                    } else {
+                        alert(`❌ Fehler: ${data.message}`);
+                    }
+                })
+                .catch(error => {
+                    console.error('Fehler:', error);
+                    alert(`❌ Fehler beim Neustart: ${error}`);
+                });
+            }
+        });
 }
 
 // Initialisierung beim Laden der Seite
