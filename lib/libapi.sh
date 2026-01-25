@@ -1,7 +1,7 @@
 #!/bin/bash
 #############################################################################
 # disk2iso v1.2.0 - API JSON Library
-# Filepath: lib/lib-api.sh
+# Filepath: lib/libapi.sh
 #
 # Beschreibung:
 #   API-Schnittstelle für Status-Informationen.

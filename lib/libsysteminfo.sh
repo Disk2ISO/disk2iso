@@ -1,7 +1,7 @@
 #!/bin/bash
 ################################################################################
 # disk2iso v1.2.0 - System Information Library
-# Filepath: lib/lib-systeminfo.sh
+# Filepath: lib/libsysteminfo.sh
 #
 # Beschreibung:
 #   - Container-Erkennung (LXC, Docker, Podman)
@@ -41,6 +41,9 @@ check_systeminfo_dependencies() {
         log_info "$MSG_INSTALLATION_SYSTEM_TOOLS"
         return 1
     fi
+    
+    # Erkenne Container-Umgebung (setzt IS_CONTAINER und CONTAINER_TYPE)
+    detect_container_environment
     
     return 0
 }

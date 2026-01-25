@@ -1,7 +1,7 @@
 #!/bin/bash
 ################################################################################
 # disk2iso v1.2.0 - Common Functions Library
-# Filepath: lib/lib-common.sh
+# Filepath: lib/libcommon.sh
 #
 # Beschreibung:
 #   - copy_data_disc() - Daten-Disc kopieren mit dd
@@ -157,7 +157,7 @@ readonly MOUNTPOINTS_DIR=".temp/mountpoints"
 
 # Funktion: Ermittle Pfad für Daten-Discs (DATA)
 # Rückgabe: Vollständiger Pfad zu data/
-# Nutzt ensure_subfolder aus lib-folders.sh für konsistente Ordner-Verwaltung
+# Nutzt ensure_subfolder aus libfolders.sh für konsistente Ordner-Verwaltung
 get_path_data() {
     ensure_subfolder "$DATA_DIR"
 }

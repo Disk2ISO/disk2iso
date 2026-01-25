@@ -1,7 +1,7 @@
 #!/bin/bash
 ################################################################################
 # disk2iso v1.2.0 - Disk Information Library
-# Filepath: lib/lib-diskinfos.sh
+# Filepath: lib/libdiskinfos.sh
 #
 # Beschreibung:
 #   Typ-Erkennung und Label-Extraktion für optische Medien:

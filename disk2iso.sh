@@ -75,21 +75,21 @@ SCRIPT_DIR="$(dirname "$SCRIPT_PATH")"
 
 # Lade Basis-Module
 source "${SCRIPT_DIR}/conf/disk2iso.conf"
-source "${SCRIPT_DIR}/lib/lib-config.sh"
+source "${SCRIPT_DIR}/lib/libconfig.sh"
 
-# Setze OUTPUT_DIR bereits hier (wichtig für get_tmp_mount() in lib-diskinfos.sh)
+# Setze OUTPUT_DIR bereits hier (wichtig für get_tmp_mount() in libdiskinfos.sh)
 # Verhindert dass Mount-Points im Root / landen wenn OUTPUT_DIR noch nicht gesetzt ist
 OUTPUT_DIR="${DEFAULT_OUTPUT_DIR}"
 
 # Lade Kern-Bibliotheken (IMMER erforderlich)
-source "${SCRIPT_DIR}/lib/lib-logging.sh"
-source "${SCRIPT_DIR}/lib/lib-api.sh"
-source "${SCRIPT_DIR}/lib/lib-files.sh"
-source "${SCRIPT_DIR}/lib/lib-folders.sh"
-source "${SCRIPT_DIR}/lib/lib-diskinfos.sh"
-source "${SCRIPT_DIR}/lib/lib-drivestat.sh"
-source "${SCRIPT_DIR}/lib/lib-systeminfo.sh"
-source "${SCRIPT_DIR}/lib/lib-common.sh"
+source "${SCRIPT_DIR}/lib/liblogging.sh"
+source "${SCRIPT_DIR}/lib/libapi.sh"
+source "${SCRIPT_DIR}/lib/libfiles.sh"
+source "${SCRIPT_DIR}/lib/libfolders.sh"
+source "${SCRIPT_DIR}/lib/libdiskinfos.sh"
+source "${SCRIPT_DIR}/lib/libdrivestat.sh"
+source "${SCRIPT_DIR}/lib/libsysteminfo.sh"
+source "${SCRIPT_DIR}/lib/libcommon.sh"
 
 # Lade Sprachdateien für Hauptskript
 load_module_language "disk2iso"
@@ -107,60 +107,58 @@ fi
 
 log_info "$MSG_CORE_MODULES_LOADED"
 
-# Erkenne Container-Umgebung (setzt IS_CONTAINER und CONTAINER_TYPE)
-detect_container_environment
-
 # ============================================================================
 # OPTIONALE MODULE MIT DEPENDENCY-CHECKS
 # ============================================================================
-
-# Metadata Framework (sollte zuerst geladen werden, da andere Module davon abhängen können)
-if [[ -f "${SCRIPT_DIR}/lib/lib-metadata.sh" ]]; then
-    source "${SCRIPT_DIR}/lib/lib-metadata.sh"
-    check_dependencies_metadata  # Setzt METADATA_SUPPORT=true bei Erfolg
-    
-    # Lade Provider nur wenn Framework verfügbar
-    if [[ "$METADATA_SUPPORT" == "true" ]]; then
-        # MusicBrainz Provider (optional)
-        if [[ -f "${SCRIPT_DIR}/lib/lib-musicbrainz.sh" ]]; then
-            source "${SCRIPT_DIR}/lib/lib-musicbrainz.sh"
-            check_dependencies_musicbrainz  # Setzt MUSICBRAINZ_SUPPORT=true bei Erfolg
-        fi
-        
-        # TMDB Provider (optional)
-        if [[ -f "${SCRIPT_DIR}/lib/lib-tmdb.sh" ]]; then
-            source "${SCRIPT_DIR}/lib/lib-tmdb.sh"
-            check_dependencies_tmdb  # Setzt TMDB_SUPPORT=true bei Erfolg
-        fi
-    fi
-fi
-
-# Legacy-Variablen für bestehende Checks in Copy-Modulen
-# TODO: Diese werden entfernt sobald alle Module auf METADATA_SUPPORT umgestellt sind
-DVD_METADATA_SUPPORT=$METADATA_SUPPORT
-AUDIO_METADATA_SUPPORT=$METADATA_SUPPORT
-
 # Audio-CD Support (optional)
-if [[ -f "${SCRIPT_DIR}/lib/lib-cd.sh" ]]; then
-    source "${SCRIPT_DIR}/lib/lib-cd.sh"
+if [[ -f "${SCRIPT_DIR}/lib/libcd.sh" ]]; then
+    source "${SCRIPT_DIR}/lib/libcd.sh"
     check_dependencies_cd  # Setzt AUDIO_CD_SUPPORT=true bei Erfolg
 fi
 
 # Video-DVD Support (optional)
-if [[ -f "${SCRIPT_DIR}/lib/lib-dvd.sh" ]]; then
-    source "${SCRIPT_DIR}/lib/lib-dvd.sh"
+if [[ -f "${SCRIPT_DIR}/lib/libdvd.sh" ]]; then
+    source "${SCRIPT_DIR}/lib/libdvd.sh"
     check_dependencies_dvd  # Setzt VIDEO_DVD_SUPPORT=true bei Erfolg
 fi
 
 # Video-Bluray Support (optional)
-if [[ -f "${SCRIPT_DIR}/lib/lib-bluray.sh" ]]; then
-    source "${SCRIPT_DIR}/lib/lib-bluray.sh"
+if [[ -f "${SCRIPT_DIR}/lib/libbluray.sh" ]]; then
+    source "${SCRIPT_DIR}/lib/libbluray.sh"
     check_dependencies_bluray  # Setzt BLURAY_SUPPORT=true bei Erfolg
 fi
 
+# Metadata Framework nur laden wenn mindestens ein Disc-Type unterstützt wird
+if [[ "$AUDIO_CD_SUPPORT" == "true" ]] || 
+   [[ "$VIDEO_DVD_SUPPORT" == "true" ]] || 
+   [[ "$BLURAY_SUPPORT" == "true" ]]; then
+    
+    if [[ -f "${SCRIPT_DIR}/lib/libmetadata.sh" ]]; then
+        source "${SCRIPT_DIR}/lib/libmetadata.sh"
+        check_dependencies_metadata  # Setzt METADATA_SUPPORT=true bei Erfolg
+        
+        # Lade Provider nur wenn Framework verfügbar
+        if [[ "$METADATA_SUPPORT" == "true" ]]; then
+            # MusicBrainz Provider nur wenn Audio-CD Support vorhanden
+            if [[ "$AUDIO_CD_SUPPORT" == "true" ]] && 
+               [[ -f "${SCRIPT_DIR}/lib/libmusicbrainz.sh" ]]; then
+                source "${SCRIPT_DIR}/lib/libmusicbrainz.sh"
+                check_dependencies_musicbrainz  # Setzt MUSICBRAINZ_SUPPORT=true bei Erfolg
+            fi
+            
+            # TMDB Provider nur wenn DVD/BD Support vorhanden
+            if { [[ "$VIDEO_DVD_SUPPORT" == "true" ]] || [[ "$BLURAY_SUPPORT" == "true" ]]; } && 
+               [[ -f "${SCRIPT_DIR}/lib/libtmdb.sh" ]]; then
+                source "${SCRIPT_DIR}/lib/libtmdb.sh"
+                check_dependencies_tmdb  # Setzt TMDB_SUPPORT=true bei Erfolg
+            fi
+        fi
+    fi
+fi
+
 # MQTT Support (optional)
-if [[ -f "${SCRIPT_DIR}/lib/lib-mqtt.sh" ]]; then
-    source "${SCRIPT_DIR}/lib/lib-mqtt.sh"
+if [[ -f "${SCRIPT_DIR}/lib/libmqtt.sh" ]]; then
+    source "${SCRIPT_DIR}/lib/libmqtt.sh"
     check_dependencies_mqtt  # Setzt MQTT_SUPPORT=true bei Erfolg
     
     # mqtt_init prüft selbst ob MQTT_ENABLED=true und MQTT_SUPPORT verfügbar
