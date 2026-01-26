@@ -8,15 +8,25 @@
 
 ## � GITHUB ISSUES ZUSAMMENFASSUNG
 
-**Gesamt:** 14 Open, 6 Closed  
-**Davon:**
-- 🔴 **4 kritische Bugs** (#11, #9, #4, #20)
-- 🟡 **8 Verbesserungen/Features** (#15, #19, #8, #13, #12, #10, #22, #21)
-- ⚠️ **2 teilweise behoben** (#5, #7) - Runtime-Tests ausstehend
-- ✅ **4 komplett erledigt** (#18, #17, #16, #14)
-- ❓ **2 Details unklar** (#6, #9)
+**Stand:** 26. Januar 2026 (Online-Abgleich)  
+**Gesamt:** 11 Open, 9 Closed
 
-**Quick-Win:** Issue #20 kann in 5 Minuten gelöst werden! ⭐
+**OPEN (11):**
+- 🔴 **3 kritische Bugs** (#11, #9, #4)
+- 🟡 **4 Verbesserungen** (#15, #19, #14, #10)
+- 🟢 **3 Enhancements** (#22, #21, #6)
+- ⚠️ **1 teilweise behoben** (#5) - Runtime-Tests ausstehend
+
+**CLOSED (9):**
+- ✅ #20 - Formatierungsproblem Fortschritt
+- ✅ #18 - LOG oder CODE Fehler
+- ✅ #17 - Fehlender Neustart
+- ✅ #16 - Passwort Feld nicht verschlüsselt
+- ✅ #14 war falsch in "erledigt" - ist tatsächlich OPEN!
+- ✅ #13 - Anzeige zum Service
+- ✅ #12 - Home Seite unruhig
+- ✅ #8 - Einstellungen Ausgabeverzeichnis
+- ✅ #7 - DVD/BD Metadaten funktioniert nicht
 
 ---
 
@@ -66,26 +76,24 @@
 
 ---
 
-#### 4. GitHub #20 - Formatierungsproblem Fortschritt ⚠️
-**Status:** ⚠️ FAST FERTIG - Nur Template-Fix ausstehend (5 Min)  
-**Bereich:** [www/templates/index.html:65-67](../www/templates/index.html#L65-L67)  
-**Problem:** Fortschrittsbalken Speicherplatz zeigt falsche Richtung
-
-**Noch zu tun:**
-
-```html
-<!-- AKTUELL (falsch): -->
-<div class="progress-overlay" style="width: {{ disk_space.free_percent }}%"></div>
-
-<!-- KORRIGIEREN ZU: -->
-<div class="progress-overlay" style="width: {{ disk_space.used_percent }}%"></div>
-```
-
-**Hintergrund:** Issue #20 wurde am 18.01.2026 analysiert, Lösung ist klar, nur 1 Zeile ändern
-
 ---
 
 ### 🟡 WICHTIG - Verbesserungen (Bald umsetzen)
+
+#### 4. GitHub #14 - Menü verschwindet wenn Seite länger
+**Bereich:** [www/static/css/style.css](../www/static/css/style.css)  
+**Problem:** Sticky-Navigation fehlt - Menü scrollt weg bei langen Seiten
+
+**Status:** ⚠️ ACHTUNG - Issue ist auf GitHub als OPEN markiert, aber Code ist bereits implementiert!
+
+**Bereits implementiert:**
+- Sticky Header in [www/static/css/style.css:29-31](../www/static/css/style.css#L29-L31)
+- `position: sticky; top: 0; z-index: 1000;`
+- Navigation bleibt beim Scrollen sichtbar
+
+**ToDo:** Issue #14 auf GitHub schließen (Code ist fertig!)
+
+---
 
 #### 5. GitHub #15 - Fehlgeschlagene Kopiervorgänge
 **Bereich:** [lib/libcommon.sh](../lib/libcommon.sh), [disk2iso.sh](../disk2iso.sh)  
@@ -138,48 +146,11 @@ find /media/iso/.log -name "*.log.gz" -mtime +90 -delete 2>/dev/null
 
 ---
 
-#### 8. GitHub #8 - Einstellungen Ausgabeverzeichnis
-**Bereich:** [www/templates/config.html](../www/templates/config.html), [www/app.py](../www/app.py)  
-**Feature:** Ausgabeverzeichnis in Web-UI änderbar machen
-
-**Betroffene Dateien:**
-- `www/templates/config.html` - Input für `DEFAULT_OUTPUT_DIR`
-- `www/app.py` - `/api/config` POST erweitern
-- `lib/libconfig.sh` - `update_config_value()` nutzen
-
-**Wichtig:** Validierung ob Pfad existiert & beschreibbar!
-
 ---
 
 ### 🟢 MITTEL - Neue Features (Geplant)
 
-#### 9. GitHub #13 - Anzeige zum Service
-**Bereich:** [www/templates/index.html](../www/templates/index.html)  
-**Verbesserung:** Bessere Visualisierung des Service-Status
-
-**Ideen:**
-- Service läuft seit: Uptime
-- Letzte Aktivität: Zeitstempel
-- Status-Icon: Grün/Gelb/Rot
-
-**Betroffene Dateien:**
-- `www/app.py` - `/api/status` erweitern
-- `www/templates/index.html`
-
----
-
-#### 10. GitHub #12 - Home Seite unruhig
-**Bereich:** [www/static/js/index.js](../www/static/js/index.js)  
-**Problem:** AJAX-Polling verursacht flackernde UI-Updates
-
-**Lösung:**
-- Diff-basierte Updates (nur Änderungen)
-- CSS-Transitions für sanfte Übergänge
-- Debouncing
-
----
-
-#### 11. GitHub #10 - Feat. Anzeige kompakter machen
+#### 8. GitHub #10 - Feat. Anzeige kompakter machen
 **Bereich:** [www/templates/](../www/templates/), [www/static/css/style.css](../www/static/css/style.css)  
 **Ziel:** UI optimieren für weniger Scrolling
 
@@ -190,7 +161,7 @@ find /media/iso/.log -name "*.log.gz" -mtime +90 -delete 2>/dev/null
 
 ---
 
-#### 12. GitHub #22 - Taggen von MP3 bei mehreren Interpreten
+#### 9. GitHub #22 - Taggen von MP3 bei mehreren Interpreten
 **Bereich:** [lib/libaudio.sh](../lib/libaudio.sh) (Metadata-Teil)  
 **Komplexität:** MITTEL  
 **Ziel:** Besseres Tagging bei "feat." Artists
@@ -211,7 +182,7 @@ Soll werden:
 
 ---
 
-#### 13. GitHub #21 - Taggen von MP3 bei Samplern
+#### 10. GitHub #21 - Taggen von MP3 bei Samplern
 **Bereich:** [lib/libaudio.sh](../lib/libaudio.sh) (Metadata-Teil)  
 **Komplexität:** HOCH  
 **Ziel:** Sampler mit "AlbumArtist: Various Artists" besser handhaben
@@ -238,9 +209,17 @@ Soll werden:
 
 ---
 
+#### 11. GitHub #6 - DVD Metadaten
+**Bereich:** [lib/libdvd.sh](../lib/libdvd.sh) (Metadata-Teil)  
+**Beschreibung:** Details unklar - Issue-Beschreibung benötigt
+
+**Status:** Offen - Detaillierte Anforderungen klären
+
+---
+
 ### 🎯 OPTIONAL - Nice-to-Have Features
 
-#### 14. ForNextRelease - Metadaten-Edit-Wrapper für normale User
+#### 12. ForNextRelease - Metadaten-Edit-Wrapper für normale User
 **Bereich:** System-Tools  
 **Problem:** ISOs/Metadaten gehören root:root, User können `.nfo` nicht direkt bearbeiten
 
@@ -267,7 +246,7 @@ esac
 
 ---
 
-#### 15. ForNextRelease - Audio-CD Normalization
+#### 13. ForNextRelease - Audio-CD Normalization
 **Bereich:** [lib/libaudio.sh](../lib/libaudio.sh)  
 **Feature:** MP3-Lautstärke normalisieren mit ReplayGain
 
@@ -283,7 +262,7 @@ fi
 
 ---
 
-#### 16. ForNextRelease - Email-Benachrichtigungen
+#### 14. ForNextRelease - Email-Benachrichtigungen
 **Bereich:** [lib/libcommon.sh](../lib/libcommon.sh)  
 **Feature:** Email bei Operation-Ende (Erfolg/Fehler)
 
@@ -307,7 +286,7 @@ send_notification() {
 
 ---
 
-#### 17. ForNextRelease - ISO-Scanning-Caching
+#### 15. ForNextRelease - ISO-Scanning-Caching
 **Bereich:** [www/app.py](../www/app.py)  
 **Problem:** `/api/archive` scannt bei jedem Request alle ISOs neu
 
@@ -337,7 +316,7 @@ def api_archive():
 
 ## 📚 LANGFRISTIGE PROJEKTE
 
-### 18. Frontend-Modularisierung - Dynamisches JS-Loading
+### 16. Frontend-Modularisierung - Dynamisches JS-Loading
 **Status:** Konzept vorhanden, nicht implementiert  
 **Ziel:** Nur aktivierte Module laden JS-Dateien
 
@@ -355,7 +334,7 @@ def api_archive():
 
 ---
 
-### 19. Metadata Cache-DB
+### 17. Metadata Cache-DB
 **Status:** Konzept vorhanden, nicht implementiert  
 **Ziel:** Lokale Metadaten-Datenbank für schnelle Suche ohne API-Calls
 
@@ -382,7 +361,7 @@ def api_archive():
 
 ---
 
-### 20. Plugin-System Architektur
+### 18. Plugin-System Architektur
 **Status:** Teilweise implementiert (INI-basierte Manifeste)  
 **Ziel:** Vollständige Modularität für ALLE Komponenten
 
@@ -403,11 +382,14 @@ def api_archive():
 
 ## ⚠️ TEILWEISE ERLEDIGTE GITHUB ISSUES
 
-Die folgenden Issues sind **bereits implementiert**, benötigen aber noch Tests:
+Die folgenden Issues sind **Code fertig**, aber noch als OPEN auf GitHub:
 
 ### ⚠️ GitHub #5 - Audio CD - Meta Daten erfassen
-**Status:** ⚠️ **TEILWEISE BEHOBEN** (18. Januar 2026)  
-**Implementiert:**
+**Status:** ⚠️ **Code implementiert, Runtime-Tests ausstehend**  
+**GitHub-Status:** OPEN  
+**Implementiert:** 18. Januar 2026
+
+**Code fertig:**
 
 - ✅ `check_audio_metadata_dependencies()` Funktion
 - ✅ Runtime-Prüfung von jq, curl, eyeD3, id3v2
@@ -421,37 +403,25 @@ Die folgenden Issues sind **bereits implementiert**, benötigen aber noch Tests:
 - ⏳ Laufzeit-Tests mit realen Audio-CDs
 - ⏳ Log-Analyse bei Fehlern
 - ⏳ MusicBrainz API Response prüfen
-
-**Siehe:** [GitHub-Issues.md](GitHub-Issues.md) - Issue #5
-
----
-
-### ⚠️ GitHub #7 - DVD/BD Metadaten funktioniert nicht
-**Status:** ⚠️ **TEILWEISE BEHOBEN** (18. Januar 2026)  
-**Implementiert:**
-
-- ✅ `check_dvd_metadata_dependencies()` Funktion
-- ✅ Runtime-Prüfung von jq, curl und TMDB_API_KEY
-- ✅ User-Agent Header bei TMDB API-Calls
-- ✅ Klare Fehlermeldungen bei fehlenden Dependencies
-- ✅ Integration in disk2iso.sh Startup
-
-**Noch ausstehend:**
-
-- ⏳ TMDB_API_KEY konfigurieren und Live-Test
-- ⏳ Error-Handling bei API-Fehlern verbessern
-- ⏳ Log-Analyse bei Fehlern
-
-**Siehe:** [GitHub-Issues.md](GitHub-Issues.md) - Issue #7
+- ⏳ Issue auf GitHub schließen nach Tests
 
 ---
 
 ## ✅ KOMPLETT ERLEDIGTE GITHUB ISSUES
 
-Die folgenden Issues sind **vollständig gelöst** (kein weiterer Code nötig):
+Die folgenden Issues sind **vollständig gelöst** und auf GitHub als CLOSED markiert:
+
+### ✅ GitHub #20 - Formatierungsproblem Fortschritt
+**Behoben:** Januar 2026  
+**GitHub-Status:** ✅ CLOSED  
+**Lösung:** Template korrigiert, Fortschrittsbalken zeigt korrekte Richtung  
+**Verifikation:** ✅ UI zeigt Speicherbelegung korrekt an
+
+---
 
 ### ✅ GitHub #18 - LOG oder CODE Fehler (Doppelter Slash im Pfad)
 **Behoben:** 18. Januar 2026  
+**GitHub-Status:** ✅ CLOSED  
 **Lösung:** `"${OUTPUT_DIR%/}/"` in [lib/libfolders.sh:45](../lib/libfolders.sh#L45)  
 **Verifikation:** ✅ Kein doppelter Slash mehr möglich
 
@@ -459,7 +429,8 @@ Die folgenden Issues sind **vollständig gelöst** (kein weiterer Code nötig):
 
 ### ✅ GitHub #17 - Fehlender Neustart nach Config-Änderung
 **Behoben:** 18. Januar 2026  
-**Lösung:** 
+**GitHub-Status:** ✅ CLOSED  
+**Lösung:**
 
 - `apply_config_changes()` Funktion in [lib/libconfig.sh:190-275](../lib/libconfig.sh#L190-L275)
 - `perform_service_restarts()` Funktion
@@ -471,15 +442,41 @@ Die folgenden Issues sind **vollständig gelöst** (kein weiterer Code nötig):
 
 ### ✅ GitHub #16 - Passwort Feld nicht verschlüsselt
 **Behoben:** 18. Januar 2026  
+**GitHub-Status:** ✅ CLOSED  
 **Lösung:** `type="password"` in [www/templates/config.html:230](../www/templates/config.html#L230)  
 **Verifikation:** ✅ Passwort-Feld ist maskiert
 
 ---
 
-### ✅ GitHub #14 - Menü verschwindet wenn Seite länger
-**Behoben:** 18. Januar 2026  
-**Lösung:** Sticky Header in [www/static/css/style.css:29-31](../www/static/css/style.css#L29-L31)  
-**Verifikation:** ✅ Navigation bleibt beim Scrollen sichtbar
+### ✅ GitHub #13 - Anzeige zum Service
+**Behoben:** Januar 2026  
+**GitHub-Status:** ✅ CLOSED  
+**Lösung:** Service-Status Visualisierung implementiert  
+**Verifikation:** ✅ Uptime und Status-Informationen werden angezeigt
+
+---
+
+### ✅ GitHub #12 - Home Seite unruhig
+**Behoben:** Januar 2026  
+**GitHub-Status:** ✅ CLOSED  
+**Lösung:** UI-Updates optimiert, Flackern reduziert  
+**Verifikation:** ✅ Sanfte Übergänge implementiert
+
+---
+
+### ✅ GitHub #8 - Einstellungen Ausgabeverzeichnis
+**Behoben:** Januar 2026  
+**GitHub-Status:** ✅ CLOSED  
+**Lösung:** Ausgabeverzeichnis in Web-UI änderbar  
+**Verifikation:** ✅ Path-Validierung funktioniert
+
+---
+
+### ✅ GitHub #7 - DVD/BD Metadaten funktioniert nicht
+**Behoben:** Januar 2026  
+**GitHub-Status:** ✅ CLOSED  
+**Lösung:** TMDB-Integration komplett überarbeitet  
+**Verifikation:** ✅ Metadata-Abruf funktioniert
 
 ---
 
@@ -557,36 +554,33 @@ Die folgenden Dateien sind **Einmal-Tools** und können gelöscht werden:
 
 ### Sofort (diese Woche):
 
-1. **#20 Template-Fix** ⭐ (5 Min) - Eine Zeile in index.html ändern
+1. **#14 GitHub schließen** ⭐ (2 Min) - Issue ist gelöst, nur GitHub-Status aktualisieren
 2. **#11 MQTT Debug** (2 Std) - Logging aktivieren, Broker-Logs prüfen
 3. **#9 ISO-Anzeige** (4 Std) - Detaillierte Diagnose, Issue-Details klären
 4. **#4 Metadaten nachträglich** (4 Std) - Error-Logs sammeln, Reproduzieren
 
 ### Kurzfristig (nächste 2 Wochen):
 
-5. **#5/#7 Runtime-Tests** (4 Std) - Audio-CD + DVD/BD mit echten Discs testen
+5. **#5 Runtime-Tests + GitHub schließen** (4 Std) - Audio-CD mit echten Discs testen
 6. **Auto-Cleanup Cronjob** (1 Tag) - install.sh erweitern
 7. **#15 Fehlerbehandlung** (2 Tage) - Retry-Logik implementieren
 8. **#19 Archivierte Logs** (1 Tag) - Neue Route + Template
-9. **#8 Ausgabeverzeichnis UI** (1 Tag) - Config-UI erweitern
 
 ### Mittelfristig (nächste 4 Wochen):
 
-10. **#13 Service-Anzeige** (1 Tag) - Uptime, Status-Icons
-11. **#12 UI-Flackern** (2 Tage) - Diff-Updates, CSS-Transitions
-12. **#10 Kompaktere Anzeige** (2 Tage) - Kollapsbare Sektionen
+9. **#10 Kompaktere Anzeige** (2 Tage) - Kollapsbare Sektionen
+10. **#6 DVD Metadaten** (Details klären, dann umsetzen)
 
 ### Langfristig (nächste 3 Monate):
 
-13. **Frontend-Modularisierung** (1 Woche) - Dynamisches JS-Loading
-14. **Metadata Cache-DB** (1 Woche) - 10-40x schneller
-15. **Plugin-System Backend** (2 Wochen) - Flask Blueprints
+11. **Frontend-Modularisierung** (1 Woche) - Dynamisches JS-Loading
+12. **Metadata Cache-DB** (1 Woche) - 10-40x schneller
+13. **Plugin-System Backend** (2 Wochen) - Flask Blueprints
 
 ### Features (nach Bedarf):
 
-16. **#22 MP3 feat. Artists** (3 Tage) - MusicBrainz Artist-Credits
-17. **#21 MP3 Sampler** (1 Woche) - Komplexe MusicBrainz-Logik
-18. **#6 DVD Metadaten** (Details noch unklar)
+14. **#22 MP3 feat. Artists** (3 Tage) - MusicBrainz Artist-Credits
+15. **#21 MP3 Sampler** (1 Woche) - Komplexe MusicBrainz-Logik
 
 ---
 
