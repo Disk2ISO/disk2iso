@@ -9,20 +9,20 @@
 ## � GITHUB ISSUES ZUSAMMENFASSUNG
 
 **Stand:** 26. Januar 2026 (Online-Abgleich)  
-**Gesamt:** 11 Open, 9 Closed
+**Gesamt:** 10 Open, 10 Closed
 
-**OPEN (11):**
+**OPEN (10):**
 - 🔴 **3 kritische Bugs** (#11, #9, #4)
-- 🟡 **4 Verbesserungen** (#15, #19, #14, #10)
+- 🟡 **3 Verbesserungen** (#15, #19, #10)
 - 🟢 **3 Enhancements** (#22, #21, #6)
 - ⚠️ **1 teilweise behoben** (#5) - Runtime-Tests ausstehend
 
-**CLOSED (9):**
+**CLOSED (10):**
 - ✅ #20 - Formatierungsproblem Fortschritt
 - ✅ #18 - LOG oder CODE Fehler
 - ✅ #17 - Fehlender Neustart
 - ✅ #16 - Passwort Feld nicht verschlüsselt
-- ✅ #14 war falsch in "erledigt" - ist tatsächlich OPEN!
+- ✅ #14 - Menü verschwindet wenn Seite länger
 - ✅ #13 - Anzeige zum Service
 - ✅ #12 - Home Seite unruhig
 - ✅ #8 - Einstellungen Ausgabeverzeichnis
@@ -80,22 +80,7 @@
 
 ### 🟡 WICHTIG - Verbesserungen (Bald umsetzen)
 
-#### 4. GitHub #14 - Menü verschwindet wenn Seite länger
-**Bereich:** [www/static/css/style.css](../www/static/css/style.css)  
-**Problem:** Sticky-Navigation fehlt - Menü scrollt weg bei langen Seiten
-
-**Status:** ⚠️ ACHTUNG - Issue ist auf GitHub als OPEN markiert, aber Code ist bereits implementiert!
-
-**Bereits implementiert:**
-- Sticky Header in [www/static/css/style.css:29-31](../www/static/css/style.css#L29-L31)
-- `position: sticky; top: 0; z-index: 1000;`
-- Navigation bleibt beim Scrollen sichtbar
-
-**ToDo:** Issue #14 auf GitHub schließen (Code ist fertig!)
-
----
-
-#### 5. GitHub #15 - Fehlgeschlagene Kopiervorgänge
+#### 4. GitHub #15 - Fehlgeschlagene Kopiervorgänge
 **Bereich:** [lib/libcommon.sh](../lib/libcommon.sh), [disk2iso.sh](../disk2iso.sh)  
 **Features:**
 - Wiederholungsversuche bei Fehlern
@@ -109,7 +94,7 @@
 
 ---
 
-#### 6. ForNextRelease - Auto-Cleanup Cronjob
+#### 5. ForNextRelease - Auto-Cleanup Cronjob
 **Bereich:** System-Wartung  
 **Problem:**
 - Fehlgeschlagene Operationen hinterlassen Temp-Ordner in `/media/iso/.temp/`
@@ -136,7 +121,7 @@ find /media/iso/.log -name "*.log.gz" -mtime +90 -delete 2>/dev/null
 
 ---
 
-#### 7. GitHub #19 - Archivierte Logs über WEB-UI öffnen
+#### 6. GitHub #19 - Archivierte Logs über WEB-UI öffnen
 **Bereich:** [www/app.py](../www/app.py), [www/templates/logs.html](../www/templates/logs.html)  
 **Problem:** Archivierte Logs können gesucht, aber nicht angezeigt werden
 
@@ -150,7 +135,7 @@ find /media/iso/.log -name "*.log.gz" -mtime +90 -delete 2>/dev/null
 
 ### 🟢 MITTEL - Neue Features (Geplant)
 
-#### 8. GitHub #10 - Feat. Anzeige kompakter machen
+#### 7. GitHub #10 - Feat. Anzeige kompakter machen
 **Bereich:** [www/templates/](../www/templates/), [www/static/css/style.css](../www/static/css/style.css)  
 **Ziel:** UI optimieren für weniger Scrolling
 
@@ -161,7 +146,7 @@ find /media/iso/.log -name "*.log.gz" -mtime +90 -delete 2>/dev/null
 
 ---
 
-#### 9. GitHub #22 - Taggen von MP3 bei mehreren Interpreten
+#### 8. GitHub #22 - Taggen von MP3 bei mehreren Interpreten
 **Bereich:** [lib/libaudio.sh](../lib/libaudio.sh) (Metadata-Teil)  
 **Komplexität:** MITTEL  
 **Ziel:** Besseres Tagging bei "feat." Artists
@@ -182,7 +167,7 @@ Soll werden:
 
 ---
 
-#### 10. GitHub #21 - Taggen von MP3 bei Samplern
+#### 9. GitHub #21 - Taggen von MP3 bei Samplern
 **Bereich:** [lib/libaudio.sh](../lib/libaudio.sh) (Metadata-Teil)  
 **Komplexität:** HOCH  
 **Ziel:** Sampler mit "AlbumArtist: Various Artists" besser handhaben
@@ -209,7 +194,7 @@ Soll werden:
 
 ---
 
-#### 11. GitHub #6 - DVD Metadaten
+#### 10. GitHub #6 - DVD Metadaten
 **Bereich:** [lib/libdvd.sh](../lib/libdvd.sh) (Metadata-Teil)  
 **Beschreibung:** Details unklar - Issue-Beschreibung benötigt
 
@@ -219,7 +204,7 @@ Soll werden:
 
 ### 🎯 OPTIONAL - Nice-to-Have Features
 
-#### 12. ForNextRelease - Metadaten-Edit-Wrapper für normale User
+#### 11. ForNextRelease - Metadaten-Edit-Wrapper für normale User
 **Bereich:** System-Tools  
 **Problem:** ISOs/Metadaten gehören root:root, User können `.nfo` nicht direkt bearbeiten
 
@@ -246,7 +231,7 @@ esac
 
 ---
 
-#### 13. ForNextRelease - Audio-CD Normalization
+#### 12. ForNextRelease - Audio-CD Normalization
 **Bereich:** [lib/libaudio.sh](../lib/libaudio.sh)  
 **Feature:** MP3-Lautstärke normalisieren mit ReplayGain
 
@@ -262,7 +247,7 @@ fi
 
 ---
 
-#### 14. ForNextRelease - Email-Benachrichtigungen
+#### 13. ForNextRelease - Email-Benachrichtigungen
 **Bereich:** [lib/libcommon.sh](../lib/libcommon.sh)  
 **Feature:** Email bei Operation-Ende (Erfolg/Fehler)
 
@@ -286,7 +271,7 @@ send_notification() {
 
 ---
 
-#### 15. ForNextRelease - ISO-Scanning-Caching
+#### 14. ForNextRelease - ISO-Scanning-Caching
 **Bereich:** [www/app.py](../www/app.py)  
 **Problem:** `/api/archive` scannt bei jedem Request alle ISOs neu
 
@@ -316,7 +301,7 @@ def api_archive():
 
 ## 📚 LANGFRISTIGE PROJEKTE
 
-### 16. Frontend-Modularisierung - Dynamisches JS-Loading
+### 15. Frontend-Modularisierung - Dynamisches JS-Loading
 **Status:** Konzept vorhanden, nicht implementiert  
 **Ziel:** Nur aktivierte Module laden JS-Dateien
 
@@ -334,7 +319,7 @@ def api_archive():
 
 ---
 
-### 17. Metadata Cache-DB
+### 16. Metadata Cache-DB
 **Status:** Konzept vorhanden, nicht implementiert  
 **Ziel:** Lokale Metadaten-Datenbank für schnelle Suche ohne API-Calls
 
@@ -361,7 +346,7 @@ def api_archive():
 
 ---
 
-### 18. Plugin-System Architektur
+### 17. Plugin-System Architektur
 **Status:** Teilweise implementiert (INI-basierte Manifeste)  
 **Ziel:** Vollständige Modularität für ALLE Komponenten
 
@@ -554,33 +539,32 @@ Die folgenden Dateien sind **Einmal-Tools** und können gelöscht werden:
 
 ### Sofort (diese Woche):
 
-1. **#14 GitHub schließen** ⭐ (2 Min) - Issue ist gelöst, nur GitHub-Status aktualisieren
-2. **#11 MQTT Debug** (2 Std) - Logging aktivieren, Broker-Logs prüfen
-3. **#9 ISO-Anzeige** (4 Std) - Detaillierte Diagnose, Issue-Details klären
-4. **#4 Metadaten nachträglich** (4 Std) - Error-Logs sammeln, Reproduzieren
+1. **#11 MQTT Debug** (2 Std) - Logging aktivieren, Broker-Logs prüfen
+2. **#9 ISO-Anzeige** (4 Std) - Detaillierte Diagnose, Issue-Details klären
+3. **#4 Metadaten nachträglich** (4 Std) - Error-Logs sammeln, Reproduzieren
 
 ### Kurzfristig (nächste 2 Wochen):
 
-5. **#5 Runtime-Tests + GitHub schließen** (4 Std) - Audio-CD mit echten Discs testen
-6. **Auto-Cleanup Cronjob** (1 Tag) - install.sh erweitern
-7. **#15 Fehlerbehandlung** (2 Tage) - Retry-Logik implementieren
-8. **#19 Archivierte Logs** (1 Tag) - Neue Route + Template
+4. **#5 Runtime-Tests + GitHub schließen** (4 Std) - Audio-CD mit echten Discs testen
+5. **Auto-Cleanup Cronjob** (1 Tag) - install.sh erweitern
+6. **#15 Fehlerbehandlung** (2 Tage) - Retry-Logik implementieren
+7. **#19 Archivierte Logs** (1 Tag) - Neue Route + Template
 
 ### Mittelfristig (nächste 4 Wochen):
 
-9. **#10 Kompaktere Anzeige** (2 Tage) - Kollapsbare Sektionen
-10. **#6 DVD Metadaten** (Details klären, dann umsetzen)
+8. **#10 Kompaktere Anzeige** (2 Tage) - Kollapsbare Sektionen
+9. **#6 DVD Metadaten** (Details klären, dann umsetzen)
 
 ### Langfristig (nächste 3 Monate):
 
-11. **Frontend-Modularisierung** (1 Woche) - Dynamisches JS-Loading
-12. **Metadata Cache-DB** (1 Woche) - 10-40x schneller
-13. **Plugin-System Backend** (2 Wochen) - Flask Blueprints
+10. **Frontend-Modularisierung** (1 Woche) - Dynamisches JS-Loading
+11. **Metadata Cache-DB** (1 Woche) - 10-40x schneller
+12. **Plugin-System Backend** (2 Wochen) - Flask Blueprints
 
 ### Features (nach Bedarf):
 
-14. **#22 MP3 feat. Artists** (3 Tage) - MusicBrainz Artist-Credits
-15. **#21 MP3 Sampler** (1 Woche) - Komplexe MusicBrainz-Logik
+13. **#22 MP3 feat. Artists** (3 Tage) - MusicBrainz Artist-Credits
+14. **#21 MP3 Sampler** (1 Woche) - Komplexe MusicBrainz-Logik
 
 ---
 
