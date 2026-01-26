@@ -1,7 +1,7 @@
 #!/bin/bash
 ################################################################################
-# disk2iso - Archivo de idioma español para lib-cd.sh
-# Filepath: lang/lib-cd.es
+# disk2iso - Archivo de idioma español para libaudio.sh
+# Filepath: lang/libaudio.es
 #
 # Descripción:
 #   Mensajes para las funciones de Audio-CD

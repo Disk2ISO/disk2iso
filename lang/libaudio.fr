@@ -1,7 +1,7 @@
 #!/bin/bash
 ################################################################################
-# disk2iso - Fichier de langue française pour lib-cd.sh
-# Filepath: lang/lib-cd.fr
+# disk2iso - Fichier de langue française pour libaudio.sh
+# Filepath: lang/libaudio.fr
 #
 # Description:
 #   Messages pour les fonctions Audio-CD

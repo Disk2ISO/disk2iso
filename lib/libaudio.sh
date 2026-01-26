@@ -1,7 +1,7 @@
 #!/bin/bash
 ################################################################################
 # disk2iso v1.2.0 - Audio CD Library
-# Filepath: lib/libcd.sh
+# Filepath: lib/libaudio.sh
 #
 # Beschreibung:
 #   Funktionen für Audio-CD Ripping mit MusicBrainz-Metadaten
@@ -18,12 +18,12 @@
 # DEPENDENCY CHECK
 # ============================================================================
 # Globale Variable für Modulname
-readonly MODULE_NAME_CD="cd"
+readonly MODULE_NAME_AUDIO="audio"
 # Globale Variable für Verfügbarkeit
 AUDIO_CD_SUPPORT=false
 
 # ===========================================================================
-# check_dependencies_cd
+# check_dependencies_audio
 # ---------------------------------------------------------------------------
 # Funktion.: Prüfe alle Framework Abhängigkeiten (Modul-Dateien, die Modul 
 # .........  Ausgabe Ordner, kritische und optionale Software für die 
@@ -37,10 +37,10 @@ AUDIO_CD_SUPPORT=false
 # .........  besten direkt im Hauptskript (disk2iso) nach dem
 # .........  Laden der libcommon.sh.
 # ===========================================================================
-check_dependencies_cd() {
+check_dependencies_audio() {
 
     #-- Alle Modul Abhängigkeiten prüfen -------------------------------------
-    check_module_dependencies "$MODULE_NAME_CD" || return 1
+    check_module_dependencies "$MODULE_NAME_AUDIO" || return 1
 
     #-- Setze Verfügbarkeit -------------------------------------------------
     AUDIO_CD_SUPPORT=true

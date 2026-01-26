@@ -146,9 +146,9 @@ log_info "$MSG_CORE_MODULES_LOADED"
 # OPTIONALE MODULE MIT DEPENDENCY-CHECKS
 # ============================================================================
 # Audio-CD Support (optional)
-if [[ -f "${SCRIPT_DIR}/lib/libcd.sh" ]]; then
-    source "${SCRIPT_DIR}/lib/libcd.sh"
-    check_dependencies_cd  # Setzt AUDIO_CD_SUPPORT=true bei Erfolg
+if [[ -f "${SCRIPT_DIR}/lib/libaudio.sh" ]]; then
+    source "${SCRIPT_DIR}/lib/libaudio.sh"
+    check_dependencies_audio  # Setzt AUDIO_CD_SUPPORT=true bei Erfolg
 fi
 
 # Video-DVD Support (optional)
