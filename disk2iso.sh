@@ -82,10 +82,12 @@ source "${SCRIPT_DIR}/lib/libconfig.sh"
 OUTPUT_DIR="${DEFAULT_OUTPUT_DIR}"
 
 # Lade Kern-Bibliotheken (IMMER erforderlich)
+source "${SCRIPT_DIR}/lib/libconfig.sh"
 source "${SCRIPT_DIR}/lib/liblogging.sh"
 source "${SCRIPT_DIR}/lib/libapi.sh"
 source "${SCRIPT_DIR}/lib/libfiles.sh"
 source "${SCRIPT_DIR}/lib/libfolders.sh"
+source "${SCRIPT_DIR}/lib/libintegrity.sh"
 source "${SCRIPT_DIR}/lib/libdiskinfos.sh"
 source "${SCRIPT_DIR}/lib/libdrivestat.sh"
 source "${SCRIPT_DIR}/lib/libsysteminfo.sh"
@@ -99,6 +101,11 @@ load_module_language "disk2iso"
 # ============================================================================
 # Alle Core-Module müssen ihre Abhängigkeiten erfüllen, sonst kann
 # disk2iso nicht funktionieren. Die Reihenfolge entspricht der Lade-Reihenfolge.
+
+if ! check_dependencies_config; then
+    echo "FEHLER: Config-Modul Abhängigkeiten nicht erfüllt" >&2
+    exit 1
+fi
 
 if ! check_dependencies_logging; then
     echo "FEHLER: Logging-Modul Abhängigkeiten nicht erfüllt" >&2
@@ -117,6 +124,11 @@ fi
 
 if ! check_dependencies_api; then
     log_error "API-Modul Abhängigkeiten nicht erfüllt"
+    exit 1
+fi
+
+if ! check_dependencies_integrity; then
+    log_error "Integrity-Modul Abhängigkeiten nicht erfüllt"
     exit 1
 fi
 
