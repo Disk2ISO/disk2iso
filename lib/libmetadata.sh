@@ -1,7 +1,7 @@
 #!/bin/bash
-# =============================================================================
-# Metadata Framework (Core)
-# =============================================================================
+# ===========================================================================
+# Metadata Framework
+# ===========================================================================
 # Filepath: lib/libmetadata.sh
 #
 # Beschreibung:
@@ -11,36 +11,30 @@
 #   - Cache-Management
 #   - State-Machine Integration
 #
-# -----------------------------------------------------------------------------
+# ---------------------------------------------------------------------------
 # Dependencies: liblogging, libapi (provider modules are optional)
-# -----------------------------------------------------------------------------
+# ---------------------------------------------------------------------------
 # Author: D.Götze
 # Version: 1.2.1
 # Last Change: 2026-01-26 20:00
-# =============================================================================
+# ===========================================================================
 
-# =============================================================================
+# ===========================================================================
 # DEPENDENCY CHECK
-# =============================================================================
-# Globale Variable für Modulname
-readonly MODULE_NAME_METADATA="metadata"
-# Globale Variable für Verfügbarkeit
-METADATA_SUPPORT=false
+# ===========================================================================
+readonly MODULE_NAME_METADATA="metadata"     # Globale Variable für Modulname
+METADATA_SUPPORT=false                   # Globale Variable für Verfügbarkeit
 
 # ===========================================================================
 # check_dependencies_metadata
 # ---------------------------------------------------------------------------
-# Funktion.: Prüfe alle Framework Abhängigkeiten (Modul-Dateien, die Modul 
-# .........  Ausgabe Ordner, kritische und optionale Software für die 
-# .........  Ausführung des Tool), lädt bei erfolgreicher Prüfung die
-# .........  Sprachdatei für das Modul.
+# Funktion.: Prüfe alle Modul-Abhängigkeiten (Modul-Dateien, Ausgabe-Ordner, 
+# .........  kritische und optionale Software für die Ausführung des Modul),
+# .........  lädt nach erfolgreicher Prüfung die Sprachdatei für das Modul.
 # Parameter: keine
-# Rückgabe.: 0 = Verfügbar (Framework nutzbar)
-# .........  1 = Nicht verfügbar (Framework deaktiviert)
-# Extras...: Sollte so früh wie möglich nach dem Start geprüft werden, da
-# .........  andere Module ggf. auf dieses Framework angewiesen sind. Am
-# .........  besten direkt im Hauptskript (disk2iso) nach dem
-# .........  Laden der libcommon.sh.
+# Rückgabe.: 0 = Verfügbar (Module nutzbar)
+# .........  1 = Nicht verfügbar (Modul deaktiviert)
+# Extras...: Setzt METADATA_SUPPORT=true/false
 # ===========================================================================
 check_dependencies_metadata() {
 

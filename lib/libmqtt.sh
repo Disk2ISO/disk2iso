@@ -1,7 +1,7 @@
 #!/bin/bash
-# =============================================================================
+# ===========================================================================
 # MQTT Library
-# =============================================================================
+# ===========================================================================
 # Filepath: lib/libmqtt.sh
 #
 # Beschreibung:
@@ -11,28 +11,28 @@
 #   - Medium-Informationen (Label, Typ, Größe)
 #   - Availability-Tracking (online/offline)
 #
-# -----------------------------------------------------------------------------
+# ---------------------------------------------------------------------------
 # Dependencies: liblogging (externes Tool: mosquitto_pub)
-# -----------------------------------------------------------------------------
+# ---------------------------------------------------------------------------
 # Author: D.Götze
 # Version: 1.2.1
 # Last Change: 2026-01-26 20:00
-# =============================================================================
+# ===========================================================================
+
+# ===========================================================================
 # DEPENDENCY CHECK
-# ============================================================================
-# Globale Variable für Modulname
-readonly MODULE_NAME_MQTT="mqtt"
-# Globale Variable für Verfügbarkeit
-MQTT_SUPPORT=false
+# ===========================================================================
+readonly MODULE_NAME_MQTT="mqtt"             # Globale Variable für Modulname
+MQTT_SUPPORT=false                       # Globale Variable für Verfügbarkeit
 
 # ===========================================================================
 # check_dependencies_mqtt
 # ---------------------------------------------------------------------------
-# Funktion.: Prüfe alle MQTT Modul-Abhängigkeiten (Modul-Dateien, 
-# .........  Ausgabe-Ordner, kritische und optionale Software), lädt bei 
-# .........  erfolgreicher Prüfung die Sprachdatei für das Modul.
+# Funktion.: Prüfe alle Modul-Abhängigkeiten (Modul-Dateien, Ausgabe-Ordner, 
+# .........  kritische und optionale Software für die Ausführung des Modul),
+# .........  lädt nach erfolgreicher Prüfung die Sprachdatei für das Modul.
 # Parameter: keine
-# Rückgabe.: 0 = Verfügbar (Modul nutzbar)
+# Rückgabe.: 0 = Verfügbar (Module nutzbar)
 # .........  1 = Nicht verfügbar (Modul deaktiviert)
 # Extras...: Setzt MQTT_SUPPORT=true bei erfolgreicher Prüfung
 # ===========================================================================

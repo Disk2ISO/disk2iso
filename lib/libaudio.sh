@@ -1,7 +1,7 @@
 #!/bin/bash
-# =============================================================================
+# ===========================================================================
 # Audio CD Library
-# =============================================================================
+# ===========================================================================
 # Filepath: lib/libaudio.sh
 #
 # Beschreibung:
@@ -11,36 +11,30 @@
 #   - MP3-Encoding mit lame (VBR V2)
 #   - ISO-Erstellung mit gerippten MP3s
 #
-# -----------------------------------------------------------------------------
+# ---------------------------------------------------------------------------
 # Dependencies: liblogging, libfolders, libcommon (optional: libmusicbrainz)
-# -----------------------------------------------------------------------------
+# ---------------------------------------------------------------------------
 # Author: D.Götze
 # Version: 1.2.1
 # Last Change: 2026-01-26 20:00
-# =============================================================================
+# ===========================================================================
 
-# =============================================================================
+# ===========================================================================
 # DEPENDENCY CHECK
-# =============================================================================
-# Globale Variable für Modulname
-readonly MODULE_NAME_AUDIO="audio"
-# Globale Variable für Verfügbarkeit
-AUDIO_CD_SUPPORT=false
+# ===========================================================================
+readonly MODULE_NAME_AUDIO="audio"           # Globale Variable für Modulname
+AUDIO_CD_SUPPORT=false                   # Globale Variable für Verfügbarkeit
 
 # ===========================================================================
 # check_dependencies_audio
 # ---------------------------------------------------------------------------
-# Funktion.: Prüfe alle Framework Abhängigkeiten (Modul-Dateien, die Modul
-# .........  Ausgabe Ordner, kritische und optionale Software für die
-# .........  Ausführung des Tool), lädt bei erfolgreicher Prüfung die
-# .........  Sprachdatei für das Modul.
+# Funktion.: Prüfe alle Modul-Abhängigkeiten (Modul-Dateien, Ausgabe-Ordner, 
+# .........  kritische und optionale Software für die Ausführung des Modul),
+# .........  lädt nach erfolgreicher Prüfung die Sprachdatei für das Modul.
 # Parameter: keine
-# Rückgabe.: 0 = Verfügbar (Framework nutzbar)
-# .........  1 = Nicht verfügbar (Framework deaktiviert)
-# Extras...: Sollte so früh wie möglich nach dem Start geprüft werden, da
-# .........  andere Module ggf. auf dieses Framework angewiesen sind. Am
-# .........  besten direkt im Hauptskript (disk2iso) nach dem
-# .........  Laden der libcommon.sh.
+# Rückgabe.: 0 = Verfügbar (Module nutzbar)
+# .........  1 = Nicht verfügbar (Modul deaktiviert)
+# Extras...: Setzt AUDIO_CD_SUPPORT=true/false
 # ===========================================================================
 check_dependencies_audio() {
 

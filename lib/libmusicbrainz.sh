@@ -1,7 +1,7 @@
 #!/bin/bash
-# =============================================================================
+# ===========================================================================
 # MusicBrainz Metadata Provider
-# =============================================================================
+# ===========================================================================
 # Filepath: lib/libmusicbrainz.sh
 #
 # Beschreibung:
@@ -11,31 +11,29 @@
 #   - Disc-ID basierte Suche
 #   - Künstler/Album/Track-Informationen
 #
-# -----------------------------------------------------------------------------
+# ---------------------------------------------------------------------------
 # Dependencies: libmetadata, liblogging (externe API: MusicBrainz)
-# -----------------------------------------------------------------------------
+# ---------------------------------------------------------------------------
 # Author: D.Götze
 # Version: 1.2.1
 # Last Change: 2026-01-26 20:00
-# =============================================================================
+# ===========================================================================
 
-# =============================================================================
+# ===========================================================================
 # DEPENDENCY CHECK
-# =============================================================================
-# Globale Variable für Modulname
-readonly MODULE_NAME_MUSICBRAINZ="musicbrainz"
-# Globale Variable für Verfügbarkeit
-MUSICBRAINZ_SUPPORT=false
+# ===========================================================================
+readonly MODULE_NAME_MUSICBRAINZ="musicbrainz"    # Globale Var für Modulname
+MUSICBRAINZ_SUPPORT=false                # Globale Variable für Verfügbarkeit
 
 # ===========================================================================
 # check_dependencies_musicbrainz
 # ---------------------------------------------------------------------------
-# Funktion.: Prüfe alle MusicBrainz Provider-Abhängigkeiten (Modul-Dateien, 
-# .........  kritische und optionale Software), lädt bei erfolgreicher 
-# .........  Prüfung die Sprachdatei für das Modul.
+# Funktion.: Prüfe alle Modul-Abhängigkeiten (Modul-Dateien, Ausgabe-Ordner, 
+# .........  kritische und optionale Software für die Ausführung des Modul),
+# .........  lädt nach erfolgreicher Prüfung die Sprachdatei für das Modul.
 # Parameter: keine
-# Rückgabe.: 0 = Verfügbar (Provider nutzbar)
-# .........  1 = Nicht verfügbar (Provider deaktiviert)
+# Rückgabe.: 0 = Verfügbar (Module nutzbar)
+# .........  1 = Nicht verfügbar (Modul deaktiviert)
 # Extras...: Setzt MUSICBRAINZ_SUPPORT=true bei erfolgreicher Prüfung
 # ===========================================================================
 check_dependencies_musicbrainz() {

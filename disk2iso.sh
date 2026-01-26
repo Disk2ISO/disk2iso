@@ -83,10 +83,10 @@ OUTPUT_DIR="${DEFAULT_OUTPUT_DIR}"
 
 # Lade Kern-Bibliotheken (IMMER erforderlich)
 source "${SCRIPT_DIR}/lib/libconfig.sh"
-source "${SCRIPT_DIR}/lib/liblogging.sh"
-source "${SCRIPT_DIR}/lib/libapi.sh"
 source "${SCRIPT_DIR}/lib/libfiles.sh"
+source "${SCRIPT_DIR}/lib/liblogging.sh"
 source "${SCRIPT_DIR}/lib/libfolders.sh"
+source "${SCRIPT_DIR}/lib/libapi.sh"
 source "${SCRIPT_DIR}/lib/libintegrity.sh"
 source "${SCRIPT_DIR}/lib/libdiskinfos.sh"
 source "${SCRIPT_DIR}/lib/libdrivestat.sh"
@@ -107,6 +107,11 @@ if ! check_dependencies_config; then
     exit 1
 fi
 
+if ! check_dependencies_files; then
+    echo "FEHLER: Files-Modul Abhängigkeiten nicht erfüllt" >&2
+    exit 1
+fi
+
 if ! check_dependencies_logging; then
     echo "FEHLER: Logging-Modul Abhängigkeiten nicht erfüllt" >&2
     exit 1
@@ -114,11 +119,6 @@ fi
 
 if ! check_dependencies_folders; then
     log_error "Folders-Modul Abhängigkeiten nicht erfüllt"
-    exit 1
-fi
-
-if ! check_dependencies_files; then
-    log_error "Files-Modul Abhängigkeiten nicht erfüllt"
     exit 1
 fi
 

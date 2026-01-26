@@ -1,40 +1,38 @@
 #!/bin/bash
-# =============================================================================
+# ===========================================================================
 # DVD Library
-# =============================================================================
+# ===========================================================================
 # Filepath: lib/libdvd.sh
 #
 # Beschreibung:
 #   Funktionen für DVD-Ripping und -Konvertierung
-#   - copy_video_dvd() - Video-DVD mit dvdbackup + genisoimage (entschlüsselt)
+#   - copy_video_dvd() - Video-DVD mit dvdbackup+genisoimage (entschlüsselt)
 #   - copy_video_dvd_ddrescue() - Video-DVD/BD mit ddrescue (verschlüsselt)
 #   - Intelligentes Fallback-System bei Fehlern
 #   - Integration mit TMDB Metadata-Abfrage
 #
-# -----------------------------------------------------------------------------
+# ---------------------------------------------------------------------------
 # Dependencies: liblogging, libfolders, libcommon (optional: libtmdb)
-# -----------------------------------------------------------------------------
+# ---------------------------------------------------------------------------
 # Author: D.Götze
 # Version: 1.2.1
 # Last Change: 2026-01-26 20:00
-# =============================================================================
+# ===========================================================================
 
-# =============================================================================
+# ===========================================================================
 # DEPENDENCY CHECK
-# =============================================================================
-# Globale Variable für Modulname
-readonly MODULE_NAME_DVD="dvd"
-# Globale Variable für Verfügbarkeit
-VIDEO_DVD_SUPPORT=false
+# ===========================================================================
+readonly MODULE_NAME_DVD="dvd"               # Globale Variable für Modulname
+VIDEO_DVD_SUPPORT=false                  # Globale Variable für Verfügbarkeit
 
 # ===========================================================================
 # check_dependencies_dvd
 # ---------------------------------------------------------------------------
-# Funktion.: Prüfe alle Video-DVD Modul-Abhängigkeiten (Modul-Dateien, 
-# .........  Ausgabe-Ordner, kritische und optionale Software), lädt bei 
-# .........  erfolgreicher Prüfung die Sprachdatei für das Modul.
+# Funktion.: Prüfe alle Modul-Abhängigkeiten (Modul-Dateien, Ausgabe-Ordner, 
+# .........  kritische und optionale Software für die Ausführung des Modul),
+# .........  lädt nach erfolgreicher Prüfung die Sprachdatei für das Modul.
 # Parameter: keine
-# Rückgabe.: 0 = Verfügbar (Modul nutzbar)
+# Rückgabe.: 0 = Verfügbar (Module nutzbar)
 # .........  1 = Nicht verfügbar (Modul deaktiviert)
 # Extras...: Setzt VIDEO_DVD_SUPPORT=true bei erfolgreicher Prüfung
 # ===========================================================================

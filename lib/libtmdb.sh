@@ -1,7 +1,7 @@
 #!/bin/bash
-# =============================================================================
+# ===========================================================================
 # TMDB Metadata Provider
-# =============================================================================
+# ===========================================================================
 # Filepath: lib/libtmdb.sh
 #
 # Beschreibung:
@@ -11,31 +11,29 @@
 #   - Film-/Serien-Suche mit Titel
 #   - Cover-Art, Beschreibung, Release-Jahr
 #
-# -----------------------------------------------------------------------------
+# ---------------------------------------------------------------------------
 # Dependencies: libmetadata, liblogging (externe API: TMDB)
-# -----------------------------------------------------------------------------
+# ---------------------------------------------------------------------------
 # Author: D.Götze
 # Version: 1.2.1
 # Last Change: 2026-01-26 20:00
-# =============================================================================
+# ===========================================================================
 
-# =============================================================================
+# ===========================================================================
 # DEPENDENCY CHECK
-# =============================================================================
-# Globale Variable für Modulname
-readonly MODULE_NAME_TMDB="tmdb"
-# Globale Variable für Verfügbarkeit
-TMDB_SUPPORT=false
+# ===========================================================================
+readonly MODULE_NAME_TMDB="tmdb"             # Globale Variable für Modulname
+TMDB_SUPPORT=false                       # Globale Variable für Verfügbarkeit
 
 # ===========================================================================
 # check_dependencies_tmdb
 # ---------------------------------------------------------------------------
-# Funktion.: Prüfe alle TMDB Provider-Abhängigkeiten (Modul-Dateien, 
-# .........  kritische und optionale Software), lädt bei erfolgreicher 
-# .........  Prüfung die Sprachdatei für das Modul.
+# Funktion.: Prüfe alle Modul-Abhängigkeiten (Modul-Dateien, Ausgabe-Ordner, 
+# .........  kritische und optionale Software für die Ausführung des Modul),
+# .........  lädt nach erfolgreicher Prüfung die Sprachdatei für das Modul.
 # Parameter: keine
-# Rückgabe.: 0 = Verfügbar (Provider nutzbar)
-# .........  1 = Nicht verfügbar (Provider deaktiviert)
+# Rückgabe.: 0 = Verfügbar (Module nutzbar)
+# .........  1 = Nicht verfügbar (Modul deaktiviert)
 # Extras...: Setzt TMDB_SUPPORT=true bei erfolgreicher Prüfung
 # ===========================================================================
 check_dependencies_tmdb() {
