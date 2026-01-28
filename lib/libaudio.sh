@@ -614,28 +614,31 @@ download_cover_art() {
     return 1
 }
 
-# Funktion: Hole Track-Titel aus MusicBrainz-Antwort
+# Funktion: Hole Track-Titel aus MusicBrainz-Antwort oder DISC_DATA (CD-TEXT)
 # Parameter: $1 = Track-Nummer (1-basiert)
 # Rückgabe: Track-Titel oder leer
 get_track_title() {
     local track_num="$1"
+    local track_title=""
     
-    if [[ -z "$mb_response" ]]; then
-        echo ""
-        return 1
-    fi
-    
-    # Nutze gewählten Release-Index (nicht fest 0!)
-    local release_idx="${best_release_index:-0}"
-    
-    # Extrahiere Track-Titel (track_num ist 1-basiert, Array ist 0-basiert)
-    local track_index=$((track_num - 1))
-    local track_title
-    track_title=$(echo "$mb_response" | jq -r ".releases[$release_idx].media[0].tracks[${track_index}].recording.title" 2>/dev/null)
-    
-    if [[ -n "$track_title" ]] && [[ "$track_title" != "null" ]]; then
+    # Methode 1: DISC_DATA (für CD-TEXT oder andere Provider)
+    track_title="${DISC_DATA[track.${track_num}.title]}"
+    if [[ -n "$track_title" ]]; then
         echo "$track_title"
         return 0
+    fi
+    
+    # Methode 2: MusicBrainz mb_response
+    if [[ -n "$mb_response" ]]; then
+        local release_idx="${best_release_index:-0}"
+        local track_index=$((track_num - 1))
+        
+        track_title=$(echo "$mb_response" | jq -r ".releases[$release_idx].media[0].tracks[${track_index}].recording.title" 2>/dev/null)
+        
+        if [[ -n "$track_title" ]] && [[ "$track_title" != "null" ]]; then
+            echo "$track_title"
+            return 0
+        fi
     fi
     
     echo ""
@@ -1109,8 +1112,8 @@ copy_audio_cd() {
         local track_num=$(printf "%02d" "$track")
         local wav_file="${temp_pathname}/track_${track_num}.wav"
         
-        # Progress-Message mit Tracktitel (falls verfügbar)
-        if [[ "$skip_metadata" == "false" ]] && [[ -n "$mb_response" ]]; then
+        # Progress-Message mit Tracktitel (falls verfügbar aus MusicBrainz oder CD-TEXT)
+        if [[ "$skip_metadata" == "false" ]]; then
             local track_title
             track_title=$(get_track_title "$track")
             if [[ -n "$track_title" ]]; then
@@ -1131,12 +1134,12 @@ copy_audio_cd() {
         fi
         
         # Konvertiere WAV zu MP3 mit lame
-        # Dateiname abhängig von verfügbaren Metadaten
+        # Dateiname abhängig von verfügbaren Metadaten (MusicBrainz oder CD-TEXT)
         local mp3_filename
         local mp3_file
         
-        if [[ "$skip_metadata" == "false" ]] && [[ -n "$mb_response" ]]; then
-            # Metadaten verfügbar - nutze Track-Titel
+        if [[ "$skip_metadata" == "false" ]]; then
+            # Metadaten verfügbar - nutze Track-Titel aus MusicBrainz oder CD-TEXT
             local track_title
             track_title=$(get_track_title "$track")
             
