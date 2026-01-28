@@ -64,8 +64,8 @@ check_dependencies_musicbrainz() {
 # ===========================================================================
 # PATH CONSTANTS / GETTER
 # ===========================================================================
-readonly CACHEDIR_MUSICBRAINZ="cache"           # Unterordner für Query-Cache
-readonly COVERDIR_MUSICBRAINZ="covers"     # Unterordner für Cover-Thumbnails
+# DEPRECATED: CACHEDIR_MUSICBRAINZ und COVERDIR_MUSICBRAINZ werden nicht mehr verwendet
+# Ordnerpfade werden aus conf/libmusicbrainz.ini [folders] gelesen (via check_module_dependencies)
 
 # ===========================================================================
 # get_path_musicbrainz
@@ -86,11 +86,14 @@ get_path_musicbrainz() {
 # Funktion.: Liefert den Cache-Pfad für temporäre Query-Results
 # Parameter: keine
 # Rückgabe.: Vollständiger Pfad zum Cache-Verzeichnis
-# Hinweis..: ${get_path_musicbrainz()}/cache/ für .nfo Query-Dateien
+# Hinweis..: Nutzt get_module_folder_path() mit Fallback-Logik:
+#            1. [folders] cache aus INI (spezifisch)
+#            2. [folders] output + /cache (konstruiert)
+#            3. OUTPUT_DIR/cache (global)
+#            Ordner wird von check_module_dependencies() erstellt
 # ===========================================================================
 get_cachepath_musicbrainz() {
-    local provider_base=$(get_path_musicbrainz)
-    ensure_subfolder "${provider_base}/${CACHEDIR_MUSICBRAINZ}"
+    get_module_folder_path "musicbrainz" "cache"
 }
 
 # ===========================================================================
@@ -99,11 +102,14 @@ get_cachepath_musicbrainz() {
 # Funktion.: Liefert den Pfad für temporäre Cover-Thumbnails (Modal)
 # Parameter: keine
 # Rückgabe.: Vollständiger Pfad zum Covers-Verzeichnis
-# Hinweis..: ${get_path_musicbrainz()}/covers/ für temporäre Thumbnails
+# Hinweis..: Nutzt get_module_folder_path() mit Fallback-Logik:
+#            1. [folders] covers aus INI (spezifisch)
+#            2. [folders] output + /covers (konstruiert)
+#            3. OUTPUT_DIR/covers (global)
+#            Ordner wird von check_module_dependencies() erstellt
 # ===========================================================================
 get_coverpath_musicbrainz() {
-    local provider_base=$(get_path_musicbrainz)
-    ensure_subfolder "${provider_base}/${COVERDIR_MUSICBRAINZ}"
+    get_module_folder_path "musicbrainz" "covers"
 }
 
 # ============================================================================
@@ -124,7 +130,7 @@ get_coverpath_musicbrainz() {
 # .........  zu initialisieren bevor das Modul verwendet wird
 # ===========================================================================
 load_api_config_musicbrainz() {
-    local ini_file="${SCRIPT_DIR}/conf/libmusicbrainz.ini"
+    local ini_file=$(get_module_ini_path "musicbrainz")
     
     # Lese API-Konfiguration mit get_ini_value() aus libconfig.sh (falls INI existiert)
     local base_url coverart_base_url user_agent timeout

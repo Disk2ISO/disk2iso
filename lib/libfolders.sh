@@ -295,6 +295,66 @@ readonly MODULE_JS_DIR="www/static/js"           # JavaScript
 readonly MODULE_ROUTER_DIR="www/routes"          # Python-Routes
 
 # ===========================================================================
+# get_conf_dir
+# ---------------------------------------------------------------------------
+# Funktion.: Liefert den Pfad zum Konfigurations-Verzeichnis
+# Parameter: keine
+# Rückgabe.: Vollständiger Pfad zum conf/ Verzeichnis
+# Beispiel.: get_conf_dir
+#            → "/opt/disk2iso/conf"
+# ===========================================================================
+get_conf_dir() {
+    echo "${INSTALL_DIR}/${MODULE_CONF_DIR}"
+}
+
+# ===========================================================================
+# get_module_folder_path
+# ---------------------------------------------------------------------------
+# Funktion.: Ermittle vollständigen Pfad zu Modul-Ordner mit Fallback-Logik
+# Parameter: $1 = module_name (z.B. "tmdb", "audio", "metadata")
+#            $2 = folder_type (z.B. "cache", "covers", "temp", "logs")
+# Rückgabe.: Vollständiger Pfad zum Ordner
+# Beispiel.: get_module_folder_path "tmdb" "cache"
+#            → "/media/iso/metadata/tmdb/cache"
+# Fallbacks: 1. [folders] <folder_type> aus INI (spezifisch)
+#            2. [folders] output aus INI + /<folder_type> (konstruiert)
+#            3. get_out_folder() + /<folder_type> (global)
+# Nutzt....: get_module_ini_path() aus libfiles.sh
+#            get_ini_value() aus libconfig.sh
+# ===========================================================================
+get_module_folder_path() {
+    local module_name="$1"
+    local folder_type="$2"
+    
+    if [[ -z "$module_name" ]] || [[ -z "$folder_type" ]]; then
+        return 1
+    fi
+    
+    local ini_file=$(get_module_ini_path "$module_name")
+    local folder_path
+    local output_path
+    
+    # 1. Primär: Spezifischer Ordner aus INI
+    folder_path=$(get_ini_value "$ini_file" "folders" "$folder_type")
+    
+    if [[ -n "$folder_path" ]]; then
+        echo "${OUTPUT_DIR}/${folder_path}"
+        return 0
+    fi
+    
+    # 2. Fallback: output-Basis + Unterordner
+    output_path=$(get_ini_value "$ini_file" "folders" "output")
+    
+    if [[ -n "$output_path" ]]; then
+        echo "${OUTPUT_DIR}/${output_path}/${folder_type}"
+        return 0
+    fi
+    
+    # 3. Letzter Fallback: Globaler Output-Ordner
+    echo "$(get_out_folder)/${folder_type}"
+}
+
+# ===========================================================================
 # get_module_file_path
 # ---------------------------------------------------------------------------
 # Funktion.: Ermittle vollständigen Pfad zu Modul-Datei

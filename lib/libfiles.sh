@@ -136,5 +136,29 @@ init_filenames() {
 }
 
 # ============================================================================
+# MODULE INI PATH HELPER
+# ============================================================================
+
+# ===========================================================================
+# get_module_ini_path
+# ---------------------------------------------------------------------------
+# Funktion.: Ermittelt vollständigen Pfad zur Modul-INI-Datei
+# Parameter: $1 = module_name (z.B. "tmdb", "audio", "metadata")
+# Rückgabe.: Vollständiger Pfad zur INI-Datei
+# Beispiel.: get_module_ini_path "tmdb"
+#            → "/opt/disk2iso/conf/libtmdb.ini"
+# Nutzt....: get_conf_dir() aus libfolders.sh
+# ===========================================================================
+get_module_ini_path() {
+    local module_name="$1"
+    
+    if [[ -z "$module_name" ]]; then
+        return 1
+    fi
+    
+    echo "$(get_conf_dir)/lib${module_name}.ini"
+}
+
+# ============================================================================
 # ENDE DER FILE MANAGEMENT LIBRARY
 # ============================================================================

@@ -91,13 +91,35 @@ check_module_dependencies() {
         log_info "${module_name}: Kein Manifest gefunden, überspringe Abhängigkeitsprüfung"
         return 0
     fi
-        
+
     # ------------------------------------------------------------------------
-    # Modul Dateien selbst auf Existens prüfen
+    # Lade DB-Datei falls definiert 
+    # ------------------------------------------------------------------------
+    local db_file
+    db_file=$(get_ini_value "$manifest_file" "modulefiles" "db")
+
+    if [[ -n "$db_file" ]]; then
+        local db_path="${INSTALL_DIR}/${db_file}"
+        
+        if [[ -f "$db_path" ]]; then
+            # shellcheck source=/dev/null
+            source "$db_path" || {
+                log_error "${module_name}: DB-Datei konnte nicht geladen werden: ${db_file}"
+                return 1
+            }
+            log_debug "${module_name}: DB-Datei geladen: ${db_file}"
+        else
+            log_error "${module_name}: DB-Datei nicht gefunden: ${db_path}"
+            return 1
+        fi
+    fi
+
+    # ------------------------------------------------------------------------
+    # Alle anderen Modul Dateien selbst auf Existens prüfen
     # ------------------------------------------------------------------------
     local module_files_missing=()          # Array der fehlenden Modul-Dateien
     # Liste aller möglichen Datei-Typen (entspricht INI-Keys)
-    local file_types=("lib" "lang" "docu" "router" "html" "css" "js")
+    local file_types=("db" "lib" "lang" "docu" "router" "html" "css" "js")
     
     for file_type in "${file_types[@]}"; do
         # Lese Dateiname aus Manifest

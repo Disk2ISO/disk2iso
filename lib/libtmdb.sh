@@ -64,8 +64,8 @@ check_dependencies_tmdb() {
 # ===========================================================================
 # PATH CONSTANTS / GETTER
 # ===========================================================================
-readonly CACHEDIR_TMDB="cache"                  # Unterordner für Query-Cache
-readonly COVERDIR_TMDB="covers"            # Unterordner für Cover-Thumbnails
+# DEPRECATED: CACHEDIR_TMDB und COVERDIR_TMDB werden nicht mehr verwendet
+# Ordnerpfade werden aus conf/libtmdb.ini [folders] gelesen (via check_module_dependencies)
 
 # ===========================================================================
 # get_path_tmdb
@@ -86,11 +86,14 @@ get_path_tmdb() {
 # Funktion.: Liefert den Cache-Pfad für temporäre Query-Results
 # Parameter: keine
 # Rückgabe.: Vollständiger Pfad zum Cache-Verzeichnis
-# Hinweis..: ${get_path_tmdb()}/cache/ für .nfo Query-Dateien
+# Hinweis..: Nutzt get_module_folder_path() mit Fallback-Logik:
+#            1. [folders] cache aus INI (spezifisch)
+#            2. [folders] output + /cache (konstruiert)
+#            3. OUTPUT_DIR/cache (global)
+#            Ordner wird von check_module_dependencies() erstellt
 # ===========================================================================
 get_cachepath_tmdb() {
-    local provider_base=$(get_path_tmdb)
-    ensure_subfolder "${provider_base}/${CACHEDIR_TMDB}"
+    get_module_folder_path "tmdb" "cache"
 }
 
 # ===========================================================================
@@ -98,12 +101,15 @@ get_cachepath_tmdb() {
 # ---------------------------------------------------------------------------
 # Funktion.: Liefert den Pfad für temporäre Poster-Thumbnails (Modal)
 # Parameter: keine
-# Rückgabe.: Vollständiger Pfad zum Thumbs-Verzeichnis
-# Hinweis..: ${get_path_tmdb()}/thumbs/ für temporäre Thumbnails
+# Rückgabe.: Vollständiger Pfad zum Covers-Verzeichnis
+# Hinweis..: Nutzt get_module_folder_path() mit Fallback-Logik:
+#            1. [folders] covers aus INI (spezifisch)
+#            2. [folders] output + /covers (konstruiert)
+#            3. OUTPUT_DIR/covers (global)
+#            Ordner wird von check_module_dependencies() erstellt
 # ===========================================================================
 get_coverpath_tmdb() {
-    local provider_base=$(get_path_tmdb)
-    ensure_subfolder "${provider_base}/${COVERDIR_TMDB}"
+    get_module_folder_path "tmdb" "covers"
 }
 
 # ============================================================================
@@ -124,7 +130,7 @@ get_coverpath_tmdb() {
 # .........  initialisieren bevor das Modul verwendet wird
 # ===========================================================================
 load_api_config_tmdb() {
-    local ini_file="${SCRIPT_DIR}/conf/libtmdb.ini"
+    local ini_file=$(get_module_ini_path "tmdb")
     
     # Lese API-Konfiguration mit get_ini_value() aus libconfig.sh (falls INI existiert)
     local base_url image_base_url user_agent timeout language

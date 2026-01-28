@@ -535,36 +535,252 @@ Die folgenden Dateien sind **Einmal-Tools** und können gelöscht werden:
 
 ---
 
+## � PYTHON-BASH-INTEGRATION (NEU - 27. Januar 2026)
+
+### Hintergrund
+Nach Implementierung von `libmetadb.sh` (Commit 576c667) muss das Python-Backend an die neue modulare Bash-Struktur angepasst werden. **Ziel:** Python wird reiner HTTP-Gateway/Übersetzer zwischen Web-UI und Bash-Modulen.
+
+---
+
+### **PHASE 1: Archive-Metadata via libmetadb.sh** 🔴 KRITISCH
+**Aufwand:** 4-6 Stunden  
+**Priorität:** 🔴 HOCH  
+**Löst:** Basis für GitHub #4
+
+**Problem:**
+- Python parst .nfo-Dateien manuell (app.py:238-254)
+- Keine Nutzung von `metadb_export_json()`
+- Duplikation zwischen Python-Parsing und Bash-NFO-Logik
+
+**Lösung:**
+
+1. **Neue Bash-Funktionen in lib/libmetadb.sh:**
+   ```bash
+   metadb_load_from_nfo()      # Lade .nfo in DISC_METADATA + DISC_DATA
+   archive_get_iso_metadata_json()  # Export Metadaten als JSON für Python
+   ```
+
+2. **Python-Refactoring in app.py:**
+   ```python
+   # ERSETZE: Manuelle NFO-Parsing-Schleife
+   # MIT: Bash-Aufruf
+   def get_iso_metadata_via_bash(iso_path):
+       script = """
+       source lib/libmetadb.sh
+       archive_get_iso_metadata_json "{iso_path}"
+       """
+       result = subprocess.run(['/bin/bash', '-c', script], ...)
+       return json.loads(result.stdout)
+   ```
+
+**Vorteile:**
+- ✅ XML + Key-Value NFO unterstützt
+- ✅ Konsistente Metadaten-API
+- ✅ -30 Zeilen Python-Code
+
+**Betroffene Dateien:**
+- `lib/libmetadb.sh` (erweitern)
+- `www/app.py` - `get_iso_files_by_type()` (refactoring)
+
+---
+
+### **PHASE 2: TMDB-Integration vereinfachen** 🔴 HOCH
+**Aufwand:** 3-4 Stunden  
+**Priorität:** 🔴 HOCH  
+**Impact:** -60 Zeilen Python
+
+**Problem:**
+- Python macht TMDB-API-Calls mit `requests` (app.py:1621-1800)
+- Poster-Downloads in Python
+- JSON-Parsing-Duplikation (Python + Bash)
+
+**Lösung:**
+
+1. **Bash-Funktion in lib/libtmdb.sh:**
+   ```bash
+   tmdb_search_for_archive()  # Vollständige TMDB-Suche + Poster-Download
+   ```
+
+2. **Python-Vereinfachung:**
+   ```python
+   # VORHER: 80 Zeilen (API-Call, Poster-Download, Parsing)
+   # NACHHER: 20 Zeilen (Bash-Aufruf + JSON-Rückgabe)
+   @app.route('/api/metadata/tmdb/search', methods=['POST'])
+   def api_tmdb_search():
+       result = subprocess.run(['/bin/bash', '-c', 
+           'source lib/libtmdb.sh; tmdb_search_for_archive ...'])
+       return jsonify(json.loads(result.stdout))
+   ```
+
+**Vorteile:**
+- ✅ -60 Zeilen Python
+- ✅ Konsistente TMDB-API (Service + Web-UI)
+- ✅ Wiederverwendbar in anderen Kontexten
+
+**Betroffene Dateien:**
+- `lib/libtmdb.sh` (erweitern)
+- `www/app.py` - `api_tmdb_search()` (vereinfachen)
+
+---
+
+### **PHASE 3: MusicBrainz-Integration vereinfachen** 🟡 MITTEL
+**Aufwand:** 2-3 Stunden  
+**Priorität:** 🟡 MITTEL  
+**Impact:** -40 Zeilen Python
+
+**Lösung:**
+Analog zu Phase 2 - TMDB
+
+1. **Bash-Funktion in lib/libmusicbrainz.sh:**
+   ```bash
+   musicbrainz_search_for_archive()
+   ```
+
+2. **Python-Vereinfachung:**
+   - Entferne Cover-Download-Logik
+   - Delegiere an Bash
+
+**Betroffene Dateien:**
+- `lib/libmusicbrainz.sh` (erweitern)
+- `www/app.py` - MusicBrainz-Endpoints (vereinfachen)
+
+---
+
+### **PHASE 4: Update-Metadata Endpoint (GitHub #4)** 🔴 KRITISCH
+**Aufwand:** 4-6 Stunden  
+**Priorität:** 🔴 HOCH  
+**Löst:** GitHub #4 komplett
+
+**Problem:**
+- Kein `/api/archive/update-metadata` Endpoint vorhanden
+- User können Metadaten im Archiv nicht bearbeiten
+
+**Lösung:**
+
+1. **Bash-Funktion in lib/libmetadb.sh:**
+   ```bash
+   archive_update_metadata()  # Lädt JSON → metadb → NFO-Export
+   ```
+
+2. **Neuer Python-Endpoint:**
+   ```python
+   @app.route('/api/archive/update-metadata', methods=['POST'])
+   def api_archive_update_metadata():
+       data = request.get_json()
+       script = f"""
+       source lib/libmetadb.sh
+       archive_update_metadata "{iso_path}" '{json_metadata}'
+       """
+       result = subprocess.run(['/bin/bash', '-c', script], ...)
+       return jsonify({'success': True, 'new_path': result.stdout})
+   ```
+
+3. **Frontend-Integration:**
+   - `www/static/js/archive.js` - Bestehende Modal nutzen
+   - POST zu neuem Endpoint
+
+**Vorteile:**
+- ✅ GitHub #4 vollständig gelöst
+- ✅ Nutzt libmetadb.sh konsistent
+- ✅ Optional: ISO-Umbenennung basierend auf neuen Metadaten
+
+**Betroffene Dateien:**
+- `lib/libmetadb.sh` (erweitern)
+- `www/app.py` (neuer Endpoint)
+- `www/static/js/archive.js` (Hook zu neuem Endpoint)
+
+---
+
+### **PHASE 5: ISO-Scanning via Bash** 🟢 OPTIONAL
+**Aufwand:** 6-8 Stunden  
+**Priorität:** 🟢 NIEDRIG  
+**Impact:** -55 Zeilen Python, Performance-Optimierung
+
+**Problem:**
+- Python macht `os.walk()` + Datei-Statistiken (app.py:215-270)
+- Langsam bei großen Archiven
+- Duplikation von Logik
+
+**Lösung:**
+
+1. **Neue Bash-Bibliothek lib/libarchive.sh:**
+   ```bash
+   archive_scan_isos_json()  # Scannt ISOs, nutzt metadb für Metadaten
+   ```
+
+2. **Python wird minimal:**
+   ```python
+   def get_iso_files_by_type(path):
+       result = subprocess.run(['/bin/bash', '-c',
+           'source lib/libarchive.sh; archive_scan_isos_json ...'])
+       return json.loads(result.stdout)
+   ```
+
+**Vorteile:**
+- ✅ -55 Zeilen Python
+- ✅ Potentiell schneller (paralleles find)
+- ✅ Caching in Bash möglich
+
+**Betroffene Dateien:**
+- `lib/libarchive.sh` (neu)
+- `www/app.py` - `get_iso_files_by_type()` (ersetzen)
+
+---
+
+### **ZUSAMMENFASSUNG Python-Bash-Integration**
+
+| Phase | Aufwand | Impact | Priorität | Löst |
+|-------|---------|--------|-----------|------|
+| **1 - Archive-Metadata** | 4-6h | ⭐⭐⭐⭐⭐ | 🔴 HOCH | Basis #4 |
+| **2 - TMDB** | 3-4h | ⭐⭐⭐⭐ | 🔴 HOCH | -60 Zeilen |
+| **3 - MusicBrainz** | 2-3h | ⭐⭐⭐ | 🟡 MITTEL | -40 Zeilen |
+| **4 - Update-Endpoint** | 4-6h | ⭐⭐⭐⭐⭐ | 🔴 HOCH | #4 komplett |
+| **5 - ISO-Scanning** | 6-8h | ⭐⭐⭐ | 🟢 NIEDRIG | -55 Zeilen |
+| **GESAMT** | 19-27h | - | - | #4 + -155 Zeilen |
+
+**Gesamtergebnis nach allen Phasen:**
+- ✅ Python: -155 bis -200 Zeilen Code
+- ✅ Python wird reines HTTP-Gateway
+- ✅ Alle Logik in testbaren Bash-Modulen
+- ✅ `metadb_export_json()` = Single Source of Truth
+- ✅ GitHub #4 vollständig gelöst
+
+---
+
 ## 📋 EMPFOHLENE ARBEITSREIHENFOLGE
 
 ### Sofort (diese Woche):
 
-1. **#11 MQTT Debug** (2 Std) - Logging aktivieren, Broker-Logs prüfen
-2. **#9 ISO-Anzeige** (4 Std) - Detaillierte Diagnose, Issue-Details klären
-3. **#4 Metadaten nachträglich** (4 Std) - Error-Logs sammeln, Reproduzieren
+1. **Python-Bash Phase 1** (4-6h) - Archive-Metadata via libmetadb.sh
+2. **Python-Bash Phase 4** (4-6h) - Update-Metadata Endpoint → **GitHub #4 GELÖST** ✅
+3. **#11 MQTT Debug** (2 Std) - Logging aktivieren, Broker-Logs prüfen
 
 ### Kurzfristig (nächste 2 Wochen):
 
-4. **#5 Runtime-Tests + GitHub schließen** (4 Std) - Audio-CD mit echten Discs testen
-5. **Auto-Cleanup Cronjob** (1 Tag) - install.sh erweitern
-6. **#15 Fehlerbehandlung** (2 Tage) - Retry-Logik implementieren
-7. **#19 Archivierte Logs** (1 Tag) - Neue Route + Template
+4. **Python-Bash Phase 2** (3-4h) - TMDB-Integration vereinfachen (-60 Zeilen)
+5. **Python-Bash Phase 3** (2-3h) - MusicBrainz-Integration vereinfachen (-40 Zeilen)
+6. **#5 Runtime-Tests + GitHub schließen** (4 Std) - Audio-CD mit echten Discs testen
+7. **Auto-Cleanup Cronjob** (1 Tag) - install.sh erweitern
+8. **#15 Fehlerbehandlung** (2 Tage) - Retry-Logik implementieren
+9. **#19 Archivierte Logs** (1 Tag) - Neue Route + Template
 
 ### Mittelfristig (nächste 4 Wochen):
 
-8. **#10 Kompaktere Anzeige** (2 Tage) - Kollapsbare Sektionen
-9. **#6 DVD Metadaten** (Details klären, dann umsetzen)
+10. **#9 ISO-Anzeige Debug** (4 Std) - Detaillierte Diagnose
+11. **#10 Kompaktere Anzeige** (2 Tage) - Kollapsbare Sektionen
+12. **#6 DVD Metadaten** (Details klären, dann umsetzen)
+13. **Python-Bash Phase 5** (6-8h) - ISO-Scanning via Bash (OPTIONAL)
 
 ### Langfristig (nächste 3 Monate):
 
-10. **Frontend-Modularisierung** (1 Woche) - Dynamisches JS-Loading
-11. **Metadata Cache-DB** (1 Woche) - 10-40x schneller
-12. **Plugin-System Backend** (2 Wochen) - Flask Blueprints
+14. **Frontend-Modularisierung** (1 Woche) - Dynamisches JS-Loading
+15. **Metadata Cache-DB** (1 Woche) - 10-40x schneller
+16. **Plugin-System Backend** (2 Wochen) - Flask Blueprints
 
 ### Features (nach Bedarf):
 
-13. **#22 MP3 feat. Artists** (3 Tage) - MusicBrainz Artist-Credits
-14. **#21 MP3 Sampler** (1 Woche) - Komplexe MusicBrainz-Logik
+17. **#22 MP3 feat. Artists** (1 Tag mit libmetadb.sh) - MusicBrainz Artist-Credits
+18. **#21 MP3 Sampler** (1 Woche mit libmetadb.sh) - Komplexe MusicBrainz-Logik
 
 ---
 
@@ -590,5 +806,25 @@ Nach Erstellung dieser konsolidierten Übersicht können **folgende Dateien gel�
 
 ---
 
-**Zuletzt aktualisiert:** 26. Januar 2026  
+## 📝 CHANGELOG
+
+### 27. Januar 2026
+- ✅ **libmetadb.sh implementiert** (Commit 576c667)
+  - In-Memory Metadaten-Datenbank mit CRUD-API
+  - NFO-Export für Audio/Video/Data
+  - JSON-Export für Python-Integration
+  - Provider-Refactoring (libmusicbrainz.sh, libtmdb.sh, libaudio.sh)
+  - -300 Zeilen Code-Duplikation entfernt
+  
+- 📋 **Python-Bash-Integration geplant** (5 Phasen, 19-27h)
+  - Phase 1-4: KRITISCH (GitHub #4 Lösung)
+  - Phase 5: Optional
+  - Ziel: Python als reines HTTP-Gateway
+
+### 26. Januar 2026
+- Initiale Konsolidierung aller TODO-Dateien
+
+---
+
+**Zuletzt aktualisiert:** 27. Januar 2026  
 **Nächste Aktualisierung:** Nach Abschluss einer Aufgabe aus der Liste
