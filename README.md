@@ -20,7 +20,29 @@
 - 🌍 **Mehrsprachig** - 4 vollständige Sprachen (de, en, es, fr)
 - 📊 **JSON REST API** - Vollständige Programmierschnittstelle für externe Tools
 
-## 🚀 Quick Start
+## � Verfügbare Module
+
+disk2iso unterstützt optionale Module für erweiterte Funktionen:
+
+| Modul | Status | Beschreibung | Installation |
+|-------|--------|--------------|--------------|
+| [MQTT](https://github.com/DirkGoetze/disk2iso-mqtt) | ✅ Stabil | Home Assistant Integration mit Auto-Discovery, Echtzeit-Status und Push-Benachrichtigungen | [Download](https://github.com/DirkGoetze/disk2iso-mqtt/releases/latest) |
+| TMDB | 🚧 Geplant | Film-/TV-Metadaten für DVDs & Blu-rays | - |
+| MusicBrainz | 🚧 Geplant | Erweiterte Audio-CD Metadaten | - |
+
+### MQTT-Modul installieren
+
+```bash
+# Automatisch
+curl -L https://github.com/DirkGoetze/disk2iso-mqtt/releases/latest/download/mqtt-module.zip -o /tmp/mqtt.zip
+cd /opt/disk2iso
+sudo unzip /tmp/mqtt.zip
+sudo systemctl restart disk2iso-web
+```
+
+**Mehr Info:** [MQTT-Modul Dokumentation](https://github.com/DirkGoetze/disk2iso-mqtt)
+
+## �🚀 Quick Start
 
 ```bash
 # Installation
