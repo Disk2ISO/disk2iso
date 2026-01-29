@@ -200,7 +200,7 @@ if is_audio_ready || is_dvd_ready || is_bluray_ready; then
     fi
 fi
 
-# MQTT Support (optional)
+# MQTT Support (externes Plugin - siehe: https://github.com/DirkGoetze/disk2iso-mqtt)
 if [[ -f "${SCRIPT_DIR}/lib/libmqtt.sh" ]]; then
     source "${SCRIPT_DIR}/lib/libmqtt.sh"
     check_dependencies_mqtt  # Setzt SUPPORT_MQTT=true bei Erfolg
@@ -638,7 +638,8 @@ main() {
     #   - INI-Manifest-basierte Prüfung via check_module_dependencies()
     #   - Return 1 → Feature deaktiviert (Script läuft weiter)
     #   - Setzen Feature-Flag (*_SUPPORT=true)
-    #   - Beispiele: libcd, libdvd, libbluray, libmqtt
+    #   - Beispiele: libcd, libdvd, libbluray
+    #   - Externe Plugins: libmqtt (https://github.com/DirkGoetze/disk2iso-mqtt)
     # ========================================================================
     
     # OUTPUT_DIR wurde bereits am Anfang des Scripts gesetzt (siehe Zeile 83)

@@ -17,14 +17,15 @@ from i18n import get_translations
 app = Flask(__name__)
 
 # Register Blueprints für modulare Routen
-# Conditional Import: Nur registrieren wenn Modul installiert
+# MQTT-Modul Detection (externes Plugin)
+MQTT_MODULE_AVAILABLE = False
 try:
     from routes import mqtt_bp
     app.register_blueprint(mqtt_bp)
     MQTT_MODULE_AVAILABLE = True
+    print("INFO: MQTT module loaded", file=sys.stderr)
 except ImportError:
-    MQTT_MODULE_AVAILABLE = False
-    print("INFO: MQTT module not installed (optional)", file=sys.stderr)
+    print("INFO: MQTT module not installed (install from: https://github.com/DirkGoetze/disk2iso-mqtt)", file=sys.stderr)
 
 # Konfiguration
 INSTALL_DIR = Path("/opt/disk2iso")
