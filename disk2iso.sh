@@ -218,13 +218,15 @@ fi
 # ===========================================================================
 # copy_disc_to_iso()
 # ---------------------------------------------------------------------------
-# Funktion.: Kopiert die eingelegte CD/DVD/BD in ein ISO-Image. Dazu wird
-# .........  zunächst versucht basierend auf dem erkannten Disc-Typ an 
-# .........  eines der spezialisierte Module zu delegieren (Audio-CD, 
-# .........  Video-DVD, Blu-ray). Wenn kein spezialisierter Typ erkannt
-# .........  wurde, wird die Disc als Daten-Disc mit dd kopiert.
-# Parameter.: Keine
-# Rückgabe.: 0 bei Erfolg, sonst Fehlercode
+# Funktion.: Kopiert die eingelegte CD/DVD/BD in ein ISO-Image. Delegiert
+# .........  an spezialisierte Module basierend auf erkanntem Disc-Typ:
+# .........  Audio-CD → libaudio.sh, Video-DVD → libdvd.sh,
+# .........  Blu-ray → libbluray.sh, Daten-Disc → libcommon.sh
+# Parameter: keine (nutzt DISC_INFO Array)
+# Rückgabe.: 0 = Erfolg
+# .........  1 = Fehler (Modul nicht verfügbar oder Kopiervorgang fehlgeschlagen)
+# Extras...: Wählt automatisch beste verfügbare Kopiermethode
+# .........  Nutzt Getter für DISC_INFO-Zugriff (discinfo_get_type)
 # ===========================================================================
 copy_disc_to_iso() {
     #-- Ermittle Disc-Typ ---------------------------------------------------
@@ -254,12 +256,22 @@ copy_disc_to_iso() {
     return $?
 }
 
-# TODO: Ab hier ist das Modul noch nicht fertig implementiert!
+# ============================================================================
+# STATE MACHINE
+# ============================================================================
 
-
-# Funktion zum Überwachen des CD/DVD-Laufwerks
-# Erkennt Disc-Typ und kopiert entsprechend
-# State transition handler
+# ===========================================================================
+# transition_to_state()
+# ---------------------------------------------------------------------------
+# Funktion.: State Machine Transition Handler - Wechselt State und
+# .........  aktualisiert API/MQTT Status automatisch (Observer Pattern)
+# Parameter: $1 = new_state (z.B. STATE_COPYING, STATE_COMPLETED)
+# .........  $2 = msg (optionale Statusmeldung, default: leer)
+# Rückgabe.: keine
+# Extras...: Triggert api_update_from_state() für automatische Status-Updates
+# .........  MQTT-Updates erfolgen transparent via Observer Pattern
+# .........  Loggt State-Wechsel mit optionaler Nachricht
+# ===========================================================================
 transition_to_state() {
     local new_state="$1"
     local msg="${2:-}"
@@ -278,7 +290,19 @@ transition_to_state() {
     api_update_from_state "$new_state" "$disc_label" "$disc_type" "${msg:-}"
 }
 
-# State Machine Main Loop
+# ===========================================================================
+# run_state_machine()
+# ---------------------------------------------------------------------------
+# Funktion.: State Machine Hauptschleife - Überwacht Laufwerk und Medium,
+# .........  führt kompletten Workflow aus (Erkennung → Analyse → Kopie)
+# Parameter: keine
+# Rückgabe.: läuft endlos (Exit nur via Signal SIGTERM/SIGINT)
+# Extras...: 11 States: INITIALIZING, WAITING_FOR_DRIVE, DRIVE_DETECTED,
+# .........  WAITING_FOR_MEDIA, MEDIA_DETECTED, ANALYZING, COPYING,
+# .........  COMPLETED, ERROR, WAITING_FOR_REMOVAL, IDLE
+# .........  Polling-Intervalle: Drive=20s, Media=2s, Removal=5s
+# .........  Auto-Recovery bei Fehlern (Device-Loss, Lesefehler)
+# ===========================================================================
 run_state_machine() {
     log_info "$MSG_STATE_MACHINE_STARTED"
     
@@ -415,8 +439,19 @@ run_state_machine() {
 # START & SIGNAL-HANDLING
 # ============================================================================
 
-# Hauptfunktion
-# Prüft Abhängigkeiten und startet Überwachung
+# ===========================================================================
+# main()
+# ---------------------------------------------------------------------------
+# Funktion.: Hauptfunktion - Prüft Service-Modus, Abhängigkeiten und
+# .........  startet State Machine (nur als systemd-Service erlaubt)
+# Parameter: $@ = Kommandozeilenparameter (--help, --status)
+# Rückgabe.: 0 = Service beendet (nur bei SIGTERM/SIGINT)
+# .........  1 = Fehler (manuelle Ausführung, fehlende Abhängigkeiten)
+# Extras...: Verhindert manuelle Ausführung (nur systemd-Service)
+# .........  Validiert OUTPUT_DIR Existenz und Schreibrechte
+# .........  Alle Module bereits geladen (Zeile 74-184)
+# .........  Startet endlose State Machine Loop
+# ===========================================================================
 main() {
     # Prüfe ob als systemd-Service gestartet
     local is_service=false
@@ -536,7 +571,18 @@ main() {
     run_state_machine
 }
 
-# Signal-Handler für sauberes Service-Beenden
+# ===========================================================================
+# cleanup_service()
+# ---------------------------------------------------------------------------
+# Funktion.: Signal-Handler für sauberes Service-Beenden (SIGTERM/SIGINT)
+# .........  Stoppt laufende Kopierprozesse und räumt Ressourcen auf
+# Parameter: keine (wird von trap aufgerufen)
+# Rückgabe.: exit 0 (beendet Script)
+# Extras...: Setzt MQTT Offline-Status (falls aktiviert)
+# .........  Tötet Child-Prozesse (ddrescue, dd, dvdbackup, etc.)
+# .........  Ruft cleanup_disc_operation("interrupted") auf
+# .........  Registriert via: trap cleanup_service SIGTERM SIGINT
+# ===========================================================================
 cleanup_service() {
     log_info "$MSG_SERVICE_STOPPING"
     
