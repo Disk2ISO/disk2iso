@@ -84,6 +84,7 @@ declare -A DISC_INFO=(
     ["size_mb"]=0          # Größe in MB (gerundet)
     ["filesystem"]=""      # Dateisystem: iso9660, udf, mixed, unknown
     ["created_at"]=""      # ISO-Erstellungsdatum (YYYY-MM-DDTHH:MM:SSZ)
+    ["copy_method"]=""     # Verwendete Kopiermethode: ddrescue, dd, cdparanoia, dvdbackup, makemkvcon
     
     # ========== Physische Disc-Veröffentlichung ==========
     ["title"]=""           # Disc-Titel (kann von Album/Film-Titel abweichen bei Compilations)
@@ -169,6 +170,7 @@ discinfo_init() {
     DISC_INFO[block_size]=2048
     DISC_INFO[filesystem]=""
     DISC_INFO[created_at]=""
+    DISC_INFO[copy_method]=""
     DISC_INFO[title]=""
     DISC_INFO[release_date]=""
     DISC_INFO[country]=""
@@ -783,6 +785,37 @@ discinfo_detect_filesystem() {
     
     discinfo_set_filesystem "$fs_type"
     return $?
+}
+
+# ===========================================================================
+# discinfo_get_copy_method
+# ---------------------------------------------------------------------------
+# Funktion.: Lese verwendete Kopiermethode
+# Parameter: keine
+# Ausgabe..: Methode (stdout) - ddrescue, dd, cdparanoia, dvdbackup, makemkvcon
+# Rückgabe.: 0 = Wert vorhanden, 1 = Leer
+# ===========================================================================
+discinfo_get_copy_method() {
+    local method="${DISC_INFO[copy_method]}"
+    if [[ -n "$method" ]]; then
+        echo "$method"
+        return 0
+    fi
+    return 1
+}
+
+# ===========================================================================
+# discinfo_set_copy_method
+# ---------------------------------------------------------------------------
+# Funktion.: Setze verwendete Kopiermethode
+# Parameter: $1 = copy_method (ddrescue, dd, cdparanoia, dvdbackup, makemkvcon)
+# Rückgabe.: 0
+# ===========================================================================
+discinfo_set_copy_method() {
+    local method="$1"
+    DISC_INFO[copy_method]="$method"
+    log_debug "discinfo_set_copy_method: '$method'"
+    return 0
 }
 
 # ===========================================================================

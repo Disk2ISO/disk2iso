@@ -45,6 +45,76 @@ check_dependencies_files() {
 }
 
 # ============================================================================
+# FILE CONSTANTS
+# ============================================================================
+
+readonly FAILED_DISCS_FILE=".failed_discs"    # Zentrale Fehler-Tracking Datei
+
+# ============================================================================
+# FAILED DISC TRACKING PATH
+# ============================================================================
+
+# ===========================================================================
+# get_failed_disc_path
+# ---------------------------------------------------------------------------
+# Funktion.: Liefert Pfad zur Failed-Disc-Tracking-Datei (INI-Format)
+# Parameter: keine
+# Rückgabe.: 0 = Datei existiert/wurde erstellt (Pfad in stdout)
+#            1 = Fehler beim Erstellen/Zugriff
+# Beispiel.: local failed_file
+#            failed_file=$(get_failed_disc_path) || return 1
+#            → "/media/iso/.failed_discs"
+# Extras...: Erstellt Datei automatisch falls nicht vorhanden
+#            Nutzt get_out_folder() aus libfolders.sh
+#            Pattern für alle Dateipfad-Funktionen in libfiles.sh
+# ===========================================================================
+get_failed_disc_path() {
+    #-- Eröffne Debug-Log ---------------------------------------------------
+    log_debug "get_failed_disc_path: Start"
+
+    #-- Ermittle Ausgabe-Ordner ---------------------------------------------    
+    local out_dir
+    out_dir=$(get_out_folder) || {
+        log_error "get_failed_disc_path: get_out_folder fehlgeschlagen"
+        return 1
+    }
+    
+    #-- Vollständigen Pfad zur Failed-Disc-Datei erstellen ------------------
+    local failed_file="${out_dir}/${FAILED_DISCS_FILE}"
+    
+    #-- Prüfe ob Datei bereits existiert ------------------------------------
+    if [[ -f "$failed_file" ]]; then
+        log_debug "get_failed_disc_path: Datei existiert bereits: $failed_file"
+        echo "$failed_file"
+        return 0
+    fi
+    
+    #-- Erstelle Datei mit INI-Header ---------------------------------------
+    log_debug "get_failed_disc_path: Erstelle neue Datei: $failed_file"
+    {
+        echo "# Failed Disc Tracking (INI Format)"
+        echo "# Format: UUID:LABEL:SIZE_MB=timestamp|method|retry_count"
+        echo "# Sections: [data], [audio], [dvd], [bluray]"
+        echo ""
+    } > "$failed_file"
+    
+    if [[ $? -eq 0 ]]; then
+        #-- Prüfe ob Erstellung erfolgreich war -----------------------------
+        if [[ -f "$failed_file" ]]; then
+            log_debug "get_failed_disc_path: Datei erfolgreich erstellt: $failed_file"
+            echo "$failed_file"
+            return 0
+        else
+            log_error "get_failed_disc_path: Datei-Erstellung fehlgeschlagen (Datei nicht vorhanden): $failed_file"
+            return 1
+        fi
+    else
+        log_error "get_failed_disc_path: Datei-Erstellung fehlgeschlagen (cat-Fehler): $failed_file"
+        return 1
+    fi
+}
+
+# ============================================================================
 # FILENAME SANITIZATION
 # ============================================================================
 

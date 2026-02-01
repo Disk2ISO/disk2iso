@@ -39,7 +39,7 @@
 | libdiskinfos.sh | `detect_disc_type()` | ~360 | `discinfo_set_filesystem()` hinzugefügt | ✅ |
 | libdiskinfos.sh | `get_disc_label()` | 580 | `disc_label=` → `discinfo_set_label()` | ✅ |
 | libcommon.sh | `get_disc_size()` | 386-418 | `volume_size=` → `discinfo_set_size()` | ✅ |
-| libcommon.sh | `reset_disc_variables()` | 591-601 | Ruft `discinfo_init()` auf | ✅ |
+| libcommon.sh | `common_reset_disc_variables()` | 591-601 | Ruft `discinfo_init()` auf | ✅ |
 | libaudio.sh | `copy_audio_cd()` | 802 | `disc_label=` → `discinfo_set_label()` | ✅ |
 | libaudio.sh | `copy_audio_cd()` | 807 | `disc_label=` → `discinfo_set_label()` | ✅ |
 | libaudio.sh | `copy_audio_cd()` | 811 | `disc_label=` → `discinfo_set_label()` | ✅ |

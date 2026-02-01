@@ -227,33 +227,39 @@ fi
 # .........  1 = Fehler (Modul nicht verfügbar oder Kopiervorgang fehlgeschlagen)
 # Extras...: Wählt automatisch beste verfügbare Kopiermethode
 # .........  Nutzt Getter für DISC_INFO-Zugriff (discinfo_get_type)
+# .........  Ruft common_cleanup_disc_operation() mit explizitem Status auf
 # ===========================================================================
 copy_disc_to_iso() {
     #-- Ermittle Disc-Typ ---------------------------------------------------
     local disc_type="$(discinfo_get_type)"
+    local exit_code=0
     
     #-- Audio-CD: Delegiere an libaudio.sh ----------------------------------
     if [[ "$disc_type" == "audio-cd" ]] && is_audio_ready; then
         copy_audio_cd
-        return $?
-    fi
-    
+        exit_code=$?
     #-- Video-DVD: Delegiere an libdvd.sh -----------------------------------
-    if [[ "$disc_type" == "dvd-video" ]] && is_dvd_ready; then
+    elif [[ "$disc_type" == "dvd-video" ]] && is_dvd_ready; then
         copy_video_dvd
-        return $?
-    fi
-    
+        exit_code=$?
     #-- Blu-ray: Delegiere an libbluray.sh ----------------------------------
-    if [[ "$disc_type" == "bd-video" ]] && is_bluray_ready; then
+    elif [[ "$disc_type" == "bd-video" ]] && is_bluray_ready; then
         copy_bluray_disk
-        return $?
+        exit_code=$?
+    #-- Daten-Disc oder kein passendes Kopiermodul aktiv -------------------
+    else
+        common_copy_data_disc
+        exit_code=$?
     fi
     
-    #-- Daten-Disc oder kein passendes Kopiermodul aktiv -------------------
-    #-- libcommon.sh wählt beste Methode (ddrescue oder dd) ----------------
-    copy_data_disc
-    return $?
+    #-- Cleanup mit explizitem Status (Success/Failure basierend auf Return-Code)
+    if [[ $exit_code -eq 0 ]]; then
+        common_cleanup_disc_operation "success"
+    else
+        common_cleanup_disc_operation "failure"
+    fi
+    
+    return $exit_code
 }
 
 # ============================================================================
@@ -406,7 +412,8 @@ run_state_machine() {
                 ;;
                 
             "$STATE_COMPLETED"|"$STATE_ERROR")
-                # Warte auf Medium-Entfernung
+                # Wirf Disc aus und wechsle zu WAITING_FOR_REMOVAL
+                common_eject_and_wait "false"
                 transition_to_state "$STATE_WAITING_FOR_REMOVAL" "$MSG_WAITING_FOR_REMOVAL"
                 ;;
                 
@@ -580,7 +587,7 @@ main() {
 # Rückgabe.: exit 0 (beendet Script)
 # Extras...: Setzt MQTT Offline-Status (falls aktiviert)
 # .........  Tötet Child-Prozesse (ddrescue, dd, dvdbackup, etc.)
-# .........  Ruft cleanup_disc_operation("interrupted") auf
+# .........  Ruft common_cleanup_disc_operation("interrupted") auf
 # .........  Registriert via: trap cleanup_service SIGTERM SIGINT
 # ===========================================================================
 cleanup_service() {
@@ -596,7 +603,7 @@ cleanup_service() {
     sleep 2  # Warte bis Prozesse beendet sind
     
     # Jetzt cleanup durchführen
-    cleanup_disc_operation "interrupted"
+    common_cleanup_disc_operation "interrupted"
     exit 0
 }
 

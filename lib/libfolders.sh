@@ -53,6 +53,14 @@ _LOG_DIR_CREATED=false
 _TEMP_BASE_CREATED=false
 
 # ============================================================================
+# PATH CONSTANTS
+# ============================================================================
+
+readonly DATA_DIR="data"
+readonly TEMP_DIR=".temp"
+readonly MOUNTPOINTS_DIR=".temp/mountpoints"
+
+# ============================================================================
 # GENERIC HELPER FUNCTIONS
 # ============================================================================
 
@@ -274,6 +282,17 @@ get_bd_backup_folder() {
     fi
     log_info "$MSG_BACKUP_DIR_CREATED: $backup_dir"
     return 0
+}
+
+# ============================================================================
+# PATH GETTER
+# ============================================================================
+
+# Funktion: Ermittle Pfad für Daten-Discs (DATA)
+# Rückgabe: Vollständiger Pfad zu data/
+# Nutzt ensure_subfolder für konsistente Ordner-Verwaltung
+get_path_data() {
+    ensure_subfolder "$DATA_DIR"
 }
 
 # ===========================================================================

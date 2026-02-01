@@ -341,6 +341,41 @@ restart_service() {
 # CONFIG MANAGEMENT FUNKTIONEN (LEGACY - für Kompatibilität)
 # ============================================================================
 
+# Funktion: Lese Config-Wert aus config.sh
+# Parameter: $1 = Key (z.B. "DEFAULT_OUTPUT_DIR")
+# Rückgabe: JSON mit {"success": true, "value": "..."} oder {"success": false, "message": "..."}
+# NOTE: Diese Funktion ist veraltet. Nutze get_all_config_values() für vollständige Config
+get_config_value() {
+    local key="$1"
+    local config_file="${INSTALL_DIR:-/opt/disk2iso}/lib/config.sh"
+    
+    if [[ -z "$key" ]]; then
+        echo '{"success": false, "message": "Key erforderlich"}'
+        return 1
+    fi
+    
+    if [[ ! -f "$config_file" ]]; then
+        echo '{"success": false, "message": "config.sh nicht gefunden"}'
+        return 1
+    fi
+    
+    # Lese Wert mit sed
+    local value=$(sed -n "s/^${key}=\(.*\)/\1/p" "$config_file" | head -1)
+    
+    # Entferne Anführungszeichen
+    value=$(echo "$value" | sed 's/^"\(.*\)"$/\1/')
+    
+    if [[ -n "$value" ]]; then
+        # Escape JSON special characters
+        value=$(echo "$value" | sed 's/\\/\\\\/g; s/"/\\"/g')
+        echo "{\"success\": true, \"value\": \"${value}\"}"
+        return 0
+    else
+        echo "{\"success\": false, \"message\": \"Key nicht gefunden\"}"
+        return 1
+    fi
+}
+
 # Funktion: Aktualisiere einzelnen Config-Wert in config.sh
 # Parameter: $1 = Key (z.B. "DEFAULT_OUTPUT_DIR")
 #            $2 = Value (z.B. "/media/iso")
@@ -614,4 +649,160 @@ get_ini_array() {
         # Split by Komma, trim Whitespace
         echo "$value" | tr ',' '\n' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//'
     fi
+}
+
+# ===========================================================================
+# get_ini_section
+# ---------------------------------------------------------------------------
+# Funktion.: Lese alle Key=Value Paare einer INI-Sektion
+# Parameter: $1 = ini_file
+#            $2 = section
+# Rückgabe.: Key=Value Paare (eine Zeile pro Entry)
+# Beispiel.: get_ini_section ".failed_discs" "data"
+#            → "UUID1:Label1:700=2026-01-26|ddrescue|1"
+#            → "UUID2:Label2:650=2026-01-25|dd|2"
+# ===========================================================================
+get_ini_section() {
+    local ini_file="$1"
+    local section="$2"
+    
+    if [[ ! -f "$ini_file" ]]; then
+        return 1
+    fi
+    
+    # awk: Drucke alle Key=Value Zeilen innerhalb der Sektion
+    awk -v section="[${section}]" '
+        # Section-Header gefunden
+        $0 == section { in_section=1; next }
+        
+        # Neue Section beginnt
+        /^\[.*\]/ { in_section=0 }
+        
+        # In Sektion: Drucke Key=Value Zeilen (ignoriere Kommentare/Leerzeilen)
+        in_section && /^[^#;[:space:]].*=/ { print $0 }
+    ' "$ini_file"
+}
+
+# ===========================================================================
+# write_ini_value
+# ---------------------------------------------------------------------------
+# Funktion.: Schreibe/Aktualisiere einzelnen Wert in INI-Sektion
+# Parameter: $1 = ini_file
+#            $2 = section
+#            $3 = key
+#            $4 = value
+# Rückgabe.: 0 = Erfolg, 1 = Fehler
+# Beispiel.: write_ini_value ".failed_discs" "data" "UUID:Label:700" "2026-01-26|ddrescue|1"
+# ===========================================================================
+write_ini_value() {
+    local ini_file="$1"
+    local section="$2"
+    local key="$3"
+    local value="$4"
+    
+    # Escape Sonderzeichen für sed
+    local escaped_key=$(echo "$key" | sed 's/[\/&]/\\&/g')
+    local escaped_value=$(echo "$value" | sed 's/[\/&]/\\&/g')
+    
+    # Erstelle Datei falls nicht vorhanden
+    if [[ ! -f "$ini_file" ]]; then
+        touch "$ini_file"
+    fi
+    
+    # Prüfe ob Section existiert
+    if ! grep -q "^\[${section}\]" "$ini_file" 2>/dev/null; then
+        # Section fehlt - erstelle sie
+        echo "" >> "$ini_file"
+        echo "[${section}]" >> "$ini_file"
+        echo "${key}=${value}" >> "$ini_file"
+        return 0
+    fi
+    
+    # Prüfe ob Key in Section existiert
+    if awk -v section="[${section}]" -v key="$key" '
+        $0 == section { in_section=1; next }
+        /^\[.*\]/ { in_section=0 }
+        in_section && $1 ~ "^[[:space:]]*" key "[[:space:]]*$" { found=1; exit }
+        END { exit !found }
+    ' "$ini_file"; then
+        # Key existiert - aktualisiere Wert
+        awk -v section="[${section}]" -v key="$key" -v value="$value" '
+            $0 == section { in_section=1; print; next }
+            /^\[.*\]/ { in_section=0 }
+            in_section && $1 ~ "^[[:space:]]*" key "[[:space:]]*$" {
+                print key "=" value
+                next
+            }
+            { print }
+        ' "$ini_file" > "${ini_file}.tmp" && mv "${ini_file}.tmp" "$ini_file"
+    else
+        # Key fehlt - füge in Section ein
+        awk -v section="[${section}]" -v key="$key" -v value="$value" '
+            $0 == section { in_section=1; print; print key "=" value; next }
+            /^\[.*\]/ { in_section=0 }
+            { print }
+        ' "$ini_file" > "${ini_file}.tmp" && mv "${ini_file}.tmp" "$ini_file"
+    fi
+    
+    return 0
+}
+
+# ===========================================================================
+# delete_ini_value
+# ---------------------------------------------------------------------------
+# Funktion.: Lösche einzelnen Key aus INI-Sektion
+# Parameter: $1 = ini_file
+#            $2 = section
+#            $3 = key
+# Rückgabe.: 0 = Erfolg, 1 = Fehler
+# Beispiel.: delete_ini_value ".failed_discs" "data" "UUID:Label:700"
+# ===========================================================================
+delete_ini_value() {
+    local ini_file="$1"
+    local section="$2"
+    local key="$3"
+    
+    if [[ ! -f "$ini_file" ]]; then
+        return 1
+    fi
+    
+    # awk: Lösche Key=Value Zeile in angegebener Sektion
+    awk -v section="[${section}]" -v key="$key" '
+        $0 == section { in_section=1; print; next }
+        /^\[.*\]/ { in_section=0 }
+        in_section && $1 ~ "^[[:space:]]*" key "[[:space:]]*$" { next }
+        { print }
+    ' "$ini_file" > "${ini_file}.tmp" && mv "${ini_file}.tmp" "$ini_file"
+    
+    return 0
+}
+
+# ===========================================================================
+# count_ini_section_entries
+# ---------------------------------------------------------------------------
+# Funktion.: Zähle Anzahl der Einträge in INI-Sektion
+# Parameter: $1 = ini_file
+#            $2 = section
+# Rückgabe.: Anzahl (0-N)
+# Beispiel.: count_ini_section_entries ".failed_discs" "data"
+#            → "3"
+# ===========================================================================
+count_ini_section_entries() {
+    local ini_file="$1"
+    local section="$2"
+    
+    if [[ ! -f "$ini_file" ]]; then
+        echo 0
+        return
+    fi
+    
+    # awk: Zähle Key=Value Zeilen in Sektion
+    local count=$(awk -v section="[${section}]" '
+        $0 == section { in_section=1; next }
+        /^\[.*\]/ { in_section=0 }
+        in_section && /^[^#;[:space:]].*=/ { count++ }
+        END { print count+0 }
+    ' "$ini_file")
+    
+    echo "$count"
 }

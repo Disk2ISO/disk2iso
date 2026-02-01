@@ -346,3 +346,113 @@ Für alle Skripte und Funktionen im Projekt gilt folgende verbindliche Skala fü
 - Ziel ist eine eindeutige, priorisierbare Fehlerauswertung und einheitliche Fehlerbehandlung im gesamten Projekt.
 
 ---
+
+## Policy: Echo-Output und Return-Codes (Getter-Funktionen)
+
+Für alle Funktionen die Werte über stdout (echo) zurückgeben gilt:
+
+**Verbindliches Pattern:**
+```bash
+get_something() {
+    local value=$(some_operation)
+    
+    # Erfolgsfall: Wert vorhanden
+    if [[ -n "$value" ]]; then
+        echo "$value"
+        return 0  # Expliziter Erfolg - PFLICHT
+    fi
+    
+    # Fehlerfall: Kein Wert verfügbar
+    echo ""       # Leerer String oder Fallback-Wert - PFLICHT
+    return 1      # Expliziter Fehler - PFLICHT
+}
+```
+
+**Regeln:**
+
+1. **PFLICHT für alle Getter-Funktionen**: Jede Funktion die einen Wert per `echo` ausgibt MUSS einen expliziten `return`-Code setzen
+2. **return 0**: Bei erfolgreichem Abruf/Berechnung des Wertes
+3. **return 1**: Bei Fehler, fehlenden Daten oder ungültigen Parametern
+4. **Fehlerfall-Output**: Bei Fehler MUSS ein leerer String (`echo ""`) oder ein dokumentierter Fallback-Wert (z.B. `echo 0` bei Countern) ausgegeben werden
+5. **Konsistenz**: Pattern gilt für ALLE Getter-Funktionen im gesamten Projekt (Bash, Python, etc.)
+
+**Anwendungsbeispiele:**
+
+_Erfolgreich mit Wert:_
+```bash
+discinfo_get_label() {
+    local label="${DISC_INFO[label]}"
+    
+    if [[ -n "$label" ]]; then
+        echo "$label"
+        return 0
+    fi
+    
+    echo ""
+    return 1
+}
+```
+
+_Fehlerfall mit Fallback:_
+```bash
+common_get_disc_failure_count() {
+    local failed_file=$(get_failed_disc_path) || {
+        echo 0  # Fallback: Keine Fehler bekannt
+        return 1
+    }
+    
+    local count=$(grep -c "^${identifier}" "$failed_file")
+    echo "$count"
+    return 0
+}
+```
+
+_Pfad-Funktionen:_
+```bash
+get_failed_disc_path() {
+    local failed_file="${OUTPUT_DIR}/${FAILED_DISCS_FILE}"
+    
+    # Erstelle Datei falls nötig
+    if [[ ! -f "$failed_file" ]]; then
+        touch "$failed_file" || {
+            echo ""
+            return 1
+        }
+    fi
+    
+    echo "$failed_file"
+    return 0
+}
+```
+
+**Verwendung in aufrufendem Code:**
+
+```bash
+# Korrekt: Fehlerbehandlung mit return-Code
+local label=$(discinfo_get_label) || {
+    log_error "Label konnte nicht abgerufen werden"
+    return 1
+}
+
+# Korrekt: Return-Code prüfen
+local path
+path=$(get_failed_disc_path) || return 1
+
+# FALSCH: Kein Error-Handling
+local label=$(discinfo_get_label)  # ← Fehler wird ignoriert
+```
+
+**Begründung:**
+
+- **Fehlererkennbarkeit**: Aufrufer kann explizit prüfen ob Funktion erfolgreich war
+- **Debugging**: Fehlerquelle ist sofort lokalisierbar
+- **Robustheit**: Verhindert Silent Failures und Folge-Fehler
+- **Konsistenz**: Einheitliches Pattern im gesamten Projekt
+
+**Migration bestehender Funktionen:**
+
+- Funktionen ohne explizite `return`-Statements sind schrittweise zu ergänzen
+- Priorität: Erst kritische Pfade (libcommon, libdiskinfos, libconfig, libfolders, libfiles)
+- Bei Refactoring: Immer komplette Funktion auf neues Pattern umstellen
+
+---

@@ -1,4 +1,4 @@
-#!/bin/bash
+﻿#!/bin/bash
 # =============================================================================
 # Common Functions Library
 # =============================================================================
@@ -6,10 +6,9 @@
 #
 # Beschreibung:
 #   Gemeinsame Kern-Funktionen für alle Module
-#   - copy_data_disc(), copy_data_disc_ddrescue()
-#   - reset_disc_variables(), cleanup_disc_operation()
-#   - monitor_copy_progress()
-#   - Fehler-Tracking: get_disc_identifier(), register_disc_failure()
+#   - common_copy_data_disc(), common_copy_data_disc_ddrescue()
+#   - common_cleanup_disc_operation(), common_monitor_copy_progress()
+#   - Fehler-Tracking: common_register_disc_failure(), common_clear_disc_failures()
 #   
 #   Hinweis: check_disk_space() ist in libsysteminfo.sh
 #            init_copy_log(), finish_copy_log() sind in liblogging.sh
@@ -91,7 +90,7 @@ check_dependencies_common() {
 # ===========================================================================
 
 # ===========================================================================
-# copy_data_disc()
+# common_copy_data_disc
 # ---------------------------------------------------------------------------
 # Funktion.: Kopiert Daten-Discs oder alle anderen Disc-Tpen ohne eigenes 
 # .........  Kopiermodul (Audio-CD, DVD-Video, Blu-ray Video). Wählt die 
@@ -99,9 +98,9 @@ check_dependencies_common() {
 # Parameter: keine (nutzt globale Variablen: disc_label, disc_type, iso_filename)
 # Rückgabe.: 0 = Erfolg
 # .........  1 = Fehler
-# Extras...: Nutzt copy_data_disc_ddrescue() und copy_data_disc_dd()
+# Extras...: Nutzt common_copy_data_disc_ddrescue() und common_copy_data_disc_dd()
 # ===========================================================================
-copy_data_disc() {
+common_copy_data_disc() {
     #-- Prüfe Disc-Typ: Audio-CDs können nicht als ISO kopiert werden -------
     local disc_type="$(discinfo_get_type)"
     if [[ "$disc_type" == "audio-cd" ]]; then
@@ -112,37 +111,37 @@ copy_data_disc() {
     fi
     
     #-- Prüfe ob diese Disc bereits fehlgeschlagen ist ----------------------
-    local failure_count=$(get_disc_failure_count)
+    local failure_count=$(common_get_disc_failure_count)
     
     #-- Prüfe ob ddrescue vorhanden, es ist optional ------------------------
     if command -v ddrescue >/dev/null 2>&1 && [[ $failure_count -eq 0 ]]; then
         log_info "Kopiere Daten-Disc mit ddrescue (robust)"
         #-- 1. Versuch: ddrescue verwenden ----------------------------------
-        if copy_data_disc_ddrescue; then
+        if common_copy_data_disc_ddrescue; then
             return 0
         else
             #-- Kopiervorgang fehlgeschlagen - registriere Fehler -----------
-            register_disc_failure "ddrescue"
+            common_register_disc_failure
             log_warning "ddrescue fehlgeschlagen - versuche Fallback zu dd"
         fi
     fi
     
     #-- 2. Versuch: dd verwenden --------------------------------------------
     log_info "Kopiere Daten-Disc mit dd (Standard)"
-    if copy_data_disc_dd; then
+    if common_copy_data_disc_dd; then
         #-- Erfolg - lösche Fehler-Historie falls vorhanden -----------------
-        [[ $failure_count -gt 0 ]] && clear_disc_failures
+        [[ $failure_count -gt 0 ]] && common_clear_disc_failures
         return 0
     else
         #-- Kopiervorgang fehlgeschlagen - registriere Fehler ---------------
         log_error "Daten-Disc Kopieren mit dd fehlgeschlagen"
-        register_disc_failure "dd"
+        common_register_disc_failure
         return 1
     fi
 }
 
 # ===========================================================================
-# copy_data_disc_ddrescue()
+# common_copy_data_disc_ddrescue
 # ---------------------------------------------------------------------------
 # Funktion.: Kopiert Daten-Discs mit ddrescue (robust, mit Fehlerkorrektur)
 # .........  Nutzt vorberechnete DISC_INFO-Werte und zeitgesteuertes
@@ -154,36 +153,37 @@ copy_data_disc() {
 # .........  Erstellt Map-Datei für Wiederherstellung bei Abbruch
 # .........  Sendet Fortschritt via API, MQTT und systemd-notify
 # ===========================================================================
-copy_data_disc_ddrescue() {
-    # Initialisiere Kopiervorgang-Log
+common_copy_data_disc_ddrescue() {
+    #-- Initialisiere Kopiervorgang-Log -------------------------------------
     init_copy_log "$(discinfo_get_label)" "data"
-    
     log_copying "$MSG_METHOD_DDRESCUE"
     
-    # Alle Disc-Infos wurden bereits von init_disc_info() gesetzt
+    #-- Setze verwendete Kopiermethode --------------------------------------
+    discinfo_set_copy_method "ddrescue"
+    
+    #-- Lese aus DISC_INFO Array die benötigten Werte -----------------------
     local iso_filename=$(discinfo_get_iso_filename)
     local temp_pathname=$(discinfo_get_temp_pathname)
     local copy_log_filename=$(discinfo_get_log_filename)
-    
-    # ddrescue benötigt Map-Datei (im .temp Verzeichnis, wird auto-gelöscht)
-    local mapfile="${temp_pathname}/$(basename "${iso_filename}").mapfile"
-    
-    # Nutze vorberechnete Werte aus DISC_INFO
     local size_mb=$(discinfo_get_size_mb)
     local block_size=$(discinfo_get_block_size)
     local total_bytes=$((size_mb * 1024 * 1024))
     
+    #-- ddrescue benötigt Map-Datei (im .temp Ordner, wird auto-gelöscht) ---
+    local mapfile="${temp_pathname}/$(basename "${iso_filename}").mapfile"
+    
+    #-- Speicherplatz Prüfung (falls Größe bekannt) -------------------------    
     if [[ $size_mb -gt 0 ]]; then
+        #-- Logge erkannte Disc-Größe ---------------------------------------
         log_copying "$MSG_ISO_VOLUME_DETECTED $(discinfo_get_size_sectors) $MSG_ISO_BLOCKS_SIZE 2048 $MSG_ISO_BYTES (${size_mb} $MSG_PROGRESS_MB)"
         
-        # Prüfe Speicherplatz mit vorberechneter Größe (inkl. Overhead)
+        #-- Prüfe Speicherplatz mit vorberechneter Größe (inkl. Overhead) ---
         if ! check_disk_space "$(discinfo_get_estimated_size_mb)"; then
             return 1
         fi
     fi
     
-    # Kopiere mit ddrescue
-    # Starte ddrescue im Hintergrund (mit oder ohne Größenbeschränkung)
+    #-- Starte ddrescue im Hintergrund (mit oder ohne Größenbeschränkung) ---
     if [[ $total_bytes -gt 0 ]]; then
         ddrescue -b "${block_size:-2048}" -r "$DDRESCUE_RETRIES" -s "$total_bytes" "$CD_DEVICE" "$iso_filename" "$mapfile" &>>"$copy_log_filename" &
     else
@@ -191,14 +191,14 @@ copy_data_disc_ddrescue() {
     fi
     local ddrescue_pid=$!
     
-    # Überwache Fortschritt (alle 60 Sekunden)
-    monitor_copy_progress "$ddrescue_pid" "$total_bytes" "$iso_filename"
+    #-- Überwache Fortschritt (alle 60 Sekunden) ----------------------------
+    common_monitor_copy_progress "$ddrescue_pid" "$total_bytes" "$iso_filename"
     
-    # Warte auf ddrescue Prozess-Ende
+    #-- Warte auf ddrescue Prozess-Ende und hole Exit-Code ------------------
     wait "$ddrescue_pid"
     local ddrescue_exit=$?
     
-    # Prüfe Ergebnis
+    #-- Prüfe Ergebnis ------------------------------------------------------
     if [[ $ddrescue_exit -eq 0 ]]; then
         log_copying "$MSG_DATA_DISC_SUCCESS_DDRESCUE"
         finish_copy_log
@@ -211,7 +211,7 @@ copy_data_disc_ddrescue() {
 }
 
 # ===========================================================================
-# copy_data_disc_dd()
+# common_copy_data_disc_dd
 # ---------------------------------------------------------------------------
 # Funktion.: Kopiert Daten-Discs mit dd (Fallback-Methode, immer verfügbar)
 # .........  Nutzt vorberechnete DISC_INFO-Werte und zeitgesteuertes
@@ -223,34 +223,34 @@ copy_data_disc_ddrescue() {
 # .........  Unterstützt Kopieren mit/ohne Größenangabe
 # .........  Sendet Fortschritt via API, MQTT und systemd-notify
 # ===========================================================================
-copy_data_disc_dd() {
-    # Initialisiere Kopiervorgang-Log
-    init_copy_log "$(discinfo_get_label)" "data"
-    
+common_copy_data_disc_dd() {
+    #-- Initialisiere Kopiervorgang-Log -------------------------------------
+    init_copy_log "$(discinfo_get_label)" "data"    
     log_copying "$MSG_METHOD_DD"
 
-    # Alle Disc-Infos wurden bereits von init_disc_info() gesetzt
+    #-- Setze verwendete Kopiermethode --------------------------------------
+    discinfo_set_copy_method "dd"
+
+    #-- Lese aus DISC_INFO Array die benötigten Werte -----------------------
     local iso_filename=$(discinfo_get_iso_filename)
     local copy_log_filename=$(discinfo_get_log_filename)
-    
-    # Nutze vorberechnete Werte aus DISC_INFO
     local size_mb=$(discinfo_get_size_mb)
     local volume_size=$(discinfo_get_size_sectors)
     local block_size=$(discinfo_get_block_size)
     local total_bytes=$((size_mb * 1024 * 1024))
 
-    # Prüfe Speicherplatz (falls Größe bekannt)
+    #-- Speicherplatz Prüfung (falls Größe bekannt) -------------------------    
     if [[ $size_mb -gt 0 ]]; then
+        #-- Logge erkannte Disc-Größe ---------------------------------------
         log_copying "$MSG_ISO_VOLUME_DETECTED $volume_size $MSG_ISO_BLOCKS_SIZE $block_size $MSG_ISO_BYTES (${size_mb} $MSG_PROGRESS_MB)"
         
-        # Prüfe Speicherplatz mit vorberechneter Größe (inkl. Overhead)
+        #-- Prüfe Speicherplatz mit vorberechneter Größe (inkl. Overhead) ---
         if ! check_disk_space "$(discinfo_get_estimated_size_mb)"; then
             return 1
         fi
     fi
     
-    # Kopiere mit dd
-    # Starte dd im Hintergrund (mit oder ohne count-Parameter)
+    #-- Starte dd im Hintergrund (mit oder ohne count-Parameter) ------------
     if [[ $volume_size -gt 0 ]]; then
         dd if="$CD_DEVICE" of="$iso_filename" bs="$block_size" count="$volume_size" conv=noerror,sync status=progress 2>>"$copy_log_filename" &
     else
@@ -258,14 +258,14 @@ copy_data_disc_dd() {
     fi
     local dd_pid=$!
     
-    # Überwache Fortschritt (alle 60 Sekunden)
-    monitor_copy_progress "$dd_pid" "$total_bytes" "$iso_filename"
+    #-- Überwache Fortschritt (alle 60 Sekunden) ----------------------------
+    common_monitor_copy_progress "$dd_pid" "$total_bytes" "$iso_filename"
     
-    # Warte auf dd und hole Exit-Code
+    #-- Warte auf dd Prozess-Ende und hole Exit-Code ------------------------
     wait "$dd_pid"
     local dd_exit=$?
     
-    # Prüfe Ergebnis
+    #-- Prüfe Ergebnis ------------------------------------------------------
     if [[ $dd_exit -eq 0 ]]; then
         finish_copy_log
         return 0
@@ -276,251 +276,142 @@ copy_data_disc_dd() {
 }
 
 
-# TODO: Ab hier ist das Modul noch nicht fertig implementiert!
-
-# ============================================================================
-# CONFIG MANAGEMENT (NO DEPENDENCIES - must be first!)
-# ============================================================================
-
-# Funktion: Aktualisiere einzelnen Config-Wert in config.sh
-# Parameter: $1 = Key (z.B. "DEFAULT_OUTPUT_DIR")
-#            $2 = Value (z.B. "/media/iso")
-#            $3 = Quote-Mode ("quoted" oder "unquoted", default: auto-detect)
-# Rückgabe: JSON mit {"success": true} oder {"success": false, "message": "..."}
-update_config_value() {
-    local key="$1"
-    local value="$2"
-    local quote_mode="${3:-auto}"
-    local config_file="${INSTALL_DIR:-/opt/disk2iso}/lib/config.sh"
-    
-    if [[ -z "$key" ]]; then
-        echo '{"success": false, "message": "Key erforderlich"}'
-        return 1
-    fi
-    
-    if [[ ! -f "$config_file" ]]; then
-        echo '{"success": false, "message": "config.sh nicht gefunden"}'
-        return 1
-    fi
-    
-    # Auto-detect quote mode basierend auf aktuellem Wert
-    if [[ "$quote_mode" == "auto" ]]; then
-        local current_line=$(grep "^${key}=" "$config_file" | head -1)
-        if [[ "$current_line" =~ =\".*\" ]]; then
-            quote_mode="quoted"
-        else
-            quote_mode="unquoted"
-        fi
-    fi
-    
-    # Erstelle neue Zeile
-    local new_line
-    if [[ "$quote_mode" == "quoted" ]]; then
-        new_line="${key}=\"${value}\""
-    else
-        new_line="${key}=${value}"
-    fi
-    
-    # Aktualisiere mit sed (in-place)
-    if sed -i "s|^${key}=.*|${new_line}|" "$config_file" 2>/dev/null; then
-        echo '{"success": true}'
-        return 0
-    else
-        echo '{"success": false, "message": "Schreibfehler"}'
-        return 1
-    fi
-}
-
-# Funktion: Lese alle Config-Werte als JSON
-# Rückgabe: JSON mit allen Konfigurations-Werten
-get_all_config_values() {
-    local config_file="${INSTALL_DIR:-/opt/disk2iso}/lib/config.sh"
-    
-    if [[ ! -f "$config_file" ]]; then
-        echo '{"success": false, "message": "config.sh nicht gefunden"}'
-        return 1
-    fi
-    
-    # Extrahiere relevante Werte mit awk (entferne Kommentare)
-    local values=$(awk -F'=' '
-        /^DEFAULT_OUTPUT_DIR=/ { 
-            gsub(/#.*/, "", $2)
-            gsub(/^[ \t"]+|[ \t"]+$/, "", $2)
-            print "\"output_dir\": \"" $2 "\"," 
-        }
-        /^MP3_QUALITY=/ { 
-            gsub(/#.*/, "", $2)
-            gsub(/^[ \t]+|[ \t]+$/, "", $2)
-            print "\"mp3_quality\": " $2 "," 
-        }
-        /^DDRESCUE_RETRIES=/ { 
-            gsub(/#.*/, "", $2)
-            gsub(/^[ \t]+|[ \t]+$/, "", $2)
-            print "\"ddrescue_retries\": " $2 "," 
-        }
-        /^USB_DRIVE_DETECTION_ATTEMPTS=/ { 
-            gsub(/#.*/, "", $2)
-            gsub(/^[ \t]+|[ \t]+$/, "", $2)
-            print "\"usb_detection_attempts\": " $2 "," 
-        }
-        /^USB_DRIVE_DETECTION_DELAY=/ { 
-            gsub(/#.*/, "", $2)
-            gsub(/^[ \t]+|[ \t]+$/, "", $2)
-            print "\"usb_detection_delay\": " $2 "," 
-        }
-        /^MQTT_ENABLED=/ { 
-            gsub(/#.*/, "", $2)
-            gsub(/^[ \t]+|[ \t]+$/, "", $2)
-            print "\"mqtt_enabled\": " ($2 == "true" ? "true" : "false") "," 
-        }
-        /^MQTT_BROKER=/ { 
-            gsub(/#.*/, "", $2)
-            gsub(/^[ \t"]+|[ \t"]+$/, "", $2)
-            print "\"mqtt_broker\": \"" $2 "\"," 
-        }
-        /^MQTT_PORT=/ { 
-            gsub(/#.*/, "", $2)
-            gsub(/^[ \t]+|[ \t]+$/, "", $2)
-            print "\"mqtt_port\": " $2 "," 
-        }
-        /^MQTT_USER=/ { 
-            gsub(/#.*/, "", $2)
-            gsub(/^[ \t"]+|[ \t"]+$/, "", $2)
-            print "\"mqtt_user\": \"" $2 "\"," 
-        }
-        /^MQTT_PASSWORD=/ { 
-            gsub(/#.*/, "", $2)
-            gsub(/^[ \t"]+|[ \t"]+$/, "", $2)
-            print "\"mqtt_password\": \"" $2 "\"," 
-        }
-        /^TMDB_API_KEY=/ { 
-            gsub(/#.*/, "", $2)
-            gsub(/^[ \t"]+|[ \t"]+$/, "", $2)
-            print "\"tmdb_api_key\": \"" $2 "\"," 
-        }
-    ' "$config_file")
-    
-    # Entferne letztes Komma
-    local output=$(echo "$values" | sed '$ s/,$//')
-    
-    # Ausgabe nur zu stdout (kein logging)
-    echo "{\"success\": true, ${output}}" >&1
-    return 0
-}
-
-# ============================================================================
-# PATH CONSTANTS
-# ============================================================================
-
-readonly DATA_DIR="data"
-readonly TEMP_DIR=".temp"
-readonly MOUNTPOINTS_DIR=".temp/mountpoints"
-readonly FAILED_DISCS_FILE=".failed_discs"    # Zentrale Fehler-Tracking Datei
-
-# ============================================================================
-# PATH GETTER
-# ============================================================================
-
-# Funktion: Ermittle Pfad für Daten-Discs (DATA)
-# Rückgabe: Vollständiger Pfad zu data/
-# Nutzt ensure_subfolder aus libfolders.sh für konsistente Ordner-Verwaltung
-get_path_data() {
-    ensure_subfolder "$DATA_DIR"
-}
-
 # ============================================================================
 # FEHLER-TRACKING SYSTEM (für alle Disc-Typen)
 # ============================================================================
 
-# Funktion: Ermittle eindeutigen Identifier für Disc
-# Rückgabe: String mit disc_label und disc_type (z.B. "album_name:audio-cd")
-# Nutzt globale Variablen: disc_label, disc_type
-get_disc_identifier() {
-    echo "$(discinfo_get_label):$(discinfo_get_type)"
-}
+# ===========================================================================
+# common_get_disc_failure_count
+# ---------------------------------------------------------------------------
+# Funktion.: Prüft ob Disc bereits fehlgeschlagen ist und gibt die Anzahl
+# .........  der bisherigen Fehlversuche zurück.
+# Parameter: $1 = Disc-Identifier (deprecaded, nutzt discinfo_get_identifier())
+# Rückgabe.: Anzahl der Fehlversuche (0-N) via echo
+# .........  Return-Code: 0 = Erfolg (Anzahl ermittelt)
+# .........  ............ 1 = Fehler (Datei nicht verfügbar, Fallback auf 0)
+# Extras...: Nutzt INI-Format mit disc_type als Section ([data], [audio], etc.)
+# .........  Format: UUID:LABEL:SIZE_MB=timestamp|method|retry_count
+# ===========================================================================
+common_get_disc_failure_count() {
+    #-- Debug-Log Eintrag ---------------------------------------------------
+    log_debug "common_get_disc_failure_count: Start"
 
-# Funktion: Prüfe ob Disc bereits fehlgeschlagen ist
-# Parameter: $1 = Disc-Identifier (optional, nutzt get_disc_identifier() falls leer)
-# Rückgabe: Anzahl der bisherigen Fehlversuche (0-N)
-get_disc_failure_count() {
-    local identifier="${1:-$(get_disc_identifier)}"
-    local failed_file="${OUTPUT_DIR}/${FAILED_DISCS_FILE}"
-    
-    if [[ ! -f "$failed_file" ]]; then
-        echo 0
-        return
-    fi
-    
-    local count=$(grep -c "^${identifier}|" "$failed_file" 2>/dev/null || true)
-    if [[ -z "$count" ]] || [[ "$count" == "0" ]]; then
-        echo 0
-    else
-        echo "$count"
-    fi
-}
-
-# Funktion: Registriere Disc-Fehlschlag
-# Parameter: $1 = Fehlgeschlagene Methode (z.B. "dvdbackup", "ddrescue", "cdparanoia")
-#            $2 = Disc-Identifier (optional, nutzt get_disc_identifier() falls leer)
-# Format in Datei: identifier|timestamp|method|disc_type
-register_disc_failure() {
-    local method="$1"
-    local identifier="${2:-$(get_disc_identifier)}"
-    local failed_file="${OUTPUT_DIR}/${FAILED_DISCS_FILE}"
-    local timestamp=$(date '+%Y-%m-%d %H:%M:%S')
-    
-    # Format: identifier|timestamp|method|disc_type
-    echo "${identifier}|${timestamp}|${method}|$(discinfo_get_type)" >> "$failed_file"
-    
-    log_warning "Disc-Fehler registriert: $identifier ($method)"
-}
-
-# Funktion: Entferne Disc aus Fehler-Liste (nach erfolgreichem Kopieren)
-# Parameter: $1 = Disc-Identifier (optional, nutzt get_disc_identifier() falls leer)
-clear_disc_failures() {
-    local identifier="${1:-$(get_disc_identifier)}"
-    local failed_file="${OUTPUT_DIR}/${FAILED_DISCS_FILE}"
-    
-    if [[ -f "$failed_file" ]]; then
-        sed -i "/^${identifier}|/d" "$failed_file"
-        log_info "Disc-Fehler-Historie gelöscht: $identifier"
-    fi
-}
-
-# Funktion: Hole letzte fehlgeschlagene Methode für Disc
-# Parameter: $1 = Disc-Identifier (optional, nutzt get_disc_identifier() falls leer)
-# Rückgabe: Name der Methode oder leer
-get_last_failed_method() {
-    local identifier="${1:-$(get_disc_identifier)}"
-    local failed_file="${OUTPUT_DIR}/${FAILED_DISCS_FILE}"
-    
-    if [[ ! -f "$failed_file" ]]; then
+    #-- Pfad zur Ausgabes-Datei ermitteln -----------------------------------
+    local failed_file
+    failed_file=$(get_failed_disc_path) || {
+        echo 0  # Fallback: Keine Fehler bekannt
         return 1
-    fi
+    }
+
+    #-- Alle notwendigen Werte ermitteln ------------------------------------
+    local identifier=$(discinfo_get_identifier)
+    local disc_type=$(discinfo_get_type)
     
-    # Hole letzte Zeile für diesen Identifier
-    local last_entry=$(grep "^${identifier}|" "$failed_file" 2>/dev/null | tail -1)
+    #-- Lese Wert aus INI (Format: timestamp|method|retry_count) ------------
+    local value=$(get_ini_value "$failed_file" "$disc_type" "$identifier")
     
-    if [[ -n "$last_entry" ]]; then
-        # Extrahiere Methode (3. Feld)
-        echo "$last_entry" | cut -d'|' -f3
+    #-- Prüfe ob Eintrag vorhanden ist --------------------------------------
+    if [[ -n "$value" ]]; then
+        #-- Extrahiere retry_count (3. Feld) --------------------------------
+        echo "$value" | cut -d'|' -f3
+        return 0
+    else
+        #-- Kein Eintrag = Keine Fehler -------------------------------------
+        echo 0
         return 0
     fi
+}
+
+# ===========================================================================
+# common_register_disc_failure
+# ---------------------------------------------------------------------------
+# Funktion.: Registriert einen Disc-Fehlschlag im INI-basierten Error-
+# .........  Tracking-System und inkrementiert automatisch den retry_count.
+# Parameter: $1 = Disc-Identifier (deprecaded, nutzt discinfo_get_identifier())
+# Rückgabe.: 0 = Erfolg (Fehler registriert)
+# .........  1 = Fehler (Datei nicht verfügbar)
+# Extras...: Format: UUID:LABEL:SIZE_MB=timestamp|method|retry_count
+# .........  Methode wird aus DISC_INFO[copy_method] gelesen
+# .........  Nutzt INI-Format mit disc_type als Section 
+# ===========================================================================
+common_register_disc_failure() {
+    #-- Debug-Log Eintrag ---------------------------------------------------
+    log_debug "common_register_disc_failure: Start"
+
+    #-- Pfad zur Ausgabes-Datei ermitteln -----------------------------------
+    local failed_file=$(get_failed_disc_path) || return 1
+
+    #-- Alle notwendigen Werte ermitteln ------------------------------------
+    local identifier=$(discinfo_get_identifier)
+    local method=$(discinfo_get_copy_method)
+    local disc_type=$(discinfo_get_type)
+    local timestamp=$(date '+%Y-%m-%d %H:%M:%S')
     
-    return 1
+    #-- Lese aktuellen retry_count und inkrementiere ------------------------
+    local retry_count=$(common_get_disc_failure_count)
+    retry_count=$((retry_count + 1))
+    
+    #-- Schreibe/Aktualisiere Eintrag: timestamp|method|retry_count ---------
+    write_ini_value "$failed_file" "$disc_type" "$identifier" "${timestamp}|${method}|${retry_count}"
+    log_warning "Disc-Fehler registriert: $identifier ($method, Versuch #${retry_count})"
+}
+
+# ===========================================================================
+# common_clear_disc_failures
+# ---------------------------------------------------------------------------
+# Funktion.: Entfernt Disc-Fehlschlag aus dem Error-Tracking-System nach
+# .........  erfolgreichem Kopieren.
+# Parameter: keine (nutzt DISC_INFO Array)
+# Rückgabe.: 0 = Erfolg (Eintrag gelöscht oder nicht vorhanden)
+# .........  1 = Fehler (Datei nicht verfügbar)
+# Extras...: Loggt nur wenn tatsächlich ein Eintrag gelöscht wurde
+# .........  Nutzt get_ini_value zur Existenzprüfung vor dem Löschen
+# ===========================================================================
+common_clear_disc_failures() {
+    #-- Debug-Log Eintrag ---------------------------------------------------
+    log_debug "common_clear_disc_failures: Start"
+
+    #-- Pfad zur Ausgabes-Datei ermitteln -----------------------------------
+    local failed_file=$(get_failed_disc_path) || return 1
+
+    #-- Alle notwendigen Werte ermitteln ------------------------------------
+    local identifier=$(discinfo_get_identifier)
+    local disc_type=$(discinfo_get_type)
+    
+    #-- Prüfe ob Eintrag existiert ------------------------------------------
+    local value=$(get_ini_value "$failed_file" "$disc_type" "$identifier")
+    
+    if [[ -n "$value" ]]; then
+        #-- Lösche existierenden Eintrag ------------------------------------
+        delete_ini_value "$failed_file" "$disc_type" "$identifier"
+        log_info "Disc-Fehler-Historie gelöscht: $identifier"
+        return 0
+    else
+        #-- Kein Eintrag vorhanden - nichts zu tun --------------------------
+        log_debug "Keine Fehler-Historie für $identifier vorhanden"
+        return 0
+    fi
 }
 
 # ============================================================================
 # HELPER FUNCTIONS
 # ============================================================================
 
-# Funktion: Berechne und logge Kopierfortschritt (zentral für alle Methoden)
+# ===========================================================================
+# common_calculate_and_log_progress
+# ---------------------------------------------------------------------------
+# Funktion.: Berechnet und loggt Kopierfortschritt (zentral für alle Methoden)
+# .........  Sendet Updates an API, MQTT und systemd-notify
 # Parameter: $1 = Aktuell kopierte Bytes
-#            $2 = Gesamtgröße in Bytes
-#            $3 = Start-Zeit (Unix-Timestamp)
-#            $4 = Log-Präfix (z.B. "DATA", "DVD", "BLURAY")
-# Rückgabe: Setzt $percent und $eta als lokale Variablen
-calculate_and_log_progress() {
+# .........  $2 = Gesamtgröße in Bytes (0 = unbekannt)
+# .........  $3 = Start-Zeit (Unix-Timestamp)
+# .........  $4 = Log-Präfix (z.B. "DATA", "DVD", "BLURAY")
+# Rückgabe.: keine (setzt globale Variablen $percent und $eta)
+# Extras...: Berechnet ETA basierend auf bisheriger Geschwindigkeit
+# .........  Loggt alle erforderlichen Informationen (Prozent, MB, ETA)
+# .........  API/MQTT/systemd Updates erfolgen automatisch
+# ===========================================================================
+common_calculate_and_log_progress() {
     local current_bytes=$1
     local total_bytes=$2
     local start_time=$3
@@ -574,22 +465,20 @@ calculate_and_log_progress() {
     fi
 }
 
-# ============================================================================
-# DATA DISC COPY - DDRESCUE (für Daten-Discs)
-# ============================================================================
-
-
-# ============================================================================
-# DATA DISC COPY - DD (Methode 3 - Langsamste, immer verfügbar)
-# ============================================================================
-
-# Hilfsfunktion: Überwacht Kopierfortschritt für dd/ddrescue
-# Verwendet zeitgesteuertes Monitoring (alle 60 Sekunden) - konsistent mit Web-UI
+# ===========================================================================
+# common_monitor_copy_progress
+# ---------------------------------------------------------------------------
+# Funktion.: Überwacht Kopierfortschritt für dd/ddrescue im Hintergrund
+# .........  Nutzt zeitgesteuertes Monitoring (alle 60 Sekunden)
 # Parameter: $1 = PID des Kopierprozesses
-#            $2 = Gesamtgröße in Bytes
-#            $3 = ISO-Dateiname (für Größenermittlung)
-# Hinweis: Diese Funktion macht KEIN wait - das muss die aufrufende Funktion tun
-monitor_copy_progress() {
+# .........  $2 = Gesamtgröße in Bytes (für Prozentberechnung)
+# .........  $3 = ISO-Dateiname (zur Größenermittlung via stat)
+# Rückgabe.: keine (blockiert bis Prozess beendet ist)
+# Extras...: Nutzt common_calculate_and_log_progress() für Fortschrittsberechnung
+# .........  Konsistent mit Web-UI (60 Sekunden Intervall)
+# .........  Macht KEIN wait - aufrufende Funktion muss wait ausführen!
+# ===========================================================================
+common_monitor_copy_progress() {
     local copy_pid=$1
     local total_bytes=$2
     local iso_file=$3
@@ -610,7 +499,7 @@ monitor_copy_progress() {
             fi
             
             # Nutze zentrale Fortschrittsberechnung
-            calculate_and_log_progress "$current_bytes" "$total_bytes" "$start_time" "$MSG_DATA_PROGRESS"
+            common_calculate_and_log_progress "$current_bytes" "$total_bytes" "$start_time" "$MSG_DATA_PROGRESS"
             
             last_log_time=$current_time
         fi
@@ -626,38 +515,91 @@ monitor_copy_progress() {
 # UTILITY FUNCTIONS
 # ============================================================================
 
-# Funktion zum Zurücksetzen aller Disc-Variablen
-reset_disc_variables() {
-    # Setze DISC_INFO und DISC_DATA Arrays zurück
-    discinfo_init
+# ===========================================================================
+# common_eject_and_wait
+# ---------------------------------------------------------------------------
+# Funktion.: Wirft Disc aus und wartet optional auf Medium-Wechsel
+# .........  (Container-aware mit LXC-Unterstützung)
+# Parameter: $1 = wait_for_new_media (optional: "true"/"false", default: "false")
+# .........  Falls true, wartet Funktion auf neues Medium (nur bei Erfolg)
+# Rückgabe.: 0 = Erfolg (Disc ausgeworfen)
+# .........  1 = Fehler (Device nicht verfügbar oder Eject fehlgeschlagen)
+# Extras...: Nutzt wait_for_medium_change() für Container-Umgebungen
+# .........  Bei Success wartet Funktion bis neues Medium eingelegt wurde
+# ===========================================================================
+common_eject_and_wait() {
+    local wait_for_new="${1:-false}"
+    local device
     
-    # Setze alte globale Variablen zurück (Rückwärtskompatibilität - DEPRECATED)
-    disc_label=""
-    disc_type=""
-    iso_filename=""
-    md5_filename=""
-    log_filename=""
-    iso_basename=""
-    temp_pathname=""
-    disc_volume_size=""
-    disc_block_size=""
+    device=$(discinfo_get_device)
+    
+    # Prüfe ob Device verfügbar ist
+    if [[ ! -b "$device" ]]; then
+        log_debug "Kein Device zum Auswerfen verfügbar: $device"
+        return 1
+    fi
+    
+    # Versuche Disc auszuwerfen
+    if eject "$device" 2>/dev/null; then
+        log_info "$MSG_DISC_EJECTED"
+    else
+        log_error "$MSG_EJECT_FAILED"
+        return 1
+    fi
+    
+    # Optional: Warte auf Medium-Wechsel (nur bei Success)
+    if [[ "$wait_for_new" == "true" ]]; then
+        # Nutze LXC-sichere Methode wenn in Container
+        if $IS_CONTAINER; then
+            wait_for_medium_change_lxc_safe "$device" 300  # 5 Minuten Timeout
+        else
+            wait_for_medium_change "$device" 300  # 5 Minuten Timeout
+        fi
+    fi
+    
+    return 0
 }
 
-# Funktion zum vollständigen Aufräumen nach Disc-Operation
-cleanup_disc_operation() {
-    local status="${1:-unknown}"
+# ===========================================================================
+# common_cleanup_disc_operation
+# ---------------------------------------------------------------------------
+# Funktion.: Räumt Ressourcen nach Disc-Operation auf (Temp-Verzeichnis,
+# .........  unvollständige ISO-Dateien, DISC_INFO Reset)
+# Parameter: $1 = Status (optional: "success", "failure", "unknown", "interrupted")
+# .........  Falls nicht übergeben, wird Status aus Fehler-Tracking ermittelt
+# Rückgabe.: keine
+# Extras...: Wirft Disc NICHT aus (siehe common_eject_and_wait)
+# .........  Unmountet Temp-Verzeichnisse automatisch
+# .........  Löscht ISO-Dateien nur bei Status "failure"
+# Hinweis..: ISO-Existenz ist KEIN Erfolgsindikator (unvollständige Dateien!)
+# ===========================================================================
+common_cleanup_disc_operation() {
+    local status="${1}"
+    local temp_dir iso_file
+    
+    # Ermittle Status automatisch wenn nicht übergeben
+    if [[ -z "$status" ]]; then
+        if [[ $(common_get_disc_failure_count) -gt 0 ]]; then
+            status="failure"
+            log_debug "Status automatisch ermittelt: failure (Fehler-Tracking hat Einträge)"
+        else
+            status="unknown"
+            log_debug "Status automatisch ermittelt: unknown (kein expliziter Status, keine Fehler-Einträge)"
+        fi
+    fi
     
     # 1. Temp-Verzeichnis aufräumen (falls vorhanden)
-    if [[ -n "$temp_pathname" ]] && [[ -d "$temp_pathname" ]]; then
+    temp_dir=$(discinfo_get_temp_pathname)
+    if [[ -n "$temp_dir" ]] && [[ -d "$temp_dir" ]]; then
         # Unmount alle eventuellen Mountpoints im Temp-Verzeichnis
         if command -v findmnt >/dev/null 2>&1; then
             # Finde und unmounte alle Mountpoints unterhalb von temp_pathname
-            findmnt -R -n -o TARGET "$temp_pathname" 2>/dev/null | sort -r | while read -r mountpoint; do
+            findmnt -R -n -o TARGET "$temp_dir" 2>/dev/null | sort -r | while read -r mountpoint; do
                 umount "$mountpoint" 2>/dev/null || umount -l "$mountpoint" 2>/dev/null
             done
         else
             # Fallback: Versuche bekannte Mountpoints zu unmounten
-            find "$temp_pathname" -type d 2>/dev/null | while read -r dir; do
+            find "$temp_dir" -type d 2>/dev/null | while read -r dir; do
                 umount "$dir" 2>/dev/null || true
             done
         fi
@@ -666,76 +608,19 @@ cleanup_disc_operation() {
         sleep 1
         
         # Lösche Temp-Verzeichnis (mit force)
-        rm -rf "$temp_pathname" 2>/dev/null || {
+        rm -rf "$temp_dir" 2>/dev/null || {
             # Fallback: Versuche mit sudo falls Permission-Fehler
             log_error "$MSG_WARNING_TEMP_DIR_DELETE_FAILED"
-            sudo rm -rf "$temp_pathname" 2>/dev/null || true
+            sudo rm -rf "$temp_dir" 2>/dev/null || true
         }
     fi
     
     # 2. Unvollständige ISO-Datei löschen (nur bei Fehler)
-    if [[ "$status" == "failure" ]] && [[ -n "$iso_filename" ]] && [[ -f "$iso_filename" ]]; then
-        rm -f "$iso_filename"
+    if [[ "$status" == "failure" ]]; then
+        iso_file=$(discinfo_get_iso_filename)
+        [[ -n "$iso_file" ]] && [[ -f "$iso_file" ]] && rm -f "$iso_file"
     fi
     
-    # 3. Disc auswerfen (immer)
-    if [[ -b "$CD_DEVICE" ]]; then
-        if eject "$CD_DEVICE" 2>/dev/null; then
-            log_info "$MSG_DISC_EJECTED"
-        else
-            log_error "$MSG_EJECT_FAILED"
-        fi
-        
-        # In Container-Umgebungen: Warte auf manuellen Medium-Wechsel
-        if [[ "$status" == "success" ]]; then
-            # Nutze LXC-sichere Methode wenn in Container
-            if $IS_CONTAINER; then
-                wait_for_medium_change_lxc_safe "$CD_DEVICE" 300  # 5 Minuten Timeout
-            else
-                wait_for_medium_change "$CD_DEVICE" 300  # 5 Minuten Timeout
-            fi
-        fi
-    fi
-    
-    # 4. Variablen zurücksetzen (immer)
-    reset_disc_variables
-}
-
-# ============================================================================
-# CONFIG MANAGEMENT - Legacy function (kept for compatibility)
-# ============================================================================
-
-# Funktion: Lese Config-Wert aus config.sh
-# Parameter: $1 = Key (z.B. "DEFAULT_OUTPUT_DIR")
-# Rückgabe: JSON mit {"success": true, "value": "..."} oder {"success": false, "message": "..."}
-# NOTE: Diese Funktion ist veraltet. Nutze get_all_config_values() für vollständige Config
-get_config_value() {
-    local key="$1"
-    local config_file="${INSTALL_DIR:-/opt/disk2iso}/lib/config.sh"
-    
-    if [[ -z "$key" ]]; then
-        echo '{"success": false, "message": "Key erforderlich"}'
-        return 1
-    fi
-    
-    if [[ ! -f "$config_file" ]]; then
-        echo '{"success": false, "message": "config.sh nicht gefunden"}'
-        return 1
-    fi
-    
-    # Lese Wert mit sed
-    local value=$(sed -n "s/^${key}=\(.*\)/\1/p" "$config_file" | head -1)
-    
-    # Entferne Anführungszeichen
-    value=$(echo "$value" | sed 's/^"\(.*\)"$/\1/')
-    
-    if [[ -n "$value" ]]; then
-        # Escape JSON special characters
-        value=$(echo "$value" | sed 's/\\/\\\\/g; s/"/\\"/g')
-        echo "{\"success\": true, \"value\": \"${value}\"}"
-        return 0
-    else
-        echo "{\"success\": false, \"message\": \"Key nicht gefunden\"}"
-        return 1
-    fi
+    # 3. Variablen zurücksetzen (immer)
+    discinfo_init
 }

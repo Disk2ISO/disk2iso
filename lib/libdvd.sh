@@ -6,9 +6,9 @@
 #
 # Beschreibung:
 #   Funktionen für DVD-Ripping und -Konvertierung
-#   - copy_video_dvd() - Video-DVD mit dvdbackup+genisoimage (entschlüsselt)
-#   - copy_video_dvd_ddrescue() - Video-DVD/BD mit ddrescue (verschlüsselt)
+#   - copy_video_dvd() - Video-DVD Orchestrator mit Fehler-Tracking
 #   - Intelligentes Fallback-System bei Fehlern
+#   - Nutzt gemeinsame Worker aus libcommon.sh (ddrescue/dd)
 #   - Integration mit TMDB Metadata-Abfrage
 #
 # ---------------------------------------------------------------------------
@@ -110,66 +110,6 @@ get_path_dvd() {
 
 # TODO: Ab hier ist das Modul noch nicht fertig implementiert!
 
-readonly FAILED_DISCS_FILE=".failed_dvds"
-
-# ============================================================================
-# PATH GETTER
-# ============================================================================
-
-# ============================================================================
-# FEHLER-TRACKING SYSTEM
-# ============================================================================
-
-# Funktion: Ermittle eindeutigen Identifier für DVD
-# Rückgabe: String mit disc_label und disc_type (z.B. "supernatural_season_10_disc_3:dvd-video")
-get_dvd_identifier() {
-    echo "$(discinfo_get_label):$(discinfo_get_type)"
-}
-
-# Funktion: Prüfe ob DVD bereits fehlgeschlagen ist
-# Parameter: $1 = DVD-Identifier
-# Rückgabe: Anzahl der bisherigen Fehlversuche (0-2)
-get_dvd_failure_count() {
-    local identifier="$1"
-    local failed_file="${OUTPUT_DIR}/${FAILED_DISCS_FILE}"
-    
-    if [[ ! -f "$failed_file" ]]; then
-        echo 0
-        return
-    fi
-    
-    local count=$(grep -c "^${identifier}|" "$failed_file" 2>/dev/null || true)
-    if [[ -z "$count" || "$count" == "0" ]]; then
-        echo 0
-    else
-        echo "$count"
-    fi
-}
-
-# Funktion: Registriere DVD-Fehlschlag
-# Parameter: $1 = DVD-Identifier
-#            $2 = Fehlgeschlagene Methode (dvdbackup/ddrescue)
-register_dvd_failure() {
-    local identifier="$1"
-    local method="$2"
-    local failed_file="${OUTPUT_DIR}/${FAILED_DISCS_FILE}"
-    local timestamp=$(date '+%Y-%m-%d %H:%M:%S')
-    
-    # Format: identifier|timestamp|method
-    echo "${identifier}|${timestamp}|${method}" >> "$failed_file"
-}
-
-# Funktion: Entferne DVD aus Fehler-Liste (nach erfolgreichem Kopieren)
-# Parameter: $1 = DVD-Identifier
-clear_dvd_failures() {
-    local identifier="$1"
-    local failed_file="${OUTPUT_DIR}/${FAILED_DISCS_FILE}"
-    
-    if [[ -f "$failed_file" ]]; then
-        sed -i "/^${identifier}|/d" "$failed_file"
-    fi
-}
-
 # ============================================================================
 # VIDEO DVD COPY - DVDBACKUP + GENISOIMAGE (Methode 1 - Schnellste)
 # ============================================================================
@@ -182,7 +122,7 @@ copy_video_dvd() {
     init_copy_log "$(discinfo_get_label)" "dvd"
     
     # Nutze zentrale Fehler-Tracking Funktionen aus libcommon.sh
-    local failure_count=$(get_disc_failure_count)
+    local failure_count=$(common_get_disc_failure_count)
     
     # ========================================================================
     # TMDB METADATA BEFORE COPY (wenn verfügbar)
@@ -263,15 +203,30 @@ copy_video_dvd() {
         log_warning "$MSG_WARNING_DVD_FAILED_BEFORE"
         log_copying "$MSG_FALLBACK_TO_DDRESCUE"
         
-        # Update COPY_METHOD für API/MQTT Anzeige
-        export COPY_METHOD="ddrescue"
+        # Setze Kopiermethode für ddrescue-Versuch
+        discinfo_set_copy_method "ddrescue"
         
-        copy_video_dvd_ddrescue
-        return $?
+        # Nutze gemeinsamen Worker aus libcommon.sh
+        if common_copy_data_disc_ddrescue; then
+            # Erfolg → Erstelle DVD-Metadaten und lösche Fehler-Historie
+            if declare -f create_dvd_archive_metadata >/dev/null 2>&1; then
+                local movie_title=$(extract_movie_title "$(discinfo_get_label)")
+                create_dvd_archive_metadata "$movie_title" "dvd-video" || true
+            fi
+            common_clear_disc_failures
+            return 0
+        else
+            # Fehler → Registriere zweiten Fehlschlag
+            common_register_disc_failure
+            return 1
+        fi
     fi
     
     # Erste Versuch: Normale dvdbackup-Methode
     log_copying "$MSG_METHOD_DVDBACKUP"
+    
+    # Setze Kopiermethode
+    discinfo_set_copy_method "dvdbackup"
     
     # Erstelle temporäres Verzeichnis für DVD-Struktur (unter temp_pathname)
     # dvdbackup erstellt automatisch Unterordner, daher nutzen wir temp_pathname direkt
@@ -328,7 +283,7 @@ copy_video_dvd() {
             fi
             
             # Nutze zentrale Fortschrittsberechnung
-            calculate_and_log_progress "$current_bytes" "$total_bytes" "$start_time" "DVD"
+            common_calculate_and_log_progress "$current_bytes" "$total_bytes" "$start_time" "DVD"
             
             last_log_time=$current_time
         fi
@@ -343,7 +298,7 @@ copy_video_dvd() {
         log_error "$MSG_ERROR_DVDBACKUP_FAILED (Exit-Code: $dvdbackup_exit)"
         
         # Registriere Fehlschlag für automatischen Fallback (zentrale Funktion)
-        register_disc_failure "dvdbackup"
+        common_register_disc_failure
         log_warning "$MSG_DVD_MARKED_FOR_RETRY"
         
         rm -rf "$temp_dvd"
@@ -364,11 +319,15 @@ copy_video_dvd() {
     
     # Erstelle ISO aus VIDEO_TS Struktur
     log_copying "$MSG_CREATE_DECRYPTED_ISO"
+    
+    # Setze Kopiermethode für ISO-Erstellung
+    discinfo_set_copy_method "genisoimage"
+    
     if genisoimage -dvd-video -V "$(discinfo_get_label)" -o "$iso_filename" "$(dirname "$video_ts_dir")" 2>>"$copy_log_filename"; then
         log_copying "$MSG_DECRYPTED_DVD_SUCCESS"
         
         # Erfolg → Lösche eventuelle Fehler-Historie (zentrale Funktion)
-        clear_disc_failures
+        common_clear_disc_failures
         
         # Erstelle Metadaten für Archiv-Ansicht
         if declare -f create_dvd_archive_metadata >/dev/null 2>&1; then
@@ -383,7 +342,7 @@ copy_video_dvd() {
         log_error "$MSG_ERROR_GENISOIMAGE_FAILED"
         
         # Registriere Fehlschlag (genisoimage-Fehler, zentrale Funktion)
-        register_disc_failure "genisoimage"
+        common_register_disc_failure
         
         rm -rf "$temp_dvd"
         finish_copy_log
@@ -394,98 +353,12 @@ copy_video_dvd() {
 # ============================================================================
 # VIDEO DVD COPY - DDRESCUE (Methode 2 - Mittelschnell)
 # ============================================================================
-
-# Funktion zum Kopieren von Video-DVDs mit ddrescue
-# Schneller als dd bei Lesefehlern, ISO bleibt verschlüsselt
-# KEIN Fallback - Methode wird zu Beginn gewählt
-copy_video_dvd_ddrescue() {
-    # Initialisiere Kopiervorgang-Log (falls noch nicht von copy_video_dvd initialisiert)
-    if [[ -z "$copy_log_filename" ]]; then
-        init_copy_log "$(discinfo_get_label)" "dvd"
-    fi
-    
-    log_copying "$MSG_METHOD_DDRESCUE_ENCRYPTED"
-    
-    # ddrescue benötigt Map-Datei (im .temp Verzeichnis, wird auto-gelöscht)
-    local mapfile="${temp_pathname}/$(basename "${iso_filename}").mapfile"
-    
-    # Ermittle Disc-Größe mit isoinfo
-    get_disc_size
-    if [[ $total_bytes -gt 0 ]]; then
-        log_copying "$MSG_ISO_VOLUME_DETECTED $volume_size $MSG_ISO_BLOCKS ($(( total_bytes / 1024 / 1024 )) $MSG_PROGRESS_MB)"
-    fi
-    
-    # Prüfe Speicherplatz (Overhead wird automatisch berechnet)
-    if [[ $total_bytes -gt 0 ]]; then
-        local size_mb=$((total_bytes / 1024 / 1024))
-        if ! check_disk_space "$size_mb"; then
-            # Mapfile wird mit temp_pathname automatisch gelöscht
-            return 1
-        fi
-    fi
-    
-    # Kopiere mit ddrescue
-    # Starte ddrescue im Hintergrund
-    if [[ $total_bytes -gt 0 ]]; then
-        ddrescue -b 2048 -s "$total_bytes" -n "$CD_DEVICE" "$iso_filename" "$mapfile" &>>"$copy_log_filename" &
-    else
-        ddrescue -b 2048 -n "$CD_DEVICE" "$iso_filename" "$mapfile" &>>"$copy_log_filename" &
-    fi
-    local ddrescue_pid=$!
-    
-    # Überwache Fortschritt (alle 60 Sekunden)
-    local start_time=$(date +%s)
-    local last_log_time=$start_time
-    
-    while kill -0 "$ddrescue_pid" 2>/dev/null; do
-        sleep 30
-        
-        local current_time=$(date +%s)
-        local elapsed=$((current_time - last_log_time))
-        
-        # Log alle 60 Sekunden
-        if [[ $elapsed -ge 60 ]]; then
-            local current_bytes=0
-            if [[ -f "$iso_filename" ]]; then
-                current_bytes=$(stat -c %s "$iso_filename" 2>/dev/null || echo 0)
-            fi
-            
-            # Nutze zentrale Fortschrittsberechnung
-            calculate_and_log_progress "$current_bytes" "$total_bytes" "$start_time" "$MSG_DVD_PROGRESS"
-            
-            last_log_time=$current_time
-        fi
-    done
-    
-    # Warte auf ddrescue Prozess-Ende
-    wait "$ddrescue_pid"
-    local ddrescue_exit=$?
-    
-    # Prüfe Ergebnis
-    if [[ $ddrescue_exit -eq 0 ]]; then
-        log_copying "$MSG_VIDEO_DVD_DDRESCUE_SUCCESS"
-        
-        # Erfolg → Lösche eventuelle Fehler-Historie (zentrale Funktion)
-        clear_disc_failures
-        
-        # Erstelle Metadaten für Archiv-Ansicht (verwende disc_type für DVD/Blu-ray)
-        if declare -f create_dvd_archive_metadata >/dev/null 2>&1; then
-            local movie_title=$(extract_movie_title "$(discinfo_get_label)")
-            create_dvd_archive_metadata "$movie_title" "$(discinfo_get_type)" || true
-        fi
-        
-        # Mapfile wird mit temp_pathname automatisch gelöscht
-        finish_copy_log
-        return 0
-    else
-        log_error "$MSG_ERROR_DDRESCUE_FAILED"
-        
-        # Registriere Fehlschlag für finale Ablehnung (zentrale Funktion)
-        register_disc_failure "ddrescue"
-        log_error "$MSG_DVD_FINAL_FAILURE"
-        
-        # Mapfile wird mit temp_pathname automatisch gelöscht
-        finish_copy_log
-        return 1
-    fi
-}
+# Hinweis: Ab v1.2.1 nutzt copy_video_dvd() die gemeinsamen Worker-Funktionen
+#          aus libcommon.sh statt eigene copy_video_dvd_ddrescue():
+#          - common_copy_data_disc_ddrescue() für ddrescue-Methode
+#          - common_copy_data_disc_dd() für dd-Methode (falls benötigt)
+#
+# Orchestrator copy_video_dvd() wählt Methode basierend auf Fehler-Historie
+# und ruft entsprechenden Worker auf. Metadaten-Erstellung erfolgt im
+# Orchestrator nach erfolgreichem Worker-Aufruf.
+# ============================================================================
