@@ -28,7 +28,7 @@ INITIALIZED_TMDB=false                      # Initialisierung war erfolgreich
 ACTIVATED_TMDB=false                             # In Konfiguration aktiviert
 
 # ===========================================================================
-# check_dependencies_tmdb
+# tmdb_check_dependencies
 # ---------------------------------------------------------------------------
 # Funktion.: Prüfe alle Modul-Abhängigkeiten (Modul-Dateien, Ausgabe-Ordner, 
 # .........  kritische und optionale Software für die Ausführung des Modul),
@@ -38,7 +38,7 @@ ACTIVATED_TMDB=false                             # In Konfiguration aktiviert
 # .........  1 = Nicht verfügbar (Modul deaktiviert)
 # Extras...: Setzt SUPPORT_TMDB=true bei erfolgreicher Prüfung
 # ===========================================================================
-check_dependencies_tmdb() {
+tmdb_check_dependencies() {
     log_debug "$MSG_DEBUG_TMDB_CHECK_START"
 
     #-- Alle Modul Abhängigkeiten prüfen -------------------------------------
@@ -126,7 +126,7 @@ get_coverpath_tmdb() {
 # Setzt....: TMDB_API_BASE_URL, TMDB_IMAGE_BASE_URL, TMDB_USER_AGENT,
 # .........  TMDB_TIMEOUT, TMDB_LANGUAGE (global)
 # Nutzt....: get_ini_value() aus libconfig.sh
-# Hinweis..: Wird von check_dependencies_tmdb() aufgerufen, um Werte zu
+# Hinweis..: Wird von tmdb_check_dependencies() aufgerufen, um Werte zu
 # .........  initialisieren bevor das Modul verwendet wird
 # ===========================================================================
 load_api_config_tmdb() {
@@ -243,7 +243,18 @@ tmdb_query() {
     
     # Schreibe .tmdbquery Datei (für Frontend-API)
     local output_base
-    output_base=$(get_type_subfolder "$(discinfo_get_type)" 2>/dev/null) || output_base="${OUTPUT_DIR}"
+    local disc_type=$(discinfo_get_type)
+    case "$disc_type" in
+        dvd-video)
+            output_base=$(get_path_dvd 2>/dev/null) || output_base="${OUTPUT_DIR}"
+            ;;
+        bd-video)
+            output_base=$(get_path_bluray 2>/dev/null) || output_base="${OUTPUT_DIR}"
+            ;;
+        *)
+            output_base="${OUTPUT_DIR}"
+            ;;
+    esac
     
     local tmdbquery_file="${output_base}/${disc_id}_tmdb.tmdbquery"
     
@@ -511,7 +522,7 @@ init_tmdb_provider() {
     fi
     
     #-- Prüfe Provider-Abhängigkeiten ---------------------------------------
-    if ! check_dependencies_tmdb; then
+    if ! tmdb_check_dependencies; then
         log_warning "TMDB: Abhängigkeiten nicht erfüllt"
         return 1
     fi

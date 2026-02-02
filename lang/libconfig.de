@@ -25,7 +25,7 @@ readonly MSG_CONFIG_MODULE_FILES_HINT="Hinweis: Prüfen Sie die Modul-Installati
 readonly MSG_CONFIG_NO_LANGUAGE_FILES="keine Sprachdateien gefunden"
 
 # Ordner-Prüfung
-readonly MSG_CONFIG_ENSURE_SUBFOLDER_UNAVAILABLE="ensure_subfolder() nicht verfügbar - überspringe Ordner-Prüfung"
+readonly MSG_CONFIG_ENSURE_SUBFOLDER_UNAVAILABLE="folders_ensure_subfolder() nicht verfügbar - überspringe Ordner-Prüfung"
 readonly MSG_CONFIG_FOLDER_OK="Ordner OK"
 readonly MSG_CONFIG_FOLDER_CREATION_FAILED="Ordner-Erstellung fehlgeschlagen"
 readonly MSG_CONFIG_CRITICAL_FOLDERS_MISSING="Kritische Ordner fehlen und konnten nicht erstellt werden"

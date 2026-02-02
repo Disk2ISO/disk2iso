@@ -25,7 +25,7 @@ readonly MSG_CONFIG_MODULE_FILES_HINT="Note: Vérifiez l'installation du module 
 readonly MSG_CONFIG_NO_LANGUAGE_FILES="aucun fichier de langue trouvé"
 
 # Vérification des Dossiers
-readonly MSG_CONFIG_ENSURE_SUBFOLDER_UNAVAILABLE="ensure_subfolder() non disponible - vérification des dossiers ignorée"
+readonly MSG_CONFIG_ENSURE_SUBFOLDER_UNAVAILABLE="folders_ensure_subfolder() non disponible - vérification des dossiers ignorée"
 readonly MSG_CONFIG_FOLDER_OK="Dossier OK"
 readonly MSG_CONFIG_FOLDER_CREATION_FAILED="Échec de la création du dossier"
 readonly MSG_CONFIG_CRITICAL_FOLDERS_MISSING="Dossiers critiques manquants et n'ont pas pu être créés"

@@ -1,0 +1,37 @@
+# ============================================================================
+# Sprachdatei: libintegrity (Deutsch)
+# ============================================================================
+# Beschreibung: Deutsche Meldungen für Modul-Integritätsprüfung
+# Version: 1.0.0
+# Datum: 2026-02-02
+# ============================================================================
+
+# Dependency Check (integrity_check_dependencies)
+readonly MSG_ERROR_GET_INI_VALUE_MISSING="FEHLER: get_ini_value() nicht verfügbar (libconfig.sh nicht geladen?)"
+readonly MSG_ERROR_LOG_INFO_MISSING="FEHLER: log_info() nicht verfügbar (liblogging.sh nicht geladen?)"
+
+# Module Dependency Check
+readonly MSG_INFO_NO_MANIFEST="Kein Manifest gefunden, überspringe Abhängigkeitsprüfung"
+readonly MSG_ERROR_DB_LOAD_FAILED="DB-Datei konnte nicht geladen werden"
+readonly MSG_ERROR_DB_NOT_FOUND="DB-Datei nicht gefunden"
+readonly MSG_WARNING_UNKNOWN_FILE_TYPE="Unbekannter Datei-Typ in Manifest"
+readonly MSG_WARNING_MODULE_FILES_MISSING="Modul-Dateien fehlen (Modul unvollständig installiert oder beschädigt?):"
+readonly MSG_INFO_CHECK_INSTALLATION="Hinweis: Prüfen Sie die Modul-Installation oder aktualisieren Sie das Manifest"
+readonly MSG_WARNING_FOLDERS_ENSURE_SUBFOLDER_MISSING="folders_ensure_subfolder() nicht verfügbar - überspringe Ordner-Prüfung"
+readonly MSG_INFO_FOLDER_OK="Ordner OK"
+readonly MSG_ERROR_FOLDER_CREATION_FAILED="Ordner-Erstellung fehlgeschlagen"
+readonly MSG_ERROR_CRITICAL_FOLDERS_MISSING="Kritische Ordner fehlen und konnten nicht erstellt werden:"
+readonly MSG_INFO_CHECK_WRITE_PERMISSIONS="Prüfen Sie Schreibrechte in OUTPUT_DIR"
+readonly MSG_ERROR_CRITICAL_TOOLS_MISSING="Kritische Tools fehlen"
+readonly MSG_INFO_INSTALL_TOOLS="Installation: sudo apt install"
+readonly MSG_WARNING_OPTIONAL_TOOLS_MISSING="Optionale Tools fehlen (reduzierte Funktionalität)"
+readonly MSG_INFO_RECOMMENDED_INSTALL="Empfohlen: sudo apt install"
+readonly MSG_INFO_FOLDERS_AVAILABLE="Modul-Ordner verfügbar"
+readonly MSG_INFO_FOLDERS_CHECKED="Ordner geprüft/erstellt"
+readonly MSG_INFO_ALL_DEPENDENCIES_OK="Alle Modul-Abhängigkeiten erfüllt"
+
+# Debug Messages
+readonly MSG_DEBUG_CHECK_START="check_module_dependencies: Start für Modul"
+readonly MSG_DEBUG_DB_LOADED="DB-Datei geladen"
+readonly MSG_DEBUG_CHECK_COMPLETE="check_module_dependencies: Abgeschlossen für Modul"
+readonly MSG_DEBUG_ALL_DEPS_MET="alle Abhängigkeiten erfüllt"

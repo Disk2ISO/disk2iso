@@ -24,7 +24,7 @@
 # =============================================================================
 
 # ===========================================================================
-# check_dependencies_files
+# files_check_dependencies
 # ---------------------------------------------------------------------------
 # Funktion.: Prüfe alle Framework Abhängigkeiten (Modul-Dateien, die Modul
 # .........  Ausgabe Ordner, kritische und optionale Software für die
@@ -38,7 +38,10 @@
 # .........  besten direkt im Hauptskript (disk2iso) nach dem
 # .........  Laden der libcommon.sh.
 # ===========================================================================
-check_dependencies_files() {
+files_check_dependencies() {
+    # Lade Sprachdatei für dieses Modul
+    load_module_language "files"
+    
     # Files-Modul benötigt keine externen Tools
     # Verwendet nur Bash-Funktionen (basename, sed)
     return 0
@@ -65,7 +68,7 @@ readonly FAILED_DISCS_FILE=".failed_discs"    # Zentrale Fehler-Tracking Datei
 #            failed_file=$(get_failed_disc_path) || return 1
 #            → "/media/iso/.failed_discs"
 # Extras...: Erstellt Datei automatisch falls nicht vorhanden
-#            Nutzt get_out_folder() aus libfolders.sh
+#            Nutzt folders_get_output_dir() aus libfolders.sh
 #            Pattern für alle Dateipfad-Funktionen in libfiles.sh
 # ===========================================================================
 get_failed_disc_path() {
@@ -74,8 +77,8 @@ get_failed_disc_path() {
 
     #-- Ermittle Ausgabe-Ordner ---------------------------------------------    
     local out_dir
-    out_dir=$(get_out_folder) || {
-        log_error "get_failed_disc_path: get_out_folder fehlgeschlagen"
+    out_dir=$(folders_get_output_dir) || {
+        log_error "get_failed_disc_path: folders_get_output_dir fehlgeschlagen"
         return 1
     }
     
@@ -190,7 +193,23 @@ init_filenames() {
     
     # 1. ISO-Dateinamen generieren
     local target_dir
-    target_dir=$(get_type_subfolder \"$disc_type\")
+    case "$disc_type" in
+        audio-cd)
+            target_dir=$(get_path_audio)
+            ;;
+        cd-rom|dvd-rom|bd-rom)
+            target_dir=$(folders_get_modul_output_dir)
+            ;;
+        dvd-video)
+            target_dir=$(get_path_dvd)
+            ;;
+        bd-video)
+            target_dir=$(get_path_bluray)
+            ;;
+        *)
+            target_dir=$(folders_get_modul_output_dir)
+            ;;
+    esac
     local iso_path=$(get_unique_iso_path \"$target_dir\" \"$disc_label\")
     discinfo_set_iso_filename \"$iso_path\"
     
@@ -200,7 +219,7 @@ init_filenames() {
     
     # 3. Log-Dateinamen ableiten (im separaten log/ Verzeichnis)
     local base_name=$(basename \"${iso_path%.iso}\")
-    local log_path=\"$(get_path_log)/${base_name}.log\"
+    local log_path="$(folders_get_log_dir)/${base_name}.log"
     discinfo_set_log_filename \"$log_path\"
     
     # 4. ISO-Basisname extrahieren
@@ -210,7 +229,7 @@ init_filenames() {
     # 5. Temp-Pathname erstellen (falls nicht bereits vorhanden)
     local temp_path
     if ! temp_path=$(discinfo_get_temp_pathname); then
-        temp_path=$(get_temp_pathname)
+        temp_path=$(folders_get_temp_dir)
         discinfo_set_temp_pathname \"$temp_path\"
     fi
     

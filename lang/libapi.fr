@@ -1,0 +1,23 @@
+#!/bin/bash
+################################################################################
+# disk2iso - Fichier de langue française pour libapi.sh
+# Filepath: lang/libapi.fr
+#
+# Description:
+#   Messages pour les fonctions API (interface JSON)
+#
+################################################################################
+
+# ============================================================================
+# VÉRIFICATION DES DÉPENDANCES
+# ============================================================================
+
+readonly MSG_ERROR_API_DIR_NOT_FOUND="ERREUR: Répertoire API introuvable!"
+readonly MSG_INFO_REPAIR_INSTALLATION="Veuillez réparer l'installation avec: sudo"
+
+# ============================================================================
+# LECTURE/ÉCRITURE API
+# ============================================================================
+
+readonly MSG_DEBUG_API_FILE_NOT_FOUND="api_read_json: fichier introuvable"
+readonly MSG_ERROR_API_READ_FAILED="api_read_json: Erreur de lecture de"

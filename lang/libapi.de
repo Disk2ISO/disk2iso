@@ -1,0 +1,23 @@
+#!/bin/bash
+################################################################################
+# disk2iso - Deutsche Sprachdatei für libapi.sh
+# Filepath: lang/libapi.de
+#
+# Beschreibung:
+#   Meldungstexte für API-Funktionen (JSON-Schnittstelle)
+#
+################################################################################
+
+# ============================================================================
+# DEPENDENCY CHECK
+# ============================================================================
+
+readonly MSG_ERROR_API_DIR_NOT_FOUND="FEHLER: API-Verzeichnis nicht gefunden!"
+readonly MSG_INFO_REPAIR_INSTALLATION="Bitte reparieren Sie die Installation mit: sudo"
+
+# ============================================================================
+# API READ/WRITE
+# ============================================================================
+
+readonly MSG_DEBUG_API_FILE_NOT_FOUND="api_read_json: ${filename} nicht gefunden"
+readonly MSG_ERROR_API_READ_FAILED="api_read_json: Fehler beim Lesen von"

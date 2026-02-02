@@ -77,7 +77,7 @@ SCRIPT_DIR="$(dirname "$SCRIPT_PATH")"
 source "${SCRIPT_DIR}/conf/disk2iso.conf"
 source "${SCRIPT_DIR}/lib/libconfig.sh"
 
-# Setze OUTPUT_DIR bereits hier (wichtig für get_tmp_mount() in libdiskinfos.sh)
+# Setze OUTPUT_DIR bereits hier (wichtig für folders_get_unique_mountpoint() in libdiskinfos.sh)
 # Verhindert dass Mount-Points im Root / landen wenn OUTPUT_DIR noch nicht gesetzt ist
 OUTPUT_DIR="${DEFAULT_OUTPUT_DIR}"
 
@@ -90,63 +90,69 @@ load_module_language "disk2iso"
 # ============================================================================
 # Alle Core-Module werden nach einander geladen und müssen ihre Abhängigkeiten 
 # erfüllen, sonst kann disk2iso nicht funktionieren. 
+# 
+# Lade-Reihenfolge (optimiert):
+# 1. libconfig.sh  - Konfiguration (keine Dependencies)
+# 2. liblogging.sh - Logging (nur Bash-Built-ins)
+# 3. libfolders.sh - Ordner-Management (nutzt liblogging)
+# 4. libfiles.sh   - Datei-Management (nutzt libfolders + liblogging)
 
 source "${SCRIPT_DIR}/lib/libconfig.sh"
-if ! check_dependencies_config; then
+if ! config_check_dependencies; then
     echo "FEHLER: Config-Modul Abhängigkeiten nicht erfüllt" >&2
     exit 1
 fi
 
-source "${SCRIPT_DIR}/lib/libfiles.sh"
-if ! check_dependencies_files; then
-    echo "FEHLER: Files-Modul Abhängigkeiten nicht erfüllt" >&2
-    exit 1
-fi
-
 source "${SCRIPT_DIR}/lib/liblogging.sh"
-if ! check_dependencies_logging; then
+if ! logging_check_dependencies; then
     echo "FEHLER: Logging-Modul Abhängigkeiten nicht erfüllt" >&2
     exit 1
 fi
 
 source "${SCRIPT_DIR}/lib/libfolders.sh"
-if ! check_dependencies_folders; then
+if ! folders_check_dependencies; then
     log_error "Folders-Modul Abhängigkeiten nicht erfüllt"
     exit 1
 fi
 
+source "${SCRIPT_DIR}/lib/libfiles.sh"
+if ! files_check_dependencies; then
+    log_error "Files-Modul Abhängigkeiten nicht erfüllt"
+    exit 1
+fi
+
 source "${SCRIPT_DIR}/lib/libapi.sh"
-if ! check_dependencies_api; then
+if ! api_check_dependencies; then
     log_error "API-Modul Abhängigkeiten nicht erfüllt"
     exit 1
 fi
 
 source "${SCRIPT_DIR}/lib/libintegrity.sh"
-if ! check_dependencies_integrity; then
+if ! integrity_check_dependencies; then
     log_error "Integrity-Modul Abhängigkeiten nicht erfüllt"
     exit 1
 fi
 
 source "${SCRIPT_DIR}/lib/libdiskinfos.sh"
-if ! check_dependencies_diskinfos; then
+if ! diskinfos_check_dependencies; then
     log_error "Disk-Information-Modul Abhängigkeiten nicht erfüllt"
     exit 1
 fi
 
 source "${SCRIPT_DIR}/lib/libdrivestat.sh"
-if ! check_dependencies_drivestat; then
+if ! drivestat_check_dependencies; then
     log_error "Drive-Status-Modul Abhängigkeiten nicht erfüllt"
     exit 1
 fi
 
 source "${SCRIPT_DIR}/lib/libsysteminfo.sh"
-if ! check_dependencies_systeminfo; then
+if ! systeminfo_check_dependencies; then
     log_error "$MSG_ABORT_SYSTEMINFO_DEPENDENCIES"
     exit 1
 fi
 
 source "${SCRIPT_DIR}/lib/libcommon.sh"
-if ! check_dependencies_common; then
+if ! common_check_dependencies; then
     log_error "$MSG_ABORT_CRITICAL_DEPENDENCIES"
     exit 1
 fi
@@ -159,19 +165,19 @@ log_info "$MSG_CORE_MODULES_LOADED"
 # Audio-CD Support (optional)
 if [[ -f "${SCRIPT_DIR}/lib/libaudio.sh" ]]; then
     source "${SCRIPT_DIR}/lib/libaudio.sh"
-    check_dependencies_audio  # Setzt SUPPORT_AUDIO=true bei Erfolg
+    audio_check_dependencies  # Setzt SUPPORT_AUDIO=true bei Erfolg
 fi
 
 # Video-DVD Support (optional)
 if [[ -f "${SCRIPT_DIR}/lib/libdvd.sh" ]]; then
     source "${SCRIPT_DIR}/lib/libdvd.sh"
-    check_dependencies_dvd  # Setzt SUPPORT_DVD=true bei Erfolg
+    dvd_check_dependencies  # Setzt SUPPORT_DVD=true bei Erfolg
 fi
 
 # Video-Bluray Support (optional)
 if [[ -f "${SCRIPT_DIR}/lib/libbluray.sh" ]]; then
     source "${SCRIPT_DIR}/lib/libbluray.sh"
-    check_dependencies_bluray  # Setzt SUPPORT_BLURAY=true bei Erfolg
+    bluray_check_dependencies  # Setzt SUPPORT_BLURAY=true bei Erfolg
 fi
 
 # Metadata Framework nur laden wenn mindestens ein Disc-Type unterstützt wird
@@ -179,7 +185,7 @@ if is_audio_ready || is_dvd_ready || is_bluray_ready; then
     
     if [[ -f "${SCRIPT_DIR}/lib/libmetadata.sh" ]]; then
         source "${SCRIPT_DIR}/lib/libmetadata.sh"
-        check_dependencies_metadata  # Setzt SUPPORT_METADATA=true bei Erfolg
+        metadata_check_dependencies  # Setzt SUPPORT_METADATA=true bei Erfolg
         
         # Lade Provider nur wenn Framework verfügbar
         if [[ "$SUPPORT_METADATA" == "true" ]]; then
@@ -187,14 +193,14 @@ if is_audio_ready || is_dvd_ready || is_bluray_ready; then
             if is_audio_ready && 
                [[ -f "${SCRIPT_DIR}/lib/libmusicbrainz.sh" ]]; then
                 source "${SCRIPT_DIR}/lib/libmusicbrainz.sh"
-                check_dependencies_musicbrainz  # Setzt SUPPORT_MUSICBRAINZ=true bei Erfolg
+                musicbrainz_check_dependencies  # Setzt SUPPORT_MUSICBRAINZ=true bei Erfolg
             fi
             
             # TMDB Provider nur wenn DVD/BD Support vorhanden
             if { is_dvd_ready || is_bluray_ready; } && 
                [[ -f "${SCRIPT_DIR}/lib/libtmdb.sh" ]]; then
                 source "${SCRIPT_DIR}/lib/libtmdb.sh"
-                check_dependencies_tmdb  # Setzt SUPPORT_TMDB=true bei Erfolg
+                tmdb_check_dependencies  # Setzt SUPPORT_TMDB=true bei Erfolg
             fi
         fi
     fi
@@ -203,7 +209,7 @@ fi
 # MQTT Support (externes Plugin - siehe: https://github.com/DirkGoetze/disk2iso-mqtt)
 if [[ -f "${SCRIPT_DIR}/lib/libmqtt.sh" ]]; then
     source "${SCRIPT_DIR}/lib/libmqtt.sh"
-    check_dependencies_mqtt  # Setzt SUPPORT_MQTT=true bei Erfolg
+    mqtt_check_dependencies  # Setzt SUPPORT_MQTT=true bei Erfolg
     
     # mqtt_init_connection prüft selbst ob MQTT bereit ist (Support + Aktiviert + Initialisiert)
     if is_mqtt_ready; then
@@ -569,9 +575,9 @@ main() {
     log_info "$MSG_OUTPUT_DIRECTORY $OUTPUT_DIR"
     
     # Abhängigkeiten wurden bereits beim Modul-Loading geprüft
-    # Kern-Abhängigkeiten: check_dependencies_common()
-    # Audio-CD: check_dependencies_cd() (optional)
-    # Video-DVD/BD: check_dependencies_dvd(), check_dependencies_bluray() (optional)
+    # Kern-Abhängigkeiten: common_check_dependencies()
+    # Audio-CD: audio_check_dependencies() (optional)
+    # Video-DVD/BD: dvd_check_dependencies(), bluray_check_dependencies() (optional)
     
     # Starte State Machine (läuft endlos)
     # Die State Machine kümmert sich selbst um Laufwerk-Erkennung und Retry-Logik

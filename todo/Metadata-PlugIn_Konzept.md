@@ -106,9 +106,9 @@ readonly <NAME>_DIR="<subfolder>"
 # ============================================================================
 get_path_<name>() {
     if [[ "$<NAME>_SUPPORT" == true ]] && [[ -n "$<NAME>_DIR" ]]; then
-        ensure_subfolder "$<NAME>_DIR"
+        folders_ensure_subfolder "$<NAME>_DIR"
     else
-        ensure_subfolder "data"  # Fallback
+        folders_ensure_subfolder "data"  # Fallback
     fi
 }
 

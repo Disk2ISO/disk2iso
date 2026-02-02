@@ -1,0 +1,23 @@
+#!/bin/bash
+################################################################################
+# disk2iso - English Language File for libapi.sh
+# Filepath: lang/libapi.en
+#
+# Description:
+#   Message texts for API functions (JSON interface)
+#
+################################################################################
+
+# ============================================================================
+# DEPENDENCY CHECK
+# ============================================================================
+
+readonly MSG_ERROR_API_DIR_NOT_FOUND="ERROR: API directory not found!"
+readonly MSG_INFO_REPAIR_INSTALLATION="Please repair the installation with: sudo"
+
+# ============================================================================
+# API READ/WRITE
+# ============================================================================
+
+readonly MSG_DEBUG_API_FILE_NOT_FOUND="api_read_json: file not found"
+readonly MSG_ERROR_API_READ_FAILED="api_read_json: Error reading"

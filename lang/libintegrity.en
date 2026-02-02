@@ -1,0 +1,37 @@
+# ============================================================================
+# Language File: libintegrity (English)
+# ============================================================================
+# Description: English messages for module integrity checking
+# Version: 1.0.0
+# Date: 2026-02-02
+# ============================================================================
+
+# Dependency Check (integrity_check_dependencies)
+readonly MSG_ERROR_GET_INI_VALUE_MISSING="ERROR: get_ini_value() not available (libconfig.sh not loaded?)"
+readonly MSG_ERROR_LOG_INFO_MISSING="ERROR: log_info() not available (liblogging.sh not loaded?)"
+
+# Module Dependency Check
+readonly MSG_INFO_NO_MANIFEST="No manifest found, skipping dependency check"
+readonly MSG_ERROR_DB_LOAD_FAILED="DB file could not be loaded"
+readonly MSG_ERROR_DB_NOT_FOUND="DB file not found"
+readonly MSG_WARNING_UNKNOWN_FILE_TYPE="Unknown file type in manifest"
+readonly MSG_WARNING_MODULE_FILES_MISSING="Module files missing (module incompletely installed or corrupted?):"
+readonly MSG_INFO_CHECK_INSTALLATION="Note: Check the module installation or update the manifest"
+readonly MSG_WARNING_FOLDERS_ENSURE_SUBFOLDER_MISSING="folders_ensure_subfolder() not available - skipping folder check"
+readonly MSG_INFO_FOLDER_OK="Folder OK"
+readonly MSG_ERROR_FOLDER_CREATION_FAILED="Folder creation failed"
+readonly MSG_ERROR_CRITICAL_FOLDERS_MISSING="Critical folders missing and could not be created:"
+readonly MSG_INFO_CHECK_WRITE_PERMISSIONS="Check write permissions in OUTPUT_DIR"
+readonly MSG_ERROR_CRITICAL_TOOLS_MISSING="Critical tools missing"
+readonly MSG_INFO_INSTALL_TOOLS="Installation: sudo apt install"
+readonly MSG_WARNING_OPTIONAL_TOOLS_MISSING="Optional tools missing (reduced functionality)"
+readonly MSG_INFO_RECOMMENDED_INSTALL="Recommended: sudo apt install"
+readonly MSG_INFO_FOLDERS_AVAILABLE="Module folders available"
+readonly MSG_INFO_FOLDERS_CHECKED="folders checked/created"
+readonly MSG_INFO_ALL_DEPENDENCIES_OK="All module dependencies met"
+
+# Debug Messages
+readonly MSG_DEBUG_CHECK_START="check_module_dependencies: Starting for module"
+readonly MSG_DEBUG_DB_LOADED="DB file loaded"
+readonly MSG_DEBUG_CHECK_COMPLETE="check_module_dependencies: Completed for module"
+readonly MSG_DEBUG_ALL_DEPS_MET="all dependencies met"

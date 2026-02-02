@@ -24,7 +24,7 @@
 # ============================================================================
 
 # ===========================================================================
-# check_dependencies_drivestat
+# drivestat_check_dependencies
 # ---------------------------------------------------------------------------
 # Funktion.: Prüfe alle Framework Abhängigkeiten (Modul-Dateien, die Modul
 # .........  Ausgabe Ordner, kritische und optionale Software für die
@@ -38,7 +38,7 @@
 # .........  besten direkt im Hauptskript (disk2iso) nach dem
 # .........  Laden der libcommon.sh.
 # ===========================================================================
-check_dependencies_drivestat() {
+drivestat_check_dependencies() {
     local missing=()
     
     # Kritische Tools (müssen vorhanden sein)
@@ -118,6 +118,11 @@ detect_device() {
         return 1
     fi
 }
+
+# ===========================================================================
+# TODO: Ab hier ist das Modul noch nicht fertig implementiert!
+# ===========================================================================
+
 
 # Funktion: Stelle sicher dass Device bereit ist
 # Lädt sr_mod Kernel-Modul falls nötig und wartet auf Device-Node-Erstellung
@@ -367,7 +372,25 @@ wait_for_medium_change_lxc_safe() {
         get_disc_label
         
         # Prüfe ob ISO mit diesem Label bereits existiert
-        local target_dir=$(get_type_subfolder "$(discinfo_get_type)")
+        local disc_type=$(discinfo_get_type)
+        local target_dir
+        case "$disc_type" in
+            audio-cd)
+                target_dir=$(get_path_audio 2>/dev/null) || target_dir="${OUTPUT_DIR}"
+                ;;
+            cd-rom|dvd-rom|bd-rom)
+                target_dir=$(folders_get_modul_output_dir 2>/dev/null) || target_dir="${OUTPUT_DIR}"
+                ;;
+            dvd-video)
+                target_dir=$(get_path_dvd 2>/dev/null) || target_dir="${OUTPUT_DIR}"
+                ;;
+            bd-video)
+                target_dir=$(get_path_bluray 2>/dev/null) || target_dir="${OUTPUT_DIR}"
+                ;;
+            *)
+                target_dir=$(folders_get_modul_output_dir 2>/dev/null) || target_dir="${OUTPUT_DIR}"
+                ;;
+        esac
         
         # Prüfe ob target_dir erfolgreich ermittelt wurde
         if [[ -z "$target_dir" ]]; then

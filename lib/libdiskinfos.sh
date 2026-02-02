@@ -24,7 +24,7 @@
 # =============================================================================
 
 # ===========================================================================
-# check_dependencies_diskinfos
+# diskinfos_check_dependencies
 # ---------------------------------------------------------------------------
 # Funktion.: Prüfe alle Framework Abhängigkeiten (Modul-Dateien, die Modul
 # .........  Ausgabe Ordner, kritische und optionale Software für die
@@ -38,7 +38,10 @@
 # .........  besten direkt im Hauptskript (disk2iso) nach dem
 # .........  Laden der libcommon.sh.
 # ===========================================================================
-check_dependencies_diskinfos() {
+diskinfos_check_dependencies() {
+    # Lade Modul-Sprachdatei
+    load_module_language "diskinfos"
+    
     local missing=()
     
     # Kritische Tools (müssen vorhanden sein)
@@ -46,8 +49,8 @@ check_dependencies_diskinfos() {
     command -v umount >/dev/null 2>&1 || missing+=("umount")
     
     if [[ ${#missing[@]} -gt 0 ]]; then
-        log_error "Kritische Tools für Disk-Erkennung fehlen: ${missing[*]}"
-        log_info "Installation: apt install mount"
+        log_error "$MSG_ERROR_CRITICAL_TOOLS_MISSING: ${missing[*]}"
+        log_info "$MSG_INFO_INSTALL_MOUNT"
         return 1
     fi
     
@@ -58,9 +61,9 @@ check_dependencies_diskinfos() {
     command -v blockdev >/dev/null 2>&1 || optional_missing+=("blockdev")
     
     if [[ ${#optional_missing[@]} -gt 0 ]]; then
-        log_warning "Optionale Tools für verbesserte Disk-Erkennung fehlen: ${optional_missing[*]}"
-        log_info "Installation: apt install genisoimage util-linux"
-        log_info "Disk-Erkennung verwendet Fallback-Methoden"
+        log_warning "$MSG_WARNING_OPTIONAL_TOOLS_MISSING: ${optional_missing[*]}"
+        log_info "$MSG_INFO_INSTALL_ISOINFO"
+        log_info "$MSG_INFO_FALLBACK_METHODS"
     fi
     
     return 0
@@ -185,7 +188,7 @@ discinfo_init() {
     DISC_INFO[iso_basename]=""
     DISC_INFO[temp_pathname]=""
     
-    log_debug "discinfo_init: DISC_INFO zurückgesetzt"
+    log_debug "discinfo_init: $MSG_DEBUG_DISCINFO_INIT"
     return 0
 }
 
@@ -203,13 +206,13 @@ discinfo_get_id() {
 
     #-- Wert prüfen und zurückgeben -----------------------------------------
     if [[ -n "$id" ]]; then
-        log_debug "discinfo_get_id: '$id'"
+        log_debug "$MSG_DEBUG_GET_ID: '$id'"
         echo "$id"
         return 0
     fi
 
     #-- Fehlerfall loggen ---------------------------------------------------
-    log_debug "discinfo_get_id: Keine disc_id gesetzt"
+    log_debug "$MSG_DEBUG_GET_ID: $MSG_DEBUG_GET_ID_EMPTY"
     return 1
 }
 
@@ -227,7 +230,7 @@ discinfo_set_id() {
 
     #-- Setze UUID (kann leer sein) -----------------------------------------
     DISC_INFO[disc_id]="$uuid"
-    log_debug "discinfo_set_id: UUID = '$uuid'"
+    log_debug "discinfo_set_id: $MSG_DEBUG_SET_ID = '$uuid'"
     
     if [[ -n "$uuid" ]]; then
         return 0
@@ -246,11 +249,11 @@ discinfo_set_id() {
 discinfo_detect_id() {
     #-- Ermittle erkannten Disc-Typ -----------------------------------------
     local disc_type=$(discinfo_get_type)
-    log_debug "discinfo_detect_id: Ermittelter disc_type = '$disc_type'"
+    log_debug "discinfo_detect_id: $MSG_DEBUG_DETECT_ID_TYPE = '$disc_type'"
     
     #-- Audio-CDs: DiscID wird von copy_audio_cd() gesetzt (via cd-discid) --
     if [[ "$disc_type" == "audio-cd" ]]; then
-        log_debug "discinfo_detect_id: Audio-CD - DiscID wird von copy_audio_cd() gesetzt"
+        log_debug "discinfo_detect_id: $MSG_DEBUG_DETECT_ID_AUDIO"
         return 0
     fi
     
@@ -293,13 +296,13 @@ discinfo_get_identifier() {
 
     #-- Wert prüfen und zurückgeben -----------------------------------------
     if [[ -n "$identifier" ]]; then
-        log_debug "discinfo_get_identifier: '$identifier'"
+        log_debug "$MSG_DEBUG_GET_IDENTIFIER: '$identifier'"
         echo "$identifier"
         return 0
     fi
 
     #-- Fehlerfall loggen ---------------------------------------------------
-    log_debug "discinfo_get_identifier: Keine disc_identifier gesetzt"
+    log_debug "$MSG_DEBUG_GET_IDENTIFIER: $MSG_DEBUG_GET_IDENTIFIER_EMPTY"
     return 1
 }
 
@@ -318,7 +321,7 @@ discinfo_set_identifier() {
 
     #-- Setze UUID (kann leer sein) -----------------------------------------
     DISC_INFO[disc_identifier]="$identifier"
-    log_debug "discinfo_set_identifier: Identifier = '$identifier'"
+    log_debug "discinfo_set_identifier: $MSG_DEBUG_SET_IDENTIFIER = '$identifier'"
     
     if [[ -n "$identifier" ]]; then
         return 0
@@ -380,7 +383,7 @@ discinfo_set_label() {
     local label="$1"
     
     if [[ -z "$label" ]]; then
-        log_warning "discinfo_set_label: Leeres Label - verwende Fallback"
+        log_warning "discinfo_set_label: $MSG_WARNING_EMPTY_LABEL"
         label="disc_$(date '+%Y%m%d_%H%M%S')"
     fi
     
@@ -389,7 +392,7 @@ discinfo_set_label() {
     label=$(sanitize_filename "$label")
     
     DISC_INFO[label]="$label"
-    log_debug "discinfo_set_label: '$label'"
+    log_debug "$MSG_DEBUG_SET_LABEL: '$label'"
     return 0
 }
 
@@ -464,11 +467,11 @@ discinfo_set_type() {
     case "$type" in
         audio-cd|cd-rom|dvd-video|dvd-rom|bd-video|bd-rom|data|unknown)
             DISC_INFO[type]="$type"
-            log_debug "discinfo_set_type: '$type'"
+            log_debug "$MSG_DEBUG_SET_TYPE: '$type'"
             return 0
             ;;
         *)
-            log_error "discinfo_set_type: Ungültiger disc_type '$type'"
+            log_error "discinfo_set_type: $MSG_ERROR_INVALID_DISC_TYPE '$type'"
             return 1
             ;;
     esac
@@ -543,7 +546,7 @@ discinfo_detect_type() {
     fi
     
     # Fallback: Mounte Disc temporär um Struktur zu prüfen (wenn isoinfo fehlschlägt)
-    local mount_point=$(get_tmp_mount)
+    local mount_point=$(folders_get_unique_mountpoint)
     
     if mount -o ro "$CD_DEVICE" "$mount_point" 2>/dev/null; then
         # Prüfe auf Video-DVD (VIDEO_TS Ordner)
@@ -667,7 +670,7 @@ discinfo_set_size() {
     local block_size="${2:-2048}"
     
     if [[ ! "$size_sectors" =~ ^[0-9]+$ ]]; then
-        log_warning "discinfo_set_size: Ungültige Sektoren-Anzahl '$size_sectors'"
+        log_warning "discinfo_set_size: $MSG_WARNING_INVALID_SECTORS '$size_sectors'"
         DISC_INFO[size_sectors]=0
         DISC_INFO[size_mb]=0
         DISC_INFO[block_size]=2048
@@ -682,7 +685,7 @@ discinfo_set_size() {
     local size_mb=$((size_bytes / 1024 / 1024))
     DISC_INFO[size_mb]="$size_mb"
     
-    log_debug "discinfo_set_size: $size_sectors sectors @ $block_size bytes = $size_mb MB"
+    log_debug "$MSG_DEBUG_SET_SIZE: $size_sectors sectors @ $block_size bytes = $size_mb MB"
     return 0
 }
 
@@ -752,7 +755,7 @@ discinfo_get_filesystem() {
 discinfo_set_filesystem() {
     local fs="$1"
     DISC_INFO[filesystem]="$fs"
-    log_debug "discinfo_set_filesystem: '$fs'"
+    log_debug "$MSG_DEBUG_SET_FILESYSTEM: '$fs'"
     return 0
 }
 
@@ -814,7 +817,7 @@ discinfo_get_copy_method() {
 discinfo_set_copy_method() {
     local method="$1"
     DISC_INFO[copy_method]="$method"
-    log_debug "discinfo_set_copy_method: '$method'"
+    log_debug "$MSG_DEBUG_SET_COPY_METHOD: '$method'"
     return 0
 }
 
@@ -845,7 +848,7 @@ discinfo_get_created_at() {
 discinfo_set_created_at() {
     local timestamp="$1"
     DISC_INFO[created_at]="$timestamp"
-    log_debug "discinfo_set_created_at: '$timestamp'"
+    log_debug "$MSG_DEBUG_SET_CREATED_AT: '$timestamp'"
     return 0
 }
 
@@ -899,7 +902,7 @@ discinfo_get_title() {
 discinfo_set_title() {
     local title="$1"
     DISC_INFO[title]="$title"
-    log_debug "discinfo_set_title: '$title'"
+    log_debug "$MSG_DEBUG_SET_TITLE: '$title'"
     return 0
 }
 
@@ -951,7 +954,7 @@ discinfo_get_release_date() {
 discinfo_set_release_date() {
     local date="$1"
     DISC_INFO[release_date]="$date"
-    log_debug "discinfo_set_release_date: '$date'"
+    log_debug "$MSG_DEBUG_SET_RELEASE_DATE: '$date'"
     return 0
 }
 
@@ -1008,7 +1011,7 @@ discinfo_get_country() {
 discinfo_set_country() {
     local country="$1"
     DISC_INFO[country]="$country"
-    log_debug "discinfo_set_country: '$country'"
+    log_debug "$MSG_DEBUG_SET_COUNTRY: '$country'"
     return 0
 }
 
@@ -1053,7 +1056,7 @@ discinfo_get_publisher() {
 discinfo_set_publisher() {
     local publisher="$1"
     DISC_INFO[publisher]="$publisher"
-    log_debug "discinfo_set_publisher: '$publisher'"
+    log_debug "$MSG_DEBUG_SET_PUBLISHER: '$publisher'"
     return 0
 }
 
@@ -1094,7 +1097,7 @@ discinfo_get_provider() {
 discinfo_set_provider() {
     local provider="$1"
     DISC_INFO[provider]="$provider"
-    log_debug "discinfo_set_provider: '$provider'"
+    log_debug "$MSG_DEBUG_SET_PROVIDER: '$provider'"
     return 0
 }
 
@@ -1154,7 +1157,7 @@ discinfo_get_provider_id() {
 discinfo_set_provider_id() {
     local id="$1"
     DISC_INFO[provider_id]="$id"
-    log_debug "discinfo_set_provider_id: '$id'"
+    log_debug "$MSG_DEBUG_SET_PROVIDER_ID: '$id'"
     return 0
 }
 
@@ -1199,7 +1202,7 @@ discinfo_get_cover_path() {
 discinfo_set_cover_path() {
     local path="$1"
     DISC_INFO[cover_path]="$path"
-    log_debug "discinfo_set_cover_path: '$path'"
+    log_debug "$MSG_DEBUG_SET_COVER_PATH: '$path'"
     return 0
 }
 
@@ -1244,7 +1247,7 @@ discinfo_get_cover_url() {
 discinfo_set_cover_url() {
     local url="$1"
     DISC_INFO[cover_url]="$url"
-    log_debug "discinfo_set_cover_url: '$url'"
+    log_debug "$MSG_DEBUG_SET_COVER_URL: '$url'"
     return 0
 }
 
@@ -1276,7 +1279,7 @@ discinfo_detect_cover_url() {
 discinfo_set_iso_filename() {
     local filename="$1"
     DISC_INFO[iso_filename]="$filename"
-    log_debug "discinfo_set_iso_filename: '$filename'"
+    log_debug "$MSG_DEBUG_SET_ISO_FILENAME: '$filename'"
     return 0
 }
 
@@ -1307,7 +1310,7 @@ discinfo_get_iso_filename() {
 discinfo_set_md5_filename() {
     local filename="$1"
     DISC_INFO[md5_filename]="$filename"
-    log_debug "discinfo_set_md5_filename: '$filename'"
+    log_debug "$MSG_DEBUG_SET_MD5_FILENAME: '$filename'"
     return 0
 }
 
@@ -1338,7 +1341,7 @@ discinfo_get_md5_filename() {
 discinfo_set_log_filename() {
     local filename="$1"
     DISC_INFO[log_filename]="$filename"
-    log_debug "discinfo_set_log_filename: '$filename'"
+    log_debug "$MSG_DEBUG_SET_LOG_FILENAME: '$filename'"
     return 0
 }
 
@@ -1369,7 +1372,7 @@ discinfo_get_log_filename() {
 discinfo_set_iso_basename() {
     local basename="$1"
     DISC_INFO[iso_basename]="$basename"
-    log_debug "discinfo_set_iso_basename: '$basename'"
+    log_debug "$MSG_DEBUG_SET_ISO_BASENAME: '$basename'"
     return 0
 }
 
@@ -1400,7 +1403,7 @@ discinfo_get_iso_basename() {
 discinfo_set_temp_pathname() {
     local pathname="$1"
     DISC_INFO[temp_pathname]="$pathname"
-    log_debug "discinfo_set_temp_pathname: '$pathname'"
+    log_debug "$MSG_DEBUG_SET_TEMP_PATHNAME: '$pathname'"
     return 0
 }
 
@@ -1458,81 +1461,81 @@ discinfo_get_estimated_size_mb() {
 #            der Kopiervorgang startet.
 # ===========================================================================
 init_disc_info() {
-    log_debug "init_disc_info: Starte Disc-Analyse..."
+    log_debug "init_disc_info: $MSG_DEBUG_INIT_START"
     
     # 1. Disc-Typ erkennen (Audio-CD, DVD-Video, BD-Video, Data)
     #    Setzt auch filesystem als Seiteneffekt
     if ! discinfo_detect_type; then
-        log_error "init_disc_info: Disc-Typ konnte nicht erkannt werden"
+        log_error "init_disc_info: $MSG_ERROR_DISC_TYPE_FAILED"
         return 1
     fi
-    log_debug "init_disc_info: Disc-Typ = $(discinfo_get_type), Filesystem = $(discinfo_get_filesystem)"
+    log_debug "init_disc_info: $MSG_DEBUG_INIT_TYPE = $(discinfo_get_type), $MSG_DEBUG_INIT_FILESYSTEM = $(discinfo_get_filesystem)"
     
     # 2. Label extrahieren (außer für Audio-CDs - wird in copy_audio_cd() gesetzt)
     local disc_type
     disc_type=$(discinfo_get_type)
     if [[ "$disc_type" != "audio-cd" ]]; then
         if ! discinfo_detect_label; then
-            log_error "init_disc_info: Disc-Label konnte nicht extrahiert werden"
+            log_error "init_disc_info: $MSG_ERROR_LABEL_FAILED"
             return 1
         fi
-        log_debug "init_disc_info: Disc-Label = $(discinfo_get_label)"
+        log_debug "init_disc_info: $MSG_DEBUG_INIT_LABEL = $(discinfo_get_label)"
     else
-        log_debug "init_disc_info: Audio-CD - Label wird in copy_audio_cd() gesetzt"
+        log_debug "init_disc_info: $MSG_DEBUG_INIT_AUDIO_LABEL"
     fi
     
     # 3. Größe ermitteln (kann 1 zurückgeben wenn keine Größe ermittelt wurde - das ist OK)
     discinfo_detect_size
     local size_mb
     size_mb=$(discinfo_get_size_mb)
-    log_debug "init_disc_info: Disc-Größe = ${size_mb} MB ($(discinfo_get_size_sectors) Sektoren)"
+    log_debug "init_disc_info: $MSG_DEBUG_INIT_SIZE = ${size_mb} MB ($(discinfo_get_size_sectors) $MSG_DEBUG_INIT_SECTORS)"
     
     # 4. ISO-Erstellungsdatum ermitteln (für DVD/BD/Data)
     if [[ "$disc_type" != "audio-cd" ]]; then
         discinfo_detect_created_at
-        log_debug "init_disc_info: ISO-Erstellungsdatum = $(discinfo_get_created_at)"
+        log_debug "init_disc_info: $MSG_DEBUG_INIT_CREATED_AT = $(discinfo_get_created_at)"
     fi
     
     # 5. Disc-ID ermitteln (UUID für DVD/BD/Data, wird für Audio-CD später gesetzt)
     if ! discinfo_detect_id; then
-        log_debug "init_disc_info: Keine Disc-ID ermittelt (wird ggf. später gesetzt)"
+        log_debug "init_disc_info: $MSG_DEBUG_INIT_ID_LATER"
     else
-        log_debug "init_disc_info: Disc-ID = $(discinfo_get_id)"
+        log_debug "init_disc_info: $MSG_DEBUG_INIT_ID = $(discinfo_get_id)"
     fi
     
     # 6. Interne Disc-Identifier berechnen (für Medium-Wechsel-Erkennung)
     #    Benötigt: disc_id, label, size_mb
     if ! discinfo_detect_identifier; then
-        log_warning "init_disc_info: Disc-Identifier konnte nicht berechnet werden"
+        log_warning "init_disc_info: $MSG_WARNING_IDENTIFIER_FAILED"
     else
-        log_debug "init_disc_info: Disc-Identifier = $(discinfo_get_identifier)"
+        log_debug "init_disc_info: $MSG_DEBUG_INIT_IDENTIFIER = $(discinfo_get_identifier)"
     fi
     
     # 7. Disc-Titel ermitteln (Fallback: Label)
     discinfo_detect_title
-    log_debug "init_disc_info: Disc-Titel = $(discinfo_get_title)"
+    log_debug "init_disc_info: $MSG_DEBUG_INIT_TITLE = $(discinfo_get_title)"
     
     # 8. Veröffentlichungsdatum ermitteln (Fallback: created_at oder aktuelles Datum)
     if [[ "$disc_type" != "audio-cd" ]]; then
         discinfo_detect_release_date
-        log_debug "init_disc_info: Veröffentlichungsdatum = $(discinfo_get_release_date)"
+        log_debug "init_disc_info: $MSG_DEBUG_INIT_RELEASE_DATE = $(discinfo_get_release_date)"
     fi
     
     # 9. Metadaten-Provider ermitteln (basierend auf Disc-Typ)
     discinfo_detect_provider
-    log_debug "init_disc_info: Metadaten-Provider = $(discinfo_get_provider)"
+    log_debug "init_disc_info: $MSG_DEBUG_INIT_PROVIDER = $(discinfo_get_provider)"
     
     # 10. Dateinamen generieren (nutzt type + label)
     # WICHTIG: Für Audio-CDs wird init_filenames() in copy_audio_cd() aufgerufen
     #          (nachdem Label von MusicBrainz geholt wurde)
     if [[ "$disc_type" != "audio-cd" ]]; then
         if ! init_filenames; then
-            log_error "init_disc_info: Dateinamen konnten nicht generiert werden"
+            log_error "init_disc_info: $MSG_ERROR_FILENAMES_FAILED"
             return 1
         fi
-        log_debug "init_disc_info: ISO-Dateiname = $(discinfo_get_iso_filename)"
+        log_debug "init_disc_info: $MSG_DEBUG_INIT_ISO_FILENAME = $(discinfo_get_iso_filename)"
     else
-        log_debug "init_disc_info: Audio-CD - Dateinamen werden in copy_audio_cd() generiert"
+        log_debug "init_disc_info: $MSG_DEBUG_INIT_AUDIO_FILENAMES"
     fi
     
     # 11. Geschätzte ISO-Größe berechnen (Disc-Größe + 10% Overhead)
@@ -1543,16 +1546,18 @@ init_disc_info() {
         estimated_size=$((size_mb + size_mb * 10 / 100))
     fi
     DISC_INFO[estimated_size_mb]=$estimated_size
-    log_debug "init_disc_info: Geschätzte Größe (mit Overhead) = ${estimated_size} MB"
+    log_debug "init_disc_info: $MSG_DEBUG_INIT_ESTIMATED_SIZE = ${estimated_size} MB"
     
     # Setze Timestamp für Analyse-Abschluss
     DISC_INFO[analyzed_at]=$(date -Iseconds)
     
-    log_debug "init_disc_info: Disc-Analyse erfolgreich abgeschlossen"
+    log_debug "init_disc_info: $MSG_DEBUG_INIT_SUCCESS"
     return 0
 }
 
+# ===========================================================================
 # TODO: Ab hier ist das Modul noch nicht fertig implementiert!
+# ===========================================================================
 
 # ===========================================================================
 # DISC_DATA GETTER/SETTER - AUDIO-CD METADATA
@@ -1565,7 +1570,7 @@ discdata_get_artist() {
 
 discdata_set_artist() {
     DISC_DATA[artist]="$1"
-    log_debug "discdata_set_artist: '$1'"
+    log_debug "$MSG_DEBUG_SET_ARTIST: '$1'"
 }
 
 # Album-Name
@@ -1575,7 +1580,7 @@ discdata_get_album() {
 
 discdata_set_album() {
     DISC_DATA[album]="$1"
-    log_debug "discdata_set_album: '$1'"
+    log_debug "$MSG_DEBUG_SET_ALBUM: '$1'"
 }
 
 # Original-Erscheinungsjahr
@@ -1585,7 +1590,7 @@ discdata_get_year() {
 
 discdata_set_year() {
     DISC_DATA[year]="$1"
-    log_debug "discdata_set_year: '$1'"
+    log_debug "$MSG_DEBUG_SET_YEAR: '$1'"
 }
 
 # Genre
@@ -1595,7 +1600,7 @@ discdata_get_genre() {
 
 discdata_set_genre() {
     DISC_DATA[genre]="$1"
-    log_debug "discdata_set_genre: '$1'"
+    log_debug "$MSG_DEBUG_SET_GENRE: '$1'"
 }
 
 # Track-Anzahl
@@ -1605,7 +1610,7 @@ discdata_get_track_count() {
 
 discdata_set_track_count() {
     DISC_DATA[track_count]="$1"
-    log_debug "discdata_set_track_count: '$1'"
+    log_debug "$MSG_DEBUG_SET_TRACK_COUNT: '$1'"
 }
 
 # Gesamtlaufzeit (Millisekunden)
@@ -1615,7 +1620,7 @@ discdata_get_duration() {
 
 discdata_set_duration() {
     DISC_DATA[duration]="$1"
-    log_debug "discdata_set_duration: '$1'"
+    log_debug "$MSG_DEBUG_SET_DURATION: '$1'"
 }
 
 # Table of Contents (für MusicBrainz)
@@ -1625,7 +1630,7 @@ discdata_get_toc() {
 
 discdata_set_toc() {
     DISC_DATA[toc]="$1"
-    log_debug "discdata_set_toc: '$1'"
+    log_debug "$MSG_DEBUG_SET_TOC: '$1'"
 }
 
 # Original-Veröffentlichungsdatum
@@ -1635,7 +1640,7 @@ discdata_get_original_release_date() {
 
 discdata_set_original_release_date() {
     DISC_DATA[original_release_date]="$1"
-    log_debug "discdata_set_original_release_date: '$1'"
+    log_debug "$MSG_DEBUG_SET_ORIGINAL_RELEASE_DATE: '$1'"
 }
 
 # Original-Produktionsland
@@ -1645,7 +1650,7 @@ discdata_get_original_country() {
 
 discdata_set_original_country() {
     DISC_DATA[original_country]="$1"
-    log_debug "discdata_set_original_country: '$1'"
+    log_debug "$MSG_DEBUG_SET_ORIGINAL_COUNTRY: '$1'"
 }
 
 # Original-Plattenlabel
@@ -1655,7 +1660,7 @@ discdata_get_original_label() {
 
 discdata_set_original_label() {
     DISC_DATA[original_label]="$1"
-    log_debug "discdata_set_original_label: '$1'"
+    log_debug "$MSG_DEBUG_SET_ORIGINAL_LABEL: '$1'"
 }
 
 # Composer (Album-Komponist)
@@ -1665,7 +1670,7 @@ discdata_get_composer() {
 
 discdata_set_composer() {
     DISC_DATA[composer]="$1"
-    log_debug "discdata_set_composer: '$1'"
+    log_debug "$MSG_DEBUG_SET_COMPOSER: '$1'"
 }
 
 # Songwriter (Album-Texter)
@@ -1675,7 +1680,7 @@ discdata_get_songwriter() {
 
 discdata_set_songwriter() {
     DISC_DATA[songwriter]="$1"
-    log_debug "discdata_set_songwriter: '$1'"
+    log_debug "$MSG_DEBUG_SET_SONGWRITER: '$1'"
 }
 
 # Arranger (Album-Arrangeur)
@@ -1685,7 +1690,7 @@ discdata_get_arranger() {
 
 discdata_set_arranger() {
     DISC_DATA[arranger]="$1"
-    log_debug "discdata_set_arranger: '$1'"
+    log_debug "$MSG_DEBUG_SET_ARRANGER: '$1'"
 }
 
 # ============================================================================

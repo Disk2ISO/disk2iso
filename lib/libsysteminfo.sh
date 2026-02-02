@@ -24,7 +24,7 @@
 # ============================================================================
 
 # ===========================================================================
-# check_dependencies_systeminfo
+# systeminfo_check_dependencies
 # ---------------------------------------------------------------------------
 # Funktion.: Prüfe alle Framework Abhängigkeiten (Modul-Dateien, die Modul
 # .........  Ausgabe Ordner, kritische und optionale Software für die
@@ -38,7 +38,7 @@
 # .........  besten direkt im Hauptskript (disk2iso) nach dem
 # .........  Laden der libcommon.sh.
 # ===========================================================================
-check_dependencies_systeminfo() {
+systeminfo_check_dependencies() {
     # Lade Sprachdatei für dieses Modul
     load_module_language "systeminfo"
     
@@ -183,11 +183,17 @@ check_disk_space() {
 # Funktion: Sammle System-Informationen für API
 # Schreibt: system.json im API-Verzeichnis
 collect_system_information() {
-    local api_dir="${INSTALL_DIR:-/opt/disk2iso}/api"
-    local output_file="${api_dir}/system.json"
+    # Hole API-Verzeichnis (mit Fallback-Erstellung)
+    local api_dir
+    api_dir=$(get_api_dir)
     
-    # Erstelle API-Verzeichnis falls nicht vorhanden
-    mkdir -p "$api_dir" 2>/dev/null || return 1
+    # Fallback: Erstelle API-Verzeichnis wenn nicht vorhanden
+    if [[ -z "$api_dir" ]]; then
+        api_dir="${INSTALL_DIR:-/opt/disk2iso}/api"
+        mkdir -p "$api_dir" 2>/dev/null || return 1
+    fi
+    
+    local output_file="${api_dir}/system.json"
     
     # OS Informationen
     local os_name="Unknown"

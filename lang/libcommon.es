@@ -115,3 +115,42 @@ readonly MSG_STATUS_WAITING_MEDIA="Esperando medio..."
 readonly MSG_WARNING_TEMP_DIR_DELETE_FAILED="⚠ No se pudo eliminar el directorio temporal, intentando con permisos elevados"
 readonly MSG_REMAINING="Restante"
 readonly MSG_COPIED="copiado"
+
+# ============================================================================
+# MENSAJES DE ERROR (VERIFICACIÓN DE DEPENDENCIAS)
+# ============================================================================
+
+readonly MSG_ERROR_OUTPUT_DIR_CREATE_FAILED="No se pudo crear el directorio de salida para discos de datos:"
+readonly MSG_ERROR_OUTPUT_DIR_NOT_EXISTS="OUTPUT_DIR no existe:"
+
+# ============================================================================
+# COPIA DE DISCO DE DATOS
+# ============================================================================
+
+readonly MSG_ERROR_AUDIO_CD_AS_DATA="Audio-CD detectado, pero no se puede copiar como disco de datos"
+readonly MSG_ERROR_AUDIO_MODULE_NOT_INSTALLED="El módulo de audio (libaudio.sh) no está instalado o está desactivado"
+readonly MSG_INFO_INSTALL_AUDIO_MODULE="Instale el módulo de audio para copiar Audio-CDs (cdparanoia + lame)"
+
+readonly MSG_INFO_COPY_WITH_DDRESCUE="Copiando disco de datos con ddrescue (robusto)"
+readonly MSG_INFO_COPY_WITH_DD="Copiando disco de datos con dd (estándar)"
+readonly MSG_WARNING_DDRESCUE_FALLBACK="ddrescue falló - intentando alternativa con dd"
+readonly MSG_ERROR_DD_COPY_FAILED="La copia del disco de datos con dd falló"
+
+# ============================================================================
+# SEGUIMIENTO DE ERRORES
+# ============================================================================
+
+readonly MSG_DEBUG_FAILURE_COUNT_START="common_get_disc_failure_count: Inicio"
+readonly MSG_DEBUG_REGISTER_FAILURE_START="common_register_disc_failure: Inicio"
+readonly MSG_DEBUG_CLEAR_FAILURES_START="common_clear_disc_failures: Inicio"
+readonly MSG_WARNING_DISC_FAILURE_REGISTERED="Fallo de disco registrado:"
+readonly MSG_INFO_FAILURE_HISTORY_CLEARED="Historial de fallos de disco eliminado:"
+readonly MSG_DEBUG_NO_FAILURE_HISTORY="No hay historial de fallos para"
+
+# ============================================================================
+# EXPULSIÓN Y LIMPIEZA
+# ============================================================================
+
+readonly MSG_DEBUG_NO_DEVICE_TO_EJECT="No hay dispositivo disponible para expulsar:"
+readonly MSG_DEBUG_STATUS_AUTO_FAILURE="Estado determinado automáticamente: fallo (el seguimiento de errores tiene entradas)"
+readonly MSG_DEBUG_STATUS_AUTO_UNKNOWN="Estado determinado automáticamente: desconocido (sin estado explícito, sin entradas de error)"

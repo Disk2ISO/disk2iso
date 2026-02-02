@@ -28,7 +28,7 @@ INITIALIZED_MUSICBRAINZ=false              # Initialisierung war erfolgreich
 ACTIVATED_MUSICBRAINZ=false                     # In Konfiguration aktiviert
 
 # ===========================================================================
-# check_dependencies_musicbrainz
+# musicbrainz_check_dependencies
 # ---------------------------------------------------------------------------
 # Funktion.: Prüfe alle Modul-Abhängigkeiten (Modul-Dateien, Ausgabe-Ordner, 
 # .........  kritische und optionale Software für die Ausführung des Modul),
@@ -38,7 +38,7 @@ ACTIVATED_MUSICBRAINZ=false                     # In Konfiguration aktiviert
 # .........  1 = Nicht verfügbar (Modul deaktiviert)
 # Extras...: Setzt SUPPORT_MUSICBRAINZ=true bei erfolgreicher Prüfung
 # ===========================================================================
-check_dependencies_musicbrainz() {
+musicbrainz_check_dependencies() {
     log_debug "$MSG_DEBUG_MUSICBRAINZ_CHECK_START"
 
     #-- Alle Modul Abhängigkeiten prüfen ------------------------------------
@@ -128,7 +128,7 @@ get_coverpath_musicbrainz() {
 # Setzt....: MUSICBRAINZ_API_BASE_URL, COVERART_API_BASE_URL,
 # .........  MUSICBRAINZ_USER_AGENT, MUSICBRAINZ_TIMEOUT (global)
 # Nutzt....: get_ini_value() aus libconfig.sh
-# Hinweis..: Wird von check_dependencies_musicbrainz() aufgerufen, um Werte
+# Hinweis..: Wird von musicbrainz_check_dependencies() aufgerufen, um Werte
 # .........  zu initialisieren bevor das Modul verwendet wird
 # ===========================================================================
 load_api_config_musicbrainz() {
@@ -242,7 +242,7 @@ musicbrainz_query() {
     
     # Schreibe .mbquery Datei (für Frontend-API)
     local output_base
-    output_base=$(get_type_subfolder "$(discinfo_get_type)" 2>/dev/null) || output_base="${OUTPUT_DIR}"
+    output_base=$(get_path_audio 2>/dev/null) || output_base="${OUTPUT_DIR}"
     
     local mbquery_file="${output_base}/${disc_id}_musicbrainz.mbquery"
     
@@ -477,7 +477,7 @@ init_musicbrainz_provider() {
     fi
     
     #-- Prüfe Provider-Abhängigkeiten ---------------------------------------
-    if ! check_dependencies_musicbrainz; then
+    if ! musicbrainz_check_dependencies; then
         log_warning "MusicBrainz: Abhängigkeiten nicht erfüllt"
         return 1
     fi

@@ -28,7 +28,7 @@ INITIALIZED_BLURAY=false                    # Initialisierung war erfolgreich
 ACTIVATED_BLURAY=false                           # In Konfiguration aktiviert
 
 # ===========================================================================
-# check_dependencies_bluray
+# bluray_check_dependencies
 # ---------------------------------------------------------------------------
 # Funktion.: Prüfe alle Modul-Abhängigkeiten (Modul-Dateien, Ausgabe-Ordner, 
 # .........  kritische und optionale Software für die Ausführung des Modul),
@@ -38,7 +38,7 @@ ACTIVATED_BLURAY=false                           # In Konfiguration aktiviert
 # .........  1 = Nicht verfügbar (Modul deaktiviert)
 # Extras...: Setzt SUPPORT_BLURAY=true bei erfolgreicher Prüfung
 # ===========================================================================
-check_dependencies_bluray() {
+bluray_check_dependencies() {
     log_debug "$MSG_DEBUG_BLURAY_CHECK_START"
 
     #-- Alle Modul Abhängigkeiten prüfen -------------------------------------

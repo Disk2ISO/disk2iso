@@ -8,11 +8,11 @@
 #   Zentrale Logging-Funktionen für alle Module
 #   - Timestamped Logging mit optionaler Datei-Ausgabe
 #   - Modulares Sprachsystem (load_module_language)
-#   - log_error(), log_info(), log_warning(), log_copying()
+#   - log_error(), log_info(), log_warning(), log_debug()
 #   - Wird von allen anderen Modulen verwendet
 #
 # -----------------------------------------------------------------------------
-# Dependencies: Optional libfolders (für LOG_DIR)
+# Dependencies: Keine (reine Console-Logging-Funktionen)
 # -----------------------------------------------------------------------------
 # Author: D.Götze
 # Version: 1.2.1
@@ -24,7 +24,7 @@
 # =============================================================================
 
 # ===========================================================================
-# check_dependencies_logging
+# logging_check_dependencies
 # ---------------------------------------------------------------------------
 # Funktion.: Prüfe alle Framework Abhängigkeiten (Modul-Dateien, die Modul
 # .........  Ausgabe Ordner, kritische und optionale Software für die
@@ -38,38 +38,15 @@
 # .........  besten direkt im Hauptskript (disk2iso) nach dem
 # .........  Laden der libcommon.sh.
 # ===========================================================================
-check_dependencies_logging() {
+logging_check_dependencies() {
+    # Lade Sprachdatei für dieses Modul
+    load_module_language "logging"
+    
     # Logging-Modul benötigt keine externen Tools
     # Verwendet nur Bash-Funktionen (echo, printf, date)
-    
-    # Prüfe/Erstelle Log-Ordner
-    # ensure_subfolder ist aus libfolders.sh bereits geladen
-    if declare -f ensure_subfolder >/dev/null 2>&1; then
-        if [[ -n "${OUTPUT_DIR:-}" ]]; then
-            if ! ensure_subfolder "$LOG_DIR" >/dev/null 2>&1; then
-                echo "FEHLER: Log-Ordner konnte nicht erstellt werden: $LOG_DIR" >&2
-                return 1
-            fi
-        fi
-    fi
+    # Log-Verzeichnisse werden von anderen Modulen erstellt (libfiles, etc.)
     
     return 0
-}
-
-# ============================================================================
-# PATH CONSTANTS
-# ============================================================================
-
-readonly LOG_DIR=".log"
-
-# ============================================================================
-# PATH GETTER
-# ============================================================================
-
-# Funktion: Ermittle Pfad für Log-Dateien
-# Rückgabe: Vollständiger Pfad zu log/
-get_path_log() {
-    echo "${OUTPUT_DIR}/${LOG_DIR}"
 }
 
 # ============================================================================
@@ -148,58 +125,6 @@ fi
 # LOGGING FUNCTIONS
 # ============================================================================
 
-# Globale Variable für aktuelles Kopiervorgang-Log
-copy_log_filename=""
-
-# Funktion: Initialisiere Kopiervorgang-spezifisches Log
-# Parameter: $1 = Disc-ID/Label (z.B. "audio_cd_cb0cd60e" oder "ronan_keating_destination")
-#            $2 = Disc-Typ (z.B. "audio-cd", "dvd", "bluray", "data")
-# Setzt: copy_log_filename
-# Erstellt: Log-Datei im .log/ Verzeichnis
-init_copy_log() {
-    local disc_id="$1"
-    local disc_type="$2"
-    
-    # Erstelle Log-Verzeichnis falls nicht vorhanden
-    local log_dir="${OUTPUT_DIR}/${LOG_DIR}"
-    mkdir -p "$log_dir"
-    
-    # Setze Kopiervorgang-Log-Dateiname
-    copy_log_filename="${log_dir}/${disc_id}.log"
-    
-    # Erstelle/Leere Log-Datei
-    > "$copy_log_filename"
-    
-    # Schreibe Header
-    echo "========================================" >> "$copy_log_filename"
-    echo "Kopiervorgang gestartet: $(date '+%Y-%m-%d %H:%M:%S')" >> "$copy_log_filename"
-    echo "Medium: $disc_id" >> "$copy_log_filename"
-    echo "Typ: $(discinfo_get_type)" >> "$copy_log_filename"
-    echo "========================================" >> "$copy_log_filename"
-}
-
-# Funktion: Schreibe ins Kopiervorgang-Log
-# Parameter: $1 = Nachricht
-# Ausgabe: Konsole + copy_log_filename (falls gesetzt)
-log_copying() {
-    local message="$(date '+%Y-%m-%d %H:%M:%S') - $1"
-    echo "$message"
-    if [[ -n "$copy_log_filename" ]]; then
-        echo "$message" >> "$copy_log_filename"
-    fi
-}
-
-# Funktion: Beende Kopiervorgang-Log
-# Schreibt Footer und setzt copy_log_filename zurück
-finish_copy_log() {
-    if [[ -n "$copy_log_filename" ]]; then
-        echo "========================================" >> "$copy_log_filename"
-        echo "Kopiervorgang beendet: $(date '+%Y-%m-%d %H:%M:%S')" >> "$copy_log_filename"
-        echo "========================================" >> "$copy_log_filename"
-        copy_log_filename=""
-    fi
-}
-
 # Funktion für allgemeines Logging (Service/System)
 # Parameter: $1 = Nachricht zum Loggen
 # Ausgabe: Konsole (kein File-Logging für Service-Messages)
@@ -211,7 +136,7 @@ log_message() {
 # Funktion für Info-Logging (alias für log_message)
 # Parameter: $1 = Info-Nachricht
 log_info() {
-    log_info "ℹ️  $1"
+    log_message "ℹ️  $1"
 }
 
 # Funktion für Warning-Logging

@@ -31,7 +31,7 @@ SUPPORT_METADATA=false                                # Globales Support Flag
 INITIALIZED_METADATA=false                  # Initialisierung war erfolgreich
 
 # ===========================================================================
-# check_dependencies_metadata
+# metadata_check_dependencies
 # ---------------------------------------------------------------------------
 # Funktion.: Prüfe alle Modul-Abhängigkeiten (Modul-Dateien, Ausgabe-Ordner, 
 # .........  kritische und optionale Software für die Ausführung des Modul),
@@ -41,7 +41,7 @@ INITIALIZED_METADATA=false                  # Initialisierung war erfolgreich
 # .........  1 = Nicht verfügbar (Modul deaktiviert)
 # Extras...: Setzt SUPPORT_METADATA=true/false
 # ===========================================================================
-check_dependencies_metadata() {
+metadata_check_dependencies() {
     log_debug "$MSG_DEBUG_METADATA_CHECK_START"
 
     #-- Alle Modul Abhängikeiten prüfen -------------------------------------
@@ -187,7 +187,7 @@ load_metadata_config() {
 # .........  Provider entscheiden selbst ob sie sich aktivieren (eigene INI)
 # Parameter: keine
 # Rückgabe.: 0 = Mindestens ein Provider geladen, 1 = Keine Provider
-# Hinweis..: Wird von check_dependencies_metadata() aufgerufen
+# Hinweis..: Wird von metadata_check_dependencies() aufgerufen
 # .........  Return-Code wird ignoriert (Framework funktioniert ohne Provider)
 # ===========================================================================
 metadata_load_registered_providers() {
@@ -551,7 +551,24 @@ metadata_wait_for_selection() {
     
     # Bestimme Query-Datei-Pattern basierend auf Provider
     local output_base
-    output_base=$(get_type_subfolder "$(discinfo_get_type)" 2>/dev/null) || output_base="${OUTPUT_DIR}"
+    local disc_type=$(discinfo_get_type)
+    case "$disc_type" in
+        audio-cd)
+            output_base=$(get_path_audio 2>/dev/null) || output_base="${OUTPUT_DIR}"
+            ;;
+        cd-rom|dvd-rom|bd-rom)
+            output_base=$(folders_get_modul_output_dir 2>/dev/null) || output_base="${OUTPUT_DIR}"
+            ;;
+        dvd-video)
+            output_base=$(get_path_dvd 2>/dev/null) || output_base="${OUTPUT_DIR}"
+            ;;
+        bd-video)
+            output_base=$(get_path_bluray 2>/dev/null) || output_base="${OUTPUT_DIR}"
+            ;;
+        *)
+            output_base="${OUTPUT_DIR}"
+            ;;
+    esac
     
     local query_file="${output_base}/${disc_id}_${provider}.${provider}query"
     local select_file="${output_base}/${disc_id}_${provider}.${provider}select"
@@ -668,7 +685,23 @@ metadata_cleanup() {
     local provider="${3:-}"
     
     local output_base
-    output_base=$(get_type_subfolder "$(discinfo_get_type)" 2>/dev/null) || output_base="${OUTPUT_DIR}"
+    case "$disc_type" in
+        audio-cd)
+            output_base=$(get_path_audio 2>/dev/null) || output_base="${OUTPUT_DIR}"
+            ;;
+        cd-rom|dvd-rom|bd-rom)
+            output_base=$(folders_get_modul_output_dir 2>/dev/null) || output_base="${OUTPUT_DIR}"
+            ;;
+        dvd-video)
+            output_base=$(get_path_dvd 2>/dev/null) || output_base="${OUTPUT_DIR}"
+            ;;
+        bd-video)
+            output_base=$(get_path_bluray 2>/dev/null) || output_base="${OUTPUT_DIR}"
+            ;;
+        *)
+            output_base="${OUTPUT_DIR}"
+            ;;
+    esac
     
     if [[ -n "$provider" ]]; then
         # Cleanup für spezifischen Provider

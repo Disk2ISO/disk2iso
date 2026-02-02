@@ -115,3 +115,42 @@ readonly MSG_STATUS_WAITING_MEDIA="En attente du média..."
 readonly MSG_WARNING_TEMP_DIR_DELETE_FAILED="⚠ Impossible de supprimer le répertoire temporaire, tentative avec droits élevés"
 readonly MSG_REMAINING="Restant"
 readonly MSG_COPIED="copié"
+
+# ============================================================================
+# MESSAGES D'ERREUR (VÉRIFICATION DES DÉPENDANCES)
+# ============================================================================
+
+readonly MSG_ERROR_OUTPUT_DIR_CREATE_FAILED="Le répertoire de sortie pour les disques de données n'a pas pu être créé:"
+readonly MSG_ERROR_OUTPUT_DIR_NOT_EXISTS="OUTPUT_DIR n'existe pas:"
+
+# ============================================================================
+# COPIE DE DISQUE DE DONNÉES
+# ============================================================================
+
+readonly MSG_ERROR_AUDIO_CD_AS_DATA="Audio-CD détecté, mais ne peut pas être copié comme disque de données"
+readonly MSG_ERROR_AUDIO_MODULE_NOT_INSTALLED="Le module audio (libaudio.sh) n'est pas installé ou désactivé"
+readonly MSG_INFO_INSTALL_AUDIO_MODULE="Installez le module audio pour ripper les Audio-CDs (cdparanoia + lame)"
+
+readonly MSG_INFO_COPY_WITH_DDRESCUE="Copie du disque de données avec ddrescue (robuste)"
+readonly MSG_INFO_COPY_WITH_DD="Copie du disque de données avec dd (standard)"
+readonly MSG_WARNING_DDRESCUE_FALLBACK="ddrescue a échoué - tentative de repli vers dd"
+readonly MSG_ERROR_DD_COPY_FAILED="La copie du disque de données avec dd a échoué"
+
+# ============================================================================
+# SUIVI DES ERREURS
+# ============================================================================
+
+readonly MSG_DEBUG_FAILURE_COUNT_START="common_get_disc_failure_count: Démarrage"
+readonly MSG_DEBUG_REGISTER_FAILURE_START="common_register_disc_failure: Démarrage"
+readonly MSG_DEBUG_CLEAR_FAILURES_START="common_clear_disc_failures: Démarrage"
+readonly MSG_WARNING_DISC_FAILURE_REGISTERED="Échec du disque enregistré:"
+readonly MSG_INFO_FAILURE_HISTORY_CLEARED="Historique des échecs du disque effacé:"
+readonly MSG_DEBUG_NO_FAILURE_HISTORY="Aucun historique d'échecs pour"
+
+# ============================================================================
+# ÉJECTION ET NETTOYAGE
+# ============================================================================
+
+readonly MSG_DEBUG_NO_DEVICE_TO_EJECT="Aucun périphérique disponible pour éjection:"
+readonly MSG_DEBUG_STATUS_AUTO_FAILURE="Statut déterminé automatiquement: échec (le suivi des erreurs contient des entrées)"
+readonly MSG_DEBUG_STATUS_AUTO_UNKNOWN="Statut déterminé automatiquement: inconnu (aucun statut explicite, aucune entrée d'erreur)"

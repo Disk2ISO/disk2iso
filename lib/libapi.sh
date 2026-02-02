@@ -24,7 +24,7 @@
 # =============================================================================
 
 # ===========================================================================
-# check_dependencies_api
+# api_check_dependencies
 # ---------------------------------------------------------------------------
 # Funktion.: Prüfe alle Framework Abhängigkeiten (Modul-Dateien, die Modul
 # .........  Ausgabe Ordner, kritische und optionale Software für die
@@ -38,14 +38,20 @@
 # .........  besten direkt im Hauptskript (disk2iso) nach dem
 # .........  Laden der libcommon.sh.
 # ===========================================================================
-check_dependencies_api() {
+api_check_dependencies() {
+    # Lade Sprachdatei für dieses Modul
+    load_module_language "api"
+    
+    # API-Modul benötigt keine externen Tools
+    # Verwendet nur Bash-Funktionen (cat, mv, chmod)
+    
     # Prüfe ob API-Verzeichnis existiert (von install.sh erstellt)
     local api_test
     api_test=$(get_api_dir)
     
     if [[ -z "$api_test" ]]; then
-        echo "FEHLER: API-Verzeichnis nicht gefunden!"
-        echo "Bitte reparieren Sie die Installation mit: sudo ${INSTALL_DIR}/install.sh"
+        echo "$MSG_ERROR_API_DIR_NOT_FOUND"
+        echo "$MSG_INFO_REPAIR_INSTALLATION ${INSTALL_DIR}/install.sh"
         return 1
     fi
     
@@ -64,7 +70,7 @@ check_dependencies_api() {
 API_DIR=""
 
 # ===========================================================================
-# check_dependencies_api
+# api_check_dependencies (Alias-Kommentar für Initialisierung)
 # ---------------------------------------------------------------------------
 # Funktion.: Initialisiere API (erstelle Verzeichnis, leere JSONs)
 # .........  Wird beim Service-Start aufgerufen
@@ -134,13 +140,13 @@ api_read_json() {
     
     # Prüfe ob Datei existiert
     if [[ ! -f "$filepath" ]]; then
-        log_debug "api_read_json: ${filename} nicht gefunden"
+        log_debug "$MSG_DEBUG_API_FILE_NOT_FOUND"
         return 1
     fi
     
     # Lese Datei
     cat "$filepath" 2>/dev/null || {
-        log_error "api_read_json: Fehler beim Lesen von ${filename}"
+        log_error "$MSG_ERROR_API_READ_FAILED ${filename}"
         return 1
     }
     

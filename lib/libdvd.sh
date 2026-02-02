@@ -28,7 +28,7 @@ INITIALIZED_DVD=false                       # Initialisierung war erfolgreich
 ACTIVATED_DVD=false                              # In Konfiguration aktiviert
 
 # ===========================================================================
-# check_dependencies_dvd
+# dvd_check_dependencies
 # ---------------------------------------------------------------------------
 # Funktion.: Prüfe alle Modul-Abhängigkeiten (Modul-Dateien, Ausgabe-Ordner, 
 # .........  kritische und optionale Software für die Ausführung des Modul),
@@ -38,7 +38,7 @@ ACTIVATED_DVD=false                              # In Konfiguration aktiviert
 # .........  1 = Nicht verfügbar (Modul deaktiviert)
 # Extras...: Setzt SUPPORT_DVD=true bei erfolgreicher Prüfung
 # ===========================================================================
-check_dependencies_dvd() {
+dvd_check_dependencies() {
     log_debug "$MSG_DEBUG_DVD_CHECK_START"
 
     #-- Alle Modul Abhängigkeiten prüfen -------------------------------------
@@ -151,7 +151,7 @@ copy_video_dvd() {
             
             # Hole TMDB Response (aus .tmdbquery Datei)
             local output_base
-            output_base=$(get_type_subfolder "$(discinfo_get_type)")
+            output_base=$(get_path_dvd)
             local tmdbquery_file="${output_base}/${dvd_id}_tmdb.tmdbquery"
             
             if [[ -f "$tmdbquery_file" ]]; then

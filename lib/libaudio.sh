@@ -28,7 +28,7 @@ INITIALIZED_AUDIO=false                     # Initialisierung war erfolgreich
 ACTIVATED_AUDIO=false                            # In Konfiguration aktiviert
 
 # ===========================================================================
-# check_dependencies_audio
+# audio_check_dependencies
 # ---------------------------------------------------------------------------
 # Funktion.: Prüfe alle Modul-Abhängigkeiten (Modul-Dateien, Ausgabe-Ordner, 
 # .........  kritische und optionale Software für die Ausführung des Modul),
@@ -38,7 +38,7 @@ ACTIVATED_AUDIO=false                            # In Konfiguration aktiviert
 # .........  1 = Nicht verfügbar (Modul deaktiviert)
 # Extras...: Setzt SUPPORT_AUDIO=true/false
 # ===========================================================================
-check_dependencies_audio() {
+audio_check_dependencies() {
     log_debug "$MSG_DEBUG_AUDIO_CHECK_START"
 
     #-- Alle Modul Abhängigkeiten prüfen -------------------------------------
@@ -108,7 +108,9 @@ get_path_audio() {
     echo "${OUTPUT_DIR}/${MODULE_NAME_AUDIO}"
 }
 
+# ============================================================================
 # TODO: Ab hier ist das Modul noch nicht fertig implementiert!
+# ============================================================================
 
 # ============================================================================
 # CD-TEXT METADATA FALLBACK
@@ -828,7 +830,7 @@ wait_for_metadata_selection() {
     
     # Schreibe .mbquery Datei (für Frontend-API)
     local output_base
-    output_base=$(get_type_subfolder "audio-cd")
+    output_base=$(get_path_audio)
     local mbquery_file="${output_base}/${disc_id}_mb.mbquery"
     
     log_info "Erstelle Metadata-Query für User-Auswahl: $(basename "$mbquery_file")"
@@ -1072,7 +1074,7 @@ copy_audio_cd() {
     # Falls nicht vorhanden (standalone-Aufruf), erstelle eigenes Verzeichnis
     if [[ -z "$temp_pathname" ]]; then
         local temp_base
-        temp_base=$(ensure_subfolder "temp") || return 1
+        temp_base=$(folders_get_temp_dir) || return 1
         temp_pathname="${temp_base}/disk2iso_audio_$$"
         mkdir -p "$temp_pathname" || return 1
     fi

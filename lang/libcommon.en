@@ -115,3 +115,42 @@ readonly MSG_STATUS_WAITING_MEDIA="Waiting for media..."
 # ============================================================================
 
 readonly MSG_WARNING_TEMP_DIR_DELETE_FAILED="⚠ Temp directory could not be deleted, trying with elevated privileges"
+
+# ============================================================================
+# ERROR MESSAGES (DEPENDENCY CHECK)
+# ============================================================================
+
+readonly MSG_ERROR_OUTPUT_DIR_CREATE_FAILED="Output directory for data discs could not be created:"
+readonly MSG_ERROR_OUTPUT_DIR_NOT_EXISTS="OUTPUT_DIR does not exist:"
+
+# ============================================================================
+# DATA DISC COPYING
+# ============================================================================
+
+readonly MSG_ERROR_AUDIO_CD_AS_DATA="Audio-CD detected, but cannot be copied as data disc"
+readonly MSG_ERROR_AUDIO_MODULE_NOT_INSTALLED="The audio module (libaudio.sh) is not installed or disabled"
+readonly MSG_INFO_INSTALL_AUDIO_MODULE="Install the audio module to rip Audio-CDs (cdparanoia + lame)"
+
+readonly MSG_INFO_COPY_WITH_DDRESCUE="Copying data disc with ddrescue (robust)"
+readonly MSG_INFO_COPY_WITH_DD="Copying data disc with dd (standard)"
+readonly MSG_WARNING_DDRESCUE_FALLBACK="ddrescue failed - trying fallback to dd"
+readonly MSG_ERROR_DD_COPY_FAILED="Data disc copying with dd failed"
+
+# ============================================================================
+# ERROR TRACKING
+# ============================================================================
+
+readonly MSG_DEBUG_FAILURE_COUNT_START="common_get_disc_failure_count: Start"
+readonly MSG_DEBUG_REGISTER_FAILURE_START="common_register_disc_failure: Start"
+readonly MSG_DEBUG_CLEAR_FAILURES_START="common_clear_disc_failures: Start"
+readonly MSG_WARNING_DISC_FAILURE_REGISTERED="Disc failure registered:"
+readonly MSG_INFO_FAILURE_HISTORY_CLEARED="Disc failure history cleared:"
+readonly MSG_DEBUG_NO_FAILURE_HISTORY="No failure history for"
+
+# ============================================================================
+# EJECT & CLEANUP
+# ============================================================================
+
+readonly MSG_DEBUG_NO_DEVICE_TO_EJECT="No device available to eject:"
+readonly MSG_DEBUG_STATUS_AUTO_FAILURE="Status automatically determined: failure (error tracking has entries)"
+readonly MSG_DEBUG_STATUS_AUTO_UNKNOWN="Status automatically determined: unknown (no explicit status, no error entries)"

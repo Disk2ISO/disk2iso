@@ -24,7 +24,7 @@
 # =============================================================================
 
 # ===========================================================================
-# check_dependencies_integrity
+# integrity_check_dependencies
 # ---------------------------------------------------------------------------
 # Funktion.: Prüfe alle Framework Abhängigkeiten (Modul-Dateien, die Modul
 # .........  Ausgabe Ordner, kritische und optionale Software für die
@@ -38,20 +38,23 @@
 # .........  besten direkt im Hauptskript (disk2iso) nach dem
 # .........  Laden der libcommon.sh.
 # ===========================================================================
-check_dependencies_integrity() {
+integrity_check_dependencies() {
+    # Lade Modul-Sprachdatei
+    load_module_language "integrity"
+    
     # Integrity-Modul benötigt:
     # - libconfig.sh (get_ini_value, get_ini_array)
     # - liblogging.sh (log_*, load_module_language)
-    # - libfolders.sh (ensure_subfolder, get_module_file_path)
+    # - libfolders.sh (folders_ensure_subfolder, get_module_file_path)
     
     # Prüfe ob benötigte Funktionen verfügbar sind
     if ! declare -f get_ini_value >/dev/null 2>&1; then
-        echo "FEHLER: get_ini_value() nicht verfügbar (libconfig.sh nicht geladen?)" >&2
+        echo "$MSG_ERROR_GET_INI_VALUE_MISSING" >&2
         return 1
     fi
     
     if ! declare -f log_info >/dev/null 2>&1; then
-        echo "FEHLER: log_info() nicht verfügbar (liblogging.sh nicht geladen?)" >&2
+        echo "$MSG_ERROR_LOG_INFO_MISSING" >&2
         return 1
     fi
     
@@ -81,7 +84,7 @@ check_module_dependencies() {
     local manifest_file="${INSTALL_DIR}/conf/lib${module_name}.ini"
     
     # Debug: Start der Abhängigkeitsprüfung
-    log_debug "check_module_dependencies: Start für Modul '${module_name}'"
+    log_debug "$MSG_DEBUG_CHECK_START '${module_name}'"
     
     # Sprachdatei laden (vor Manifest-Check!)
     log_message "Prüfe Abhängigkeiten für Modul: ${module_name}"
@@ -90,7 +93,7 @@ check_module_dependencies() {
     # Prüfe ob Manifest existiert
     if [[ ! -f "$manifest_file" ]]; then
         # Kein Manifest - Modul entscheidet selbst (kein Fehler!)
-        log_info "${module_name}: Kein Manifest gefunden, überspringe Abhängigkeitsprüfung"
+        log_info "${module_name}: $MSG_INFO_NO_MANIFEST"
         return 0
     fi
 
@@ -106,12 +109,12 @@ check_module_dependencies() {
         if [[ -f "$db_path" ]]; then
             # shellcheck source=/dev/null
             source "$db_path" || {
-                log_error "${module_name}: DB-Datei konnte nicht geladen werden: ${db_file}"
+                log_error "${module_name}: $MSG_ERROR_DB_LOAD_FAILED: ${db_file}"
                 return 1
             }
-            log_debug "${module_name}: DB-Datei geladen: ${db_file}"
+            log_debug "${module_name}: $MSG_DEBUG_DB_LOADED: ${db_file}"
         else
-            log_error "${module_name}: DB-Datei nicht gefunden: ${db_path}"
+            log_error "${module_name}: $MSG_ERROR_DB_NOT_FOUND: ${db_path}"
             return 1
         fi
     fi
@@ -136,7 +139,7 @@ check_module_dependencies() {
             
             if [[ -z "$file_path" ]]; then
                 # Unbekannter file_type → Warnung
-                log_warning "${module_name}: Unbekannter Datei-Typ in Manifest: ${file_type}"
+                log_warning "${module_name}: $MSG_WARNING_UNKNOWN_FILE_TYPE: ${file_type}"
                 continue
             fi
             
@@ -158,11 +161,11 @@ check_module_dependencies() {
     # Auswertung der Modul-Dateien
     if [[ ${#module_files_missing[@]} -gt 0 ]]; then
         # Fehlende Modul-Dateien → Warnung (NICHT kritisch, Modul kann trotzdem funktionieren)
-        log_warning "${module_name}: Modul-Dateien fehlen (Modul unvollständig installiert oder beschädigt?):"
+        log_warning "${module_name}: $MSG_WARNING_MODULE_FILES_MISSING"
         for missing_file in "${module_files_missing[@]}"; do
             log_warning "  - ${missing_file}"
         done
-        log_info "${module_name}: Hinweis: Prüfen Sie die Modul-Installation oder aktualisieren Sie das Manifest"
+        log_info "${module_name}: $MSG_INFO_CHECK_INSTALLATION"
     fi
 
     # ------------------------------------------------------------------------
@@ -171,9 +174,9 @@ check_module_dependencies() {
     local folder_creation_failed=()  # Array der fehlgeschlagenen Erstellungen
     local folder_creation_success=() # Array der erfolgreichen Erstellungen
     
-    # Prüfe ob ensure_subfolder() verfügbar ist
-    if ! declare -f ensure_subfolder >/dev/null 2>&1; then
-        log_warning "${module_name}: ensure_subfolder() nicht verfügbar - überspringe Ordner-Prüfung"
+    # Prüfe ob folders_ensure_subfolder() verfügbar ist
+    if ! declare -f folders_ensure_subfolder >/dev/null 2>&1; then
+        log_warning "${module_name}: $MSG_WARNING_FOLDERS_ENSURE_SUBFOLDER_MISSING"
     else
         # Liste aller möglichen Ordner-Typen (entspricht INI-Keys in [folders])
         local folder_types=("output" "temp" "logs" "cache" "thumbs" "covers")
@@ -185,17 +188,17 @@ check_module_dependencies() {
             
             # Nur prüfen wenn Eintrag existiert
             if [[ -n "$folder_name" ]]; then
-                # Versuche Ordner zu erstellen/prüfen (via ensure_subfolder)
+                # Versuche Ordner zu erstellen/prüfen (via folders_ensure_subfolder)
                 local folder_path
                 
-                if folder_path=$(ensure_subfolder "$folder_name" 2>&1); then
+                if folder_path=$(folders_ensure_subfolder "$folder_name" 2>&1); then
                     # Erfolgreich erstellt/geprüft
                     folder_creation_success+=("${folder_type}: ${folder_path}")
-                    log_info "${module_name}: Ordner OK: ${folder_type} → ${folder_path}"
+                    log_info "${module_name}: $MSG_INFO_FOLDER_OK: ${folder_type} → ${folder_path}"
                 else
                     # Erstellung fehlgeschlagen → KRITISCH!
                     folder_creation_failed+=("${folder_type}: ${folder_name} (Fehler: ${folder_path})")
-                    log_error "${module_name}: Ordner-Erstellung fehlgeschlagen: ${folder_type} → ${folder_name}"
+                    log_error "${module_name}: $MSG_ERROR_FOLDER_CREATION_FAILED: ${folder_type} → ${folder_name}"
                 fi
             fi
         done
@@ -204,11 +207,11 @@ check_module_dependencies() {
     # Auswertung: Ordner-Erstellung fehlgeschlagen?
     if [[ ${#folder_creation_failed[@]} -gt 0 ]]; then
         # Kritische Ordner konnten nicht erstellt werden → Modul nicht nutzbar
-        log_error "${module_name}: Kritische Ordner fehlen und konnten nicht erstellt werden:"
+        log_error "${module_name}: $MSG_ERROR_CRITICAL_FOLDERS_MISSING"
         for failed_folder in "${folder_creation_failed[@]}"; do
             log_error "  - ${failed_folder}"
         done
-        log_info "${module_name}: Prüfen Sie Schreibrechte in OUTPUT_DIR: ${OUTPUT_DIR}"
+        log_info "${module_name}: $MSG_INFO_CHECK_WRITE_PERMISSIONS: ${OUTPUT_DIR}"
         return 1
     fi
      
@@ -237,8 +240,8 @@ check_module_dependencies() {
     # Auswertung der Kritische Tools 
     if [[ ${#missing[@]} -gt 0 ]]; then
         # Es fehlen Tools → Modul nicht nutzbar
-        log_error "${module_name}: Kritische Tools fehlen: ${missing[*]}"
-        log_info "${module_name}: Installation: sudo apt install ${missing[*]}"
+        log_error "${module_name}: $MSG_ERROR_CRITICAL_TOOLS_MISSING: ${missing[*]}"
+        log_info "${module_name}: $MSG_INFO_INSTALL_TOOLS ${missing[*]}"
         return 1
     fi
     
@@ -267,8 +270,8 @@ check_module_dependencies() {
     # Auswertung der optionale Tools 
     if [[ ${#optional_missing[@]} -gt 0 ]]; then
         # Es fehlen optionale Tools → Warnung ausgeben
-        log_warning "${module_name}: Optionale Tools fehlen (reduzierte Funktionalität)"
-        log_info "${module_name}: Empfohlen: sudo apt install ${optional_missing[*]}"
+        log_warning "${module_name}: $MSG_WARNING_OPTIONAL_TOOLS_MISSING"
+        log_info "${module_name}: $MSG_INFO_RECOMMENDED_INSTALL ${optional_missing[*]}"
     fi
         
     # ------------------------------------------------------------------------
@@ -276,12 +279,12 @@ check_module_dependencies() {
     # ------------------------------------------------------------------------
     # Erfolgreiche Ordner-Erstellung loggen (Info-Level)
     if [[ ${#folder_creation_success[@]} -gt 0 ]]; then
-        log_info "${module_name}: Modul-Ordner verfügbar (${#folder_creation_success[@]} Ordner geprüft/erstellt)"
+        log_info "${module_name}: $MSG_INFO_FOLDERS_AVAILABLE (${#folder_creation_success[@]} $MSG_INFO_FOLDERS_CHECKED)"
     fi
     
     # Debug: Erfolgreiche Prüfung
-    log_debug "check_module_dependencies: Abgeschlossen für Modul '${module_name}' (alle Abhängigkeiten erfüllt)"
+    log_debug "$MSG_DEBUG_CHECK_COMPLETE '${module_name}' ($MSG_DEBUG_ALL_DEPS_MET)"
     
-    log_info "${module_name}: Alle Modul-Abhängigkeiten erfüllt"
+    log_info "${module_name}: $MSG_INFO_ALL_DEPENDENCIES_OK"
     return 0
 }

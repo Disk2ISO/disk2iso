@@ -25,7 +25,7 @@ readonly MSG_CONFIG_MODULE_FILES_HINT="Nota: Verifique la instalación del módu
 readonly MSG_CONFIG_NO_LANGUAGE_FILES="no se encontraron archivos de idioma"
 
 # Verificación de Carpetas
-readonly MSG_CONFIG_ENSURE_SUBFOLDER_UNAVAILABLE="ensure_subfolder() no disponible - omitiendo verificación de carpetas"
+readonly MSG_CONFIG_ENSURE_SUBFOLDER_UNAVAILABLE="folders_ensure_subfolder() no disponible - omitiendo verificación de carpetas"
 readonly MSG_CONFIG_FOLDER_OK="Carpeta OK"
 readonly MSG_CONFIG_FOLDER_CREATION_FAILED="Falló la creación de carpeta"
 readonly MSG_CONFIG_CRITICAL_FOLDERS_MISSING="Faltan carpetas críticas y no se pudieron crear"

@@ -1,0 +1,37 @@
+# ============================================================================
+# Fichier de langue: libintegrity (Français)
+# ============================================================================
+# Description: Messages français pour la vérification d'intégrité des modules
+# Version: 1.0.0
+# Date: 2026-02-02
+# ============================================================================
+
+# Dependency Check (integrity_check_dependencies)
+readonly MSG_ERROR_GET_INI_VALUE_MISSING="ERREUR: get_ini_value() non disponible (libconfig.sh non chargé?)"
+readonly MSG_ERROR_LOG_INFO_MISSING="ERREUR: log_info() non disponible (liblogging.sh non chargé?)"
+
+# Module Dependency Check
+readonly MSG_INFO_NO_MANIFEST="Aucun manifeste trouvé, vérification des dépendances ignorée"
+readonly MSG_ERROR_DB_LOAD_FAILED="Le fichier DB n'a pas pu être chargé"
+readonly MSG_ERROR_DB_NOT_FOUND="Fichier DB non trouvé"
+readonly MSG_WARNING_UNKNOWN_FILE_TYPE="Type de fichier inconnu dans le manifeste"
+readonly MSG_WARNING_MODULE_FILES_MISSING="Fichiers de module manquants (module incomplet ou corrompu?):"
+readonly MSG_INFO_CHECK_INSTALLATION="Note: Vérifiez l'installation du module ou mettez à jour le manifeste"
+readonly MSG_WARNING_FOLDERS_ENSURE_SUBFOLDER_MISSING="folders_ensure_subfolder() non disponible - vérification des dossiers ignorée"
+readonly MSG_INFO_FOLDER_OK="Dossier OK"
+readonly MSG_ERROR_FOLDER_CREATION_FAILED="Échec de la création du dossier"
+readonly MSG_ERROR_CRITICAL_FOLDERS_MISSING="Dossiers critiques manquants et n'ont pas pu être créés:"
+readonly MSG_INFO_CHECK_WRITE_PERMISSIONS="Vérifiez les permissions d'écriture dans OUTPUT_DIR"
+readonly MSG_ERROR_CRITICAL_TOOLS_MISSING="Outils critiques manquants"
+readonly MSG_INFO_INSTALL_TOOLS="Installation: sudo apt install"
+readonly MSG_WARNING_OPTIONAL_TOOLS_MISSING="Outils optionnels manquants (fonctionnalité réduite)"
+readonly MSG_INFO_RECOMMENDED_INSTALL="Recommandé: sudo apt install"
+readonly MSG_INFO_FOLDERS_AVAILABLE="Dossiers de module disponibles"
+readonly MSG_INFO_FOLDERS_CHECKED="dossiers vérifiés/créés"
+readonly MSG_INFO_ALL_DEPENDENCIES_OK="Toutes les dépendances du module sont satisfaites"
+
+# Debug Messages
+readonly MSG_DEBUG_CHECK_START="check_module_dependencies: Démarrage pour le module"
+readonly MSG_DEBUG_DB_LOADED="Fichier DB chargé"
+readonly MSG_DEBUG_CHECK_COMPLETE="check_module_dependencies: Terminé pour le module"
+readonly MSG_DEBUG_ALL_DEPS_MET="toutes les dépendances satisfaites"

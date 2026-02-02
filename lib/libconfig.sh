@@ -24,7 +24,7 @@
 # =============================================================================
 
 # ===========================================================================
-# check_dependencies_config
+# config_check_dependencies
 # ---------------------------------------------------------------------------
 # Funktion.: Prüfe alle Framework Abhängigkeiten (Modul-Dateien, die Modul
 # .........  Ausgabe Ordner, kritische und optionale Software für die
@@ -38,12 +38,59 @@
 # .........  besten direkt im Hauptskript (disk2iso) nach dem
 # .........  Laden der libcommon.sh.
 # ===========================================================================
-check_dependencies_config() {
+config_check_dependencies() {
     # Config-Modul nutzt POSIX-Standard-Tools
     # Diese sind auf jedem Linux-System verfügbar
     # Keine explizite Prüfung erforderlich
     return 0
 }
+
+# ===========================================================================
+# config_get_output_dir
+# ---------------------------------------------------------------------------
+# Funktion.: Lese OUTPUT_DIR aus disk2iso.conf oder verwende Fallback
+# Parameter: keine
+# Rückgabe.: OUTPUT_DIR Pfad (stdout, ohne trailing slash)
+#            Return-Code: 0 = Erfolg, 1 = Fehler
+# Beispiel.: output_dir=$(config_get_output_dir)
+# Hinweis..: - Liest DEFAULT_OUTPUT_DIR oder OUTPUT_DIR aus Konfiguration
+#            - Fallback auf globale Variable falls Config nicht lesbar
+#            - Entfernt trailing slash für konsistente Rückgabe
+# ===========================================================================
+config_get_output_dir() {
+    local config_file="${INSTALL_DIR:-/opt/disk2iso}/conf/disk2iso.conf"
+    local output_dir=""
+    
+    #-- Versuche OUTPUT_DIR aus Config zu lesen ----------------------------
+    if [[ -f "$config_file" ]]; then
+        # Lese DEFAULT_OUTPUT_DIR falls vorhanden
+        output_dir=$(/usr/bin/grep -E '^DEFAULT_OUTPUT_DIR=' "$config_file" 2>/dev/null | /usr/bin/sed 's/^DEFAULT_OUTPUT_DIR=//;s/^"\(.*\)"$/\1/')
+        
+        # Fallback: Lese OUTPUT_DIR falls DEFAULT_OUTPUT_DIR nicht gesetzt
+        if [[ -z "$output_dir" ]]; then
+            output_dir=$(/usr/bin/grep -E '^OUTPUT_DIR=' "$config_file" 2>/dev/null | /usr/bin/sed 's/^OUTPUT_DIR=//;s/^"\(.*\)"$/\1/')
+        fi
+    fi
+    
+    #-- Fallback auf globale Variable falls Config-Lesen fehlschlägt -------
+    if [[ -z "$output_dir" ]] && [[ -n "${OUTPUT_DIR:-}" ]]; then
+        output_dir="$OUTPUT_DIR"
+    fi
+    
+    #-- Fehlerfall: Kein OUTPUT_DIR gefunden -------------------------------
+    if [[ -z "$output_dir" ]]; then
+        echo "" >&2
+        return 1
+    fi
+    
+    #-- Entferne trailing slash und gebe zurück ---------------------------
+    echo "${output_dir%/}"
+    return 0
+}
+
+# ===========================================================================
+# TODO: Ab hier ist das Modul noch nicht fertig implementiert!
+# ===========================================================================
 
 # ============================================================================
 # GLOBALE LAUFZEIT-VARIABLEN
@@ -60,7 +107,6 @@ iso_filename=""    # Vollständiger Pfad zur ISO-Datei
 md5_filename=""    # Vollständiger Pfad zur MD5-Datei
 log_filename=""    # Vollständiger Pfad zur Log-Datei
 iso_basename=""    # Basis-Dateiname ohne Pfad (z.B. "dvd_video.iso")
-temp_pathname=""   # Temp-Verzeichnis für aktuellen Kopiervorgang
 
 # ============================================================================
 # CONFIG MANAGEMENT - NEUE ARCHITEKTUR

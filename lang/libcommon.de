@@ -115,3 +115,42 @@ readonly MSG_STATUS_WAITING_MEDIA="Warte auf Medium..."
 readonly MSG_WARNING_TEMP_DIR_DELETE_FAILED="⚠ Temp-Verzeichnis konnte nicht gelöscht werden, versuche mit erhöhten Rechten"
 readonly MSG_REMAINING="Verbleibend"
 readonly MSG_COPIED="kopiert"
+
+# ============================================================================
+# FEHLER-MELDUNGEN (DEPENDENCY CHECK)
+# ============================================================================
+
+readonly MSG_ERROR_OUTPUT_DIR_CREATE_FAILED="Ausgabe-Ordner für Daten-Discs konnte nicht erstellt werden:"
+readonly MSG_ERROR_OUTPUT_DIR_NOT_EXISTS="OUTPUT_DIR existiert nicht:"
+
+# ============================================================================
+# DATEN-DISC KOPIEREN
+# ============================================================================
+
+readonly MSG_ERROR_AUDIO_CD_AS_DATA="Audio-CD erkannt, aber kann nicht als Daten-Disc kopiert werden"
+readonly MSG_ERROR_AUDIO_MODULE_NOT_INSTALLED="Das Audio-Modul (libaudio.sh) ist nicht installiert oder deaktiviert"
+readonly MSG_INFO_INSTALL_AUDIO_MODULE="Installiere das Audio-Modul um Audio-CDs zu rippen (cdparanoia + lame)"
+
+readonly MSG_INFO_COPY_WITH_DDRESCUE="Kopiere Daten-Disc mit ddrescue (robust)"
+readonly MSG_INFO_COPY_WITH_DD="Kopiere Daten-Disc mit dd (Standard)"
+readonly MSG_WARNING_DDRESCUE_FALLBACK="ddrescue fehlgeschlagen - versuche Fallback zu dd"
+readonly MSG_ERROR_DD_COPY_FAILED="Daten-Disc Kopieren mit dd fehlgeschlagen"
+
+# ============================================================================
+# FEHLER-TRACKING
+# ============================================================================
+
+readonly MSG_DEBUG_FAILURE_COUNT_START="common_get_disc_failure_count: Start"
+readonly MSG_DEBUG_REGISTER_FAILURE_START="common_register_disc_failure: Start"
+readonly MSG_DEBUG_CLEAR_FAILURES_START="common_clear_disc_failures: Start"
+readonly MSG_WARNING_DISC_FAILURE_REGISTERED="Disc-Fehler registriert:"
+readonly MSG_INFO_FAILURE_HISTORY_CLEARED="Disc-Fehler-Historie gelöscht:"
+readonly MSG_DEBUG_NO_FAILURE_HISTORY="Keine Fehler-Historie für"
+
+# ============================================================================
+# EJECT & CLEANUP
+# ============================================================================
+
+readonly MSG_DEBUG_NO_DEVICE_TO_EJECT="Kein Device zum Auswerfen verfügbar:"
+readonly MSG_DEBUG_STATUS_AUTO_FAILURE="Status automatisch ermittelt: failure (Fehler-Tracking hat Einträge)"
+readonly MSG_DEBUG_STATUS_AUTO_UNKNOWN="Status automatisch ermittelt: unknown (kein expliziter Status, keine Fehler-Einträge)"

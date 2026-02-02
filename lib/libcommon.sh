@@ -26,7 +26,7 @@
 # =============================================================================
 
 # ===========================================================================
-# check_dependencies_common
+# common_check_dependencies
 # ---------------------------------------------------------------------------
 # Funktion.: Prüfe alle Framework Abhängigkeiten (Modul-Dateien, die Modul
 # .........  Ausgabe Ordner, kritische und optionale Software für die
@@ -40,7 +40,7 @@
 # .........  besten direkt im Hauptskript (disk2iso) nach dem
 # .........  Laden der libcommon.sh.
 # ===========================================================================
-check_dependencies_common() {
+common_check_dependencies() {
     # Lade Sprachdatei für dieses Modul
     load_module_language "common"
     
@@ -68,16 +68,16 @@ check_dependencies_common() {
     fi
     
     # Prüfe/Erstelle Ausgabe-Ordner für Daten-Discs
-    # ensure_subfolder ist aus libfolders.sh bereits geladen
-    if declare -f ensure_subfolder >/dev/null 2>&1; then
-        if ! ensure_subfolder "$DATA_DIR" >/dev/null 2>&1; then
-            log_error "Ausgabe-Ordner für Daten-Discs konnte nicht erstellt werden: $DATA_DIR"
+    # folders_ensure_subfolder ist aus libfolders.sh bereits geladen
+    if declare -f folders_ensure_subfolder >/dev/null 2>&1; then
+        if ! folders_ensure_subfolder "$DATA_DIR" >/dev/null 2>&1; then
+            log_error "$MSG_ERROR_OUTPUT_DIR_CREATE_FAILED $DATA_DIR"
             return 1
         fi
         
         # Temp-Ordner wird lazy erstellt, nur Prüfung dass OUTPUT_DIR existiert
         if [[ ! -d "$OUTPUT_DIR" ]]; then
-            log_error "OUTPUT_DIR existiert nicht: $OUTPUT_DIR"
+            log_error "$MSG_ERROR_OUTPUT_DIR_NOT_EXISTS $OUTPUT_DIR"
             return 1
         fi
     fi
@@ -104,9 +104,9 @@ common_copy_data_disc() {
     #-- Prüfe Disc-Typ: Audio-CDs können nicht als ISO kopiert werden -------
     local disc_type="$(discinfo_get_type)"
     if [[ "$disc_type" == "audio-cd" ]]; then
-        log_error "Audio-CD erkannt, aber kann nicht als Daten-Disc kopiert werden"
-        log_error "Das Audio-Modul (libaudio.sh) ist nicht installiert oder deaktiviert"
-        log_info "Installiere das Audio-Modul um Audio-CDs zu rippen (cdparanoia + lame)"
+        log_error "$MSG_ERROR_AUDIO_CD_AS_DATA"
+        log_error "$MSG_ERROR_AUDIO_MODULE_NOT_INSTALLED"
+        log_info "$MSG_INFO_INSTALL_AUDIO_MODULE"
         return 1
     fi
     
@@ -115,26 +115,26 @@ common_copy_data_disc() {
     
     #-- Prüfe ob ddrescue vorhanden, es ist optional ------------------------
     if command -v ddrescue >/dev/null 2>&1 && [[ $failure_count -eq 0 ]]; then
-        log_info "Kopiere Daten-Disc mit ddrescue (robust)"
+        log_info "$MSG_INFO_COPY_WITH_DDRESCUE"
         #-- 1. Versuch: ddrescue verwenden ----------------------------------
         if common_copy_data_disc_ddrescue; then
             return 0
         else
             #-- Kopiervorgang fehlgeschlagen - registriere Fehler -----------
             common_register_disc_failure
-            log_warning "ddrescue fehlgeschlagen - versuche Fallback zu dd"
+            log_warning "$MSG_WARNING_DDRESCUE_FALLBACK"
         fi
     fi
     
     #-- 2. Versuch: dd verwenden --------------------------------------------
-    log_info "Kopiere Daten-Disc mit dd (Standard)"
+    log_info "$MSG_INFO_COPY_WITH_DD"
     if common_copy_data_disc_dd; then
         #-- Erfolg - lösche Fehler-Historie falls vorhanden -----------------
         [[ $failure_count -gt 0 ]] && common_clear_disc_failures
         return 0
     else
         #-- Kopiervorgang fehlgeschlagen - registriere Fehler ---------------
-        log_error "Daten-Disc Kopieren mit dd fehlgeschlagen"
+        log_error "$MSG_ERROR_DD_COPY_FAILED"
         common_register_disc_failure
         return 1
     fi
@@ -294,7 +294,7 @@ common_copy_data_disc_dd() {
 # ===========================================================================
 common_get_disc_failure_count() {
     #-- Debug-Log Eintrag ---------------------------------------------------
-    log_debug "common_get_disc_failure_count: Start"
+    log_debug "$MSG_DEBUG_FAILURE_COUNT_START"
 
     #-- Pfad zur Ausgabes-Datei ermitteln -----------------------------------
     local failed_file
@@ -336,7 +336,7 @@ common_get_disc_failure_count() {
 # ===========================================================================
 common_register_disc_failure() {
     #-- Debug-Log Eintrag ---------------------------------------------------
-    log_debug "common_register_disc_failure: Start"
+    log_debug "$MSG_DEBUG_REGISTER_FAILURE_START"
 
     #-- Pfad zur Ausgabes-Datei ermitteln -----------------------------------
     local failed_file=$(get_failed_disc_path) || return 1
@@ -353,7 +353,7 @@ common_register_disc_failure() {
     
     #-- Schreibe/Aktualisiere Eintrag: timestamp|method|retry_count ---------
     write_ini_value "$failed_file" "$disc_type" "$identifier" "${timestamp}|${method}|${retry_count}"
-    log_warning "Disc-Fehler registriert: $identifier ($method, Versuch #${retry_count})"
+    log_warning "$MSG_WARNING_DISC_FAILURE_REGISTERED $identifier ($method, Versuch #${retry_count})"
 }
 
 # ===========================================================================
@@ -369,7 +369,7 @@ common_register_disc_failure() {
 # ===========================================================================
 common_clear_disc_failures() {
     #-- Debug-Log Eintrag ---------------------------------------------------
-    log_debug "common_clear_disc_failures: Start"
+    log_debug "$MSG_DEBUG_CLEAR_FAILURES_START"
 
     #-- Pfad zur Ausgabes-Datei ermitteln -----------------------------------
     local failed_file=$(get_failed_disc_path) || return 1
@@ -384,11 +384,11 @@ common_clear_disc_failures() {
     if [[ -n "$value" ]]; then
         #-- Lösche existierenden Eintrag ------------------------------------
         delete_ini_value "$failed_file" "$disc_type" "$identifier"
-        log_info "Disc-Fehler-Historie gelöscht: $identifier"
+        log_info "$MSG_INFO_FAILURE_HISTORY_CLEARED $identifier"
         return 0
     else
         #-- Kein Eintrag vorhanden - nichts zu tun --------------------------
-        log_debug "Keine Fehler-Historie für $identifier vorhanden"
+        log_debug "$MSG_DEBUG_NO_FAILURE_HISTORY $identifier vorhanden"
         return 0
     fi
 }
@@ -535,7 +535,7 @@ common_eject_and_wait() {
     
     # Prüfe ob Device verfügbar ist
     if [[ ! -b "$device" ]]; then
-        log_debug "Kein Device zum Auswerfen verfügbar: $device"
+        log_debug "$MSG_DEBUG_NO_DEVICE_TO_EJECT $device"
         return 1
     fi
     
@@ -581,10 +581,10 @@ common_cleanup_disc_operation() {
     if [[ -z "$status" ]]; then
         if [[ $(common_get_disc_failure_count) -gt 0 ]]; then
             status="failure"
-            log_debug "Status automatisch ermittelt: failure (Fehler-Tracking hat Einträge)"
+            log_debug "$MSG_DEBUG_STATUS_AUTO_FAILURE"
         else
             status="unknown"
-            log_debug "Status automatisch ermittelt: unknown (kein expliziter Status, keine Fehler-Einträge)"
+            log_debug "$MSG_DEBUG_STATUS_AUTO_UNKNOWN"
         fi
     fi
     

@@ -747,66 +747,224 @@ Analog zu Phase 2 - TMDB
 
 ---
 
-## 📋 EMPFOHLENE ARBEITSREIHENFOLGE
+## � CORE-MODULE STATUS REVIEW (Stand: 01. Februar 2026)
 
-### Sofort (diese Woche):
+### ✅ Vollständig Refactored (Production-Ready)
 
-1. **Python-Bash Phase 1** (4-6h) - Archive-Metadata via libmetadb.sh
-2. **Python-Bash Phase 4** (4-6h) - Update-Metadata Endpoint → **GitHub #4 GELÖST** ✅
-3. **#11 MQTT Debug** (2 Std) - Logging aktivieren, Broker-Logs prüfen
+| Modul | Pattern | Naming | metadb | Status |
+|-------|---------|--------|--------|--------|
+| **libcommon.sh** | ✅ Orchestrator/Worker | ✅ common_* | ✅ Integriert | ✅ FERTIG |
+| **libdvd.sh** | ✅ Orchestrator/Worker | ✅ Konsistent | ✅ Integriert | ✅ FERTIG |
+| **libdrivestat.sh** | ✅ Reorganisiert | ✅ Konsistent | N/A | ✅ FERTIG |
+| **libmetadb.sh** | ✅ Neu implementiert | ✅ metadb_* | ✅ Core | ✅ FERTIG |
+| **libconfig.sh** | ✅ Config-API | ✅ Konsistent | N/A | ✅ FERTIG |
+| **liblogging.sh** | ✅ Log-API | ✅ Konsistent | N/A | ✅ FERTIG |
+| **libfiles.sh** | ✅ File-API | ✅ Konsistent | N/A | ✅ FERTIG |
+| **libfolders.sh** | ✅ Folder-API | ✅ Konsistent | N/A | ✅ FERTIG |
 
-### Kurzfristig (nächste 2 Wochen):
-
-4. **Python-Bash Phase 2** (3-4h) - TMDB-Integration vereinfachen (-60 Zeilen)
-5. **Python-Bash Phase 3** (2-3h) - MusicBrainz-Integration vereinfachen (-40 Zeilen)
-6. **#5 Runtime-Tests + GitHub schließen** (4 Std) - Audio-CD mit echten Discs testen
-7. **Auto-Cleanup Cronjob** (1 Tag) - install.sh erweitern
-8. **#15 Fehlerbehandlung** (2 Tage) - Retry-Logik implementieren
-9. **#19 Archivierte Logs** (1 Tag) - Neue Route + Template
-
-### Mittelfristig (nächste 4 Wochen):
-
-10. **#9 ISO-Anzeige Debug** (4 Std) - Detaillierte Diagnose
-11. **#10 Kompaktere Anzeige** (2 Tage) - Kollapsbare Sektionen
-12. **#6 DVD Metadaten** (Details klären, dann umsetzen)
-13. **Python-Bash Phase 5** (6-8h) - ISO-Scanning via Bash (OPTIONAL)
-
-### Langfristig (nächste 3 Monate):
-
-14. **Frontend-Modularisierung** (1 Woche) - Dynamisches JS-Loading
-15. **Metadata Cache-DB** (1 Woche) - 10-40x schneller
-16. **Plugin-System Backend** (2 Wochen) - Flask Blueprints
-
-### Features (nach Bedarf):
-
-17. **#22 MP3 feat. Artists** (1 Tag mit libmetadb.sh) - MusicBrainz Artist-Credits
-18. **#21 MP3 Sampler** (1 Woche mit libmetadb.sh) - Komplexe MusicBrainz-Logik
+**Bewertung:** 8/17 Core-Module vollständig modernisiert ✅
 
 ---
 
-## 📝 DATEIEN ZUM LÖSCHEN
+### 🔴 KRITISCH - Muss vor optionalen Modulen refactored werden
 
-Nach Erstellung dieser konsolidierten Übersicht können **folgende Dateien gelöscht werden**:
+#### 1. **libaudio.sh** - HÖCHSTE PRIORITÄT
+**Status:** ❌ Legacy-Implementierung (1376 Zeilen, keine Trennung)  
+**Probleme:**
+- `copy_audio_cd()`: Monolith-Funktion (450+ Zeilen)
+- KEIN Orchestrator/Worker Pattern
+- KEINE Nutzung von `common_copy_*` Workern
+- KEINE Fehler-Tracking mit `common_register_disc_failure()`
+- Viele redundante Metadata-Funktionen (ersetzt durch libmetadb.sh)
+- Keine Trennung: Ripping + Encoding + ISO-Erstellung in einer Funktion
 
-- ❌ `convert_logging.py` - Script wurde erfolgreich ausgeführt
-- ❌ `convert-logging.sh` - Wurde nicht verwendet
-- 📁 **Archivieren** (nach doc/archive/):
-  - `Logging-Konvertierung.md` - Alle Aufgaben erledigt
-  - `Metadata-BEFORE-vs-AFTER.md` - Implementierung abgeschlossen
-  - `load-order-analysis.md` - Analyse umgesetzt
-  - `module_dependencies_analysis.md` - Analyse abgeschlossen
+**Refactoring Plan:**
+```bash
+# ZIEL-STRUKTUR (analog zu libdvd.sh):
 
-**Behalten:**
+# Orchestrator (Strategie-Entscheidung + Fehler-Tracking)
+audio_copy_cd() {
+    # Metadata BEFORE (libmetadata.sh Framework)
+    # Wähle Methode basierend auf failure_count
+    # Rufe Worker auf
+    # Registriere Fehler bei Failure
+    # Erstelle Metadata (libmetadb.sh)
+}
+
+# Worker-Funktionen (Single Responsibility)
+audio_rip_tracks_cdparanoia()      # WAV-Extraktion
+audio_encode_tracks_lame()         # MP3-Encoding
+audio_create_iso_genisoimage()     # ISO-Erstellung
+```
+
+**Aufwand:** 2-3 Tage  
+**Impact:** ⭐⭐⭐⭐⭐ (Basis für alle Audio-Module)
+
+---
+
+#### 2. **libbluray.sh** - HOHE PRIORITÄT
+**Status:** ❌ Legacy-Implementierung (284 Zeilen, teilweise implementiert)  
+**Probleme:**
+- `copy_bluray_ddrescue()`: Duplikation zu libcommon.sh
+- Sollte `common_copy_data_disc_ddrescue()` nutzen
+- TODO-Kommentar: "Ab hier ist das Modul noch nicht fertig implementiert!"
+- KEIN Orchestrator/Worker Pattern
+- Keine Fehler-Tracking Integration
+
+**Refactoring Plan:**
+```bash
+# ZIEL-STRUKTUR (analog zu libdvd.sh):
+
+# Orchestrator
+bluray_copy_disc() {
+    # Metadata BEFORE (libmetadata.sh Framework)
+    # Wähle Methode (ddrescue bevorzugt, dd als Fallback)
+    # Rufe common_copy_data_disc_ddrescue() auf
+    # Registriere Fehler bei Failure
+    # Erstelle Metadata (libmetadb.sh)
+}
+
+# Kein Worker nötig - nutzt libcommon.sh Worker
+```
+
+**Aufwand:** 1 Tag  
+**Impact:** ⭐⭐⭐⭐ (Komplettiert Orchestrator-Pattern)
+
+---
+
+### 🟡 WICHTIG - Sollte refactored werden
+
+#### 3. **libmusicbrainz.sh** - Provider-Modernisierung
+**Status:** ⚠️ Funktioniert, aber Pre-libmetadb Architektur  
+**Refactoring:** Anpassung an libmetadb.sh API (DISC_DATA statt eigene Variablen)  
+**Aufwand:** 1 Tag  
+**Impact:** ⭐⭐⭐
+
+#### 4. **libtmdb.sh** - Provider-Modernisierung
+**Status:** ⚠️ Funktioniert, aber Pre-libmetadb Architektur  
+**Refactoring:** Anpassung an libmetadb.sh API (DISC_DATA statt eigene Variablen)  
+**Aufwand:** 1 Tag  
+**Impact:** ⭐⭐⭐
+
+#### 5. **libmetadata.sh** - Framework-Konsolidierung
+**Status:** ⚠️ Funktioniert, aber könnte straffer sein  
+**Refactoring:** Integration mit libmetadb.sh testen und optimieren  
+**Aufwand:** 1 Tag  
+**Impact:** ⭐⭐
+
+---
+
+### 🟢 OPTIONAL - Können später refactored werden
+
+| Modul | Status | Aufwand | Grund |
+|-------|--------|---------|-------|
+| **libapi.sh** | ✅ Funktioniert | 0.5 Tag | Bereits gute Struktur |
+| **libdiskinfos.sh** | ✅ Funktioniert | 0 Tag | Neu mit DISC_INFO/DISC_DATA |
+| **libinstall.sh** | ✅ Funktioniert | 0 Tag | Nur bei Installation genutzt |
+| **libintegrity.sh** | ✅ Funktioniert | 0 Tag | Standalone-Modul |
+| **libsysteminfo.sh** | ✅ Bereinigt | 0 Tag | Nach Reorganisation fertig |
+
+---
+
+## 📋 NEUE EMPFOHLENE ARBEITSREIHENFOLGE
+
+### 🔴 SOFORT (diese Woche) - Core-Module vollenden
+
+1. **libaudio.sh Refactoring** (2-3 Tage) - KRITISCH ⭐⭐⭐⭐⭐
+   - Orchestrator/Worker Pattern implementieren
+   - `common_copy_*` Worker integrieren
+   - Fehler-Tracking mit `common_register_disc_failure()`
+   - libmetadb.sh für Metadata verwenden
+   
+2. **libbluray.sh Refactoring** (1 Tag) - KRITISCH ⭐⭐⭐⭐
+   - Orchestrator implementieren
+   - `common_copy_data_disc_ddrescue()` nutzen
+   - Fehler-Tracking integrieren
+   - TODO-Kommentare entfernen
+
+**Nach diesen 2 Modulen:** Alle Core-Copy-Module folgen einheitlichem Pattern! ✅
+
+---
+
+### 🟡 KURZFRISTIG (nächste 2 Wochen) - Provider-Modernisierung
+
+3. **libmusicbrainz.sh Modernisierung** (1 Tag)
+   - Vollständige libmetadb.sh Integration
+   - DISC_DATA statt eigene Variablen
+   
+4. **libtmdb.sh Modernisierung** (1 Tag)
+   - Vollständige libmetadb.sh Integration
+   - DISC_DATA statt eigene Variablen
+
+5. **Python-Bash Phase 1** (4-6h) - Archive-Metadata via libmetadb.sh
+
+6. **Python-Bash Phase 4** (4-6h) - Update-Metadata Endpoint → **GitHub #4 GELÖST** ✅
+
+7. **#11 MQTT Debug** (2 Std) - Logging aktivieren, Broker-Logs prüfen
+
+---
+
+### 🟢 MITTELFRISTIG (nächste 4 Wochen) - Optimierungen
+
+8. **Python-Bash Phase 2** (3-4h) - TMDB-Integration vereinfachen (-60 Zeilen)
+9. **Python-Bash Phase 3** (2-3h) - MusicBrainz-Integration vereinfachen (-40 Zeilen)
+10. **#5 Runtime-Tests + GitHub schließen** (4 Std) - Audio-CD mit echten Discs testen
+11. **Auto-Cleanup Cronjob** (1 Tag) - install.sh erweitern
+12. **#15 Fehlerbehandlung** (2 Tage) - Retry-Logik implementieren
+13. **#19 Archivierte Logs** (1 Tag) - Neue Route + Template
+14. **#9 ISO-Anzeige Debug** (4 Std) - Detaillierte Diagnose
+15. **#10 Kompaktere Anzeige** (2 Tage) - Kollapsbare Sektionen
+16. **#6 DVD Metadaten** (Details klären, dann umsetzen)
+17. **Python-Bash Phase 5** (6-8h) - ISO-Scanning via Bash (OPTIONAL)
+
+---
+
+### 🚀 LANGFRISTIG (nächste 3 Monate) - Neue Features
+
+18. **Frontend-Modularisierung** (1 Woche) - Dynamisches JS-Loading
+19. **Metadata Cache-DB** (1 Woche) - 10-40x schneller
+20. **Plugin-System Backend** (2 Wochen) - Flask Blueprints
+
+---
+
+### 🎯 FEATURES (nach Bedarf)
+
+21. **#22 MP3 feat. Artists** (1 Tag mit libmetadb.sh) - MusicBrainz Artist-Credits
+22. **#21 MP3 Sampler** (1 Woche mit libmetadb.sh) - Komplexe MusicBrainz-Logik
+
+---
+
+## 📝 AKTIVE TODO-DATEIEN
+
+**Aktuelle Dateien in todo/:**
+- ✅ `Ausstehende_Anpassungen.md` - Diese Datei (Master-Übersicht)
 - ✅ `ForNextRelease.md` - Enthält noch offene Features
 - ✅ `Frontend-Modularisierung.md` - Konzept für zukünftiges Feature
-- ✅ `GitHub-Issues.md` - Aktive Bug-Tracking-Liste
 - ✅ `Metadata-Cache-DB.md` - Konzept für zukünftiges Feature
 - ✅ `Metadata-PlugIn_Konzept.md` - Konzept für zukünftiges Feature
-- ✅ `Ausstehende_Anpassungen.md` - Diese Datei (Master-Übersicht)
+- ✅ `Modul-CLI-Interface-Pattern.md` - Template für neue Module
+- ✅ `MQTT-Modularisierung-Analyse.md` - MQTT-Konzept
+- ✅ `Python-Architektur-Analyse.md` - Python-Backend-Konzept
+- ✅ `PythonVsShell.md` - Technologie-Entscheidung
+- ✅ `README.md` - TODO-Verzeichnis Übersicht
+
+**Bereits archiviert/gelöscht:**
+- ✅ `convert_logging.py` - Wurde bereits gelöscht (Aufgabe erledigt)
+- ✅ `convert-logging.sh` - Wurde bereits gelöscht (nicht verwendet)
+- ✅ `Logging-Konvertierung.md` - Wurde bereits archiviert (Aufgaben erledigt)
+- ✅ `Metadata-BEFORE-vs-AFTER.md` - Wurde bereits archiviert (Implementierung abgeschlossen)
+- ✅ `load-order-analysis.md` - Wurde bereits archiviert (Analyse umgesetzt)
+- ✅ `module_dependencies_analysis.md` - Wurde bereits archiviert (Analyse abgeschlossen)
 
 ---
 
 ## 📝 CHANGELOG
+
+### 01. Februar 2026
+- 📊 **Core-Module Review durchgeführt**
+  - Status: 8/17 Module vollständig refactored
+  - Identifiziert: libaudio.sh + libbluray.sh müssen vor optionalen Modulen refactored werden
+  - Priorität: Orchestrator/Worker Pattern + libmetadb.sh Integration
 
 ### 27. Januar 2026
 - ✅ **libmetadb.sh implementiert** (Commit 576c667)
