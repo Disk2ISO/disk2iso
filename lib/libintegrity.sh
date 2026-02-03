@@ -45,7 +45,8 @@ integrity_check_dependencies() {
     # Integrity-Modul benötigt:
     # - libconfig.sh (get_ini_value, get_ini_array)
     # - liblogging.sh (log_*, load_module_language)
-    # - libfolders.sh (folders_ensure_subfolder, get_module_file_path)
+    # - libfolders.sh (folders_ensure_subfolder)
+    # - libfiles.sh (files_get_*_path)
     
     # Prüfe ob benötigte Funktionen verfügbar sind
     if ! declare -f get_ini_value >/dev/null 2>&1; then
@@ -81,7 +82,9 @@ integrity_check_dependencies() {
 # ===========================================================================
 check_module_dependencies() {
     local module_name="$1"
-    local manifest_file="${INSTALL_DIR}/conf/lib${module_name}.ini"
+    local conf_dir
+    conf_dir=$(folders_get_conf_dir) || conf_dir="${INSTALL_DIR}/conf"
+    local manifest_file="${conf_dir}/lib${module_name}.ini"
     
     # Debug: Start der Abhängigkeitsprüfung
     log_debug "$MSG_DEBUG_CHECK_START '${module_name}'"
@@ -133,14 +136,39 @@ check_module_dependencies() {
         
         # Nur prüfen wenn Eintrag existiert
         if [[ -n "$filename" ]]; then
-            # Ermittle vollständigen Pfad (via libfolders.sh)
+            # Ermittle vollständigen Pfad (via libfiles.sh)
             local file_path
-            file_path=$(get_module_file_path "$file_type" "$filename")
-            
-            if [[ -z "$file_path" ]]; then
-                # Unbekannter file_type → Warnung
-                log_warning "${module_name}: $MSG_WARNING_UNKNOWN_FILE_TYPE: ${file_type}"
-                continue
+            case "$file_type" in
+                lib)
+                    file_path=$(files_get_lib_path "$filename")
+                    ;;
+                lang)
+                    file_path=$(files_get_lang_path "$filename")
+                    ;;
+                conf)
+                    file_path=$(files_get_conf_path "$filename")
+                    ;;
+                docu)
+                    file_path=$(files_get_doc_path "$filename")
+                    ;;
+                html)
+                    file_path=$(files_get_html_path "$filename")
+                    ;;
+                css)
+                    file_path=$(files_get_css_path "$filename")
+                    ;;
+                js)
+                    file_path=$(files_get_js_path "$filename")
+                    ;;
+                router)
+                    file_path=$(files_get_router_path "$filename")
+                    ;;
+                *)
+                    # Unbekannter file_type → Warnung
+                    log_warning "${module_name}: $MSG_WARNING_UNKNOWN_FILE_TYPE: ${file_type}"
+                    continue
+                    ;;
+            esac
             fi
             
             # Prüfe Existenz (mit Wildcard-Support für Sprachdateien)

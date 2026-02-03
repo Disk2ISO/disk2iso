@@ -12,17 +12,49 @@
 # OPÉRATIONS DE RÉPERTOIRE
 # ============================================================================
 
-readonly MSG_TEMP_DIR_CREATED="Répertoire temporaire créé"
-readonly MSG_TEMP_DIR_CLEANED="Répertoire temporaire nettoyé"
-readonly MSG_LOG_DIR_CREATED="Répertoire de log assuré"
-readonly MSG_OUTPUT_DIR_CREATED="Répertoire de sortie assuré"
-readonly MSG_ALBUM_DIR_CREATED="Répertoire d'album créé"
-readonly MSG_BACKUP_DIR_CREATED="Répertoire de sauvegarde créé"
-readonly MSG_ERROR_BACKUP_DIR_FAILED="ERREUR: Impossible de créer le répertoire de sauvegarde"
+# Subfolder Operations
 readonly MSG_ERROR_ENSURE_SUBFOLDER_NO_NAME="ERREUR: folders_ensure_subfolder nécessite un nom de dossier"
 readonly MSG_SUBFOLDER_CREATED="Sous-dossier créé:"
 readonly MSG_ERROR_CREATE_SUBFOLDER="ERREUR: Impossible de créer le sous-dossier:"
-readonly MSG_ERROR_CREATE_TEMP_SUBFOLDER="ERREUR: Impossible de créer le sous-dossier temporaire:"
-readonly MSG_ERROR_LOG_DIR_NOT_EXIST="ERREUR: Le répertoire de log n'existe pas:"
-readonly MSG_ERROR_OUTPUT_DIR_NOT_EXIST="ERREUR: Le répertoire de sortie n'existe pas:"
-readonly MSG_WARNING_TYPE_DIR_NOT_EXIST="ATTENTION: Le répertoire de type n'existe pas:"
+readonly MSG_ERROR_PARENT_DIR_MISSING="Répertoire parent manquant:"
+
+# Output Directory
+readonly MSG_ERROR_OUTPUT_DIR_READ_FAILED="Le répertoire de sortie n'a pas pu être lu depuis la configuration"
+readonly MSG_WARNING_OUTPUT_DIR_MISSING="Répertoire de sortie manquant:"
+readonly MSG_ERROR_OUTPUT_DIR_PARENT_MISSING="Répertoire parent du répertoire de sortie manquant:"
+readonly MSG_ERROR_OUTPUT_DIR_CREATE_FAILED="Le répertoire de sortie n'a pas pu être créé:"
+readonly MSG_INFO_OUTPUT_DIR_CREATED="Répertoire de sortie créé automatiquement:"
+
+# Temp Directory
+readonly MSG_WARNING_TEMP_DIR_MISSING="Répertoire temporaire manquant:"
+readonly MSG_ERROR_TEMP_DIR_PARENT_MISSING="Le répertoire temporaire ne peut pas être créé! Répertoire parent manquant:"
+readonly MSG_ERROR_TEMP_DIR_CREATE_FAILED="Le répertoire temporaire n'a pas pu être créé:"
+readonly MSG_INFO_TEMP_DIR_CREATED="Répertoire temporaire créé automatiquement:"
+
+# Log Directory
+readonly MSG_WARNING_LOG_DIR_MISSING="Répertoire de log manquant:"
+readonly MSG_ERROR_LOG_DIR_PARENT_MISSING="Le répertoire de log ne peut pas être créé! Répertoire parent manquant:"
+readonly MSG_ERROR_LOG_DIR_CREATE_FAILED="Le répertoire de log n'a pas pu être créé:"
+readonly MSG_INFO_LOG_DIR_CREATED="Répertoire de log créé automatiquement:"
+
+# Module Directory
+readonly MSG_WARNING_MODULE_DIR_MISSING="Répertoire de module manquant:"
+readonly MSG_ERROR_MODULE_DIR_PARENT_MISSING="Le répertoire de module ne peut pas être créé! Répertoire parent manquant:"
+readonly MSG_ERROR_MODULE_DIR_CREATE_FAILED="Le répertoire de module n'a pas pu être créé:"
+readonly MSG_INFO_MODULE_DIR_CREATED="Répertoire de module créé automatiquement:"
+
+# Mount Directory
+readonly MSG_WARNING_MOUNT_DIR_MISSING="Répertoire de montage manquant:"
+readonly MSG_ERROR_MOUNT_DIR_PARENT_MISSING="Le répertoire de montage ne peut pas être créé! Répertoire parent manquant:"
+readonly MSG_ERROR_MOUNT_DIR_CREATE_FAILED="Le répertoire de montage n'a pas pu être créé:"
+readonly MSG_INFO_MOUNT_DIR_CREATED="Répertoire de montage créé automatiquement:"
+readonly MSG_ERROR_MOUNT_POINT_CREATE_FAILED="Le point de montage n'a pas pu être créé:"
+
+# Debug Messages
+readonly MSG_DEBUG_SUBFOLDER_EXISTS="folders_ensure_subfolder: Le chemin existe déjà:"
+readonly MSG_DEBUG_SUBFOLDER_PERMISSIONS_NORMAL="folders_ensure_subfolder: Dossier créé avec permissions"
+readonly MSG_DEBUG_SUBFOLDER_PERMISSIONS_PUBLIC="folders_ensure_subfolder: Dossier créé avec permissions"
+
+# Common Suffixes
+readonly MSG_SUFFIX_TRY_CREATE=" - tentative de création"
+readonly MSG_SUFFIX_MISSING_PERMISSIONS=" (permissions manquantes?)"

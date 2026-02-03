@@ -47,7 +47,7 @@ api_check_dependencies() {
     
     # Prüfe ob API-Verzeichnis existiert (von install.sh erstellt)
     local api_test
-    api_test=$(get_api_dir)
+    api_test=$(folders_get_api_dir)
     
     if [[ -z "$api_test" ]]; then
         echo "$MSG_ERROR_API_DIR_NOT_FOUND"
@@ -80,7 +80,7 @@ API_DIR=""
 # ===========================================================================
 api_init() {
     # Hole API-Verzeichnis (erstellt automatisch falls nicht vorhanden)
-    API_DIR=$(get_api_dir) || return 1
+    API_DIR=$(folders_get_api_dir) || return 1
     
     # Erstelle leere/default JSONs falls nicht vorhanden
     if [[ ! -f "${API_DIR}/status.json" ]]; then
@@ -114,7 +114,7 @@ api_write_json() {
     local json_content="$2"
     
     # Schreibe JSON-Datei (atomar mit temp-file)
-    # API_DIR wurde bereits in api_init() via get_api_dir() erstellt
+    # API_DIR wurde bereits in api_init() via folders_get_api_dir() erstellt
     local temp_file="${API_DIR}/.${filename}.tmp"
     echo "$json_content" > "$temp_file" 2>/dev/null || return 1
     mv -f "$temp_file" "${API_DIR}/${filename}" 2>/dev/null || return 1

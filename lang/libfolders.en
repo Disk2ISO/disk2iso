@@ -12,17 +12,49 @@
 # DIRECTORY OPERATIONS
 # ============================================================================
 
-readonly MSG_TEMP_DIR_CREATED="Temp directory created"
-readonly MSG_TEMP_DIR_CLEANED="Temp directory cleaned"
-readonly MSG_LOG_DIR_CREATED="Log directory ensured"
-readonly MSG_OUTPUT_DIR_CREATED="Output directory ensured"
-readonly MSG_ALBUM_DIR_CREATED="Album directory created"
-readonly MSG_BACKUP_DIR_CREATED="Backup directory created"
-readonly MSG_ERROR_BACKUP_DIR_FAILED="ERROR: Could not create backup directory"
+# Subfolder Operations
 readonly MSG_ERROR_ENSURE_SUBFOLDER_NO_NAME="ERROR: folders_ensure_subfolder requires folder name"
 readonly MSG_SUBFOLDER_CREATED="Subfolder created:"
 readonly MSG_ERROR_CREATE_SUBFOLDER="ERROR: Cannot create subfolder:"
-readonly MSG_ERROR_CREATE_TEMP_SUBFOLDER="ERROR: Cannot create temp subfolder:"
-readonly MSG_ERROR_LOG_DIR_NOT_EXIST="ERROR: Log directory does not exist:"
-readonly MSG_ERROR_OUTPUT_DIR_NOT_EXIST="ERROR: Output directory does not exist:"
-readonly MSG_WARNING_TYPE_DIR_NOT_EXIST="WARNING: Type directory does not exist:"
+readonly MSG_ERROR_PARENT_DIR_MISSING="Parent directory missing:"
+
+# Output Directory
+readonly MSG_ERROR_OUTPUT_DIR_READ_FAILED="Output directory could not be read from configuration"
+readonly MSG_WARNING_OUTPUT_DIR_MISSING="Output directory missing:"
+readonly MSG_ERROR_OUTPUT_DIR_PARENT_MISSING="Output directory parent dir missing:"
+readonly MSG_ERROR_OUTPUT_DIR_CREATE_FAILED="Output directory could not be created:"
+readonly MSG_INFO_OUTPUT_DIR_CREATED="Output directory automatically created:"
+
+# Temp Directory
+readonly MSG_WARNING_TEMP_DIR_MISSING="Temp directory missing:"
+readonly MSG_ERROR_TEMP_DIR_PARENT_MISSING="Temp directory cannot be created! Parent dir missing:"
+readonly MSG_ERROR_TEMP_DIR_CREATE_FAILED="Temp directory could not be created:"
+readonly MSG_INFO_TEMP_DIR_CREATED="Temp directory automatically created:"
+
+# Log Directory
+readonly MSG_WARNING_LOG_DIR_MISSING="Log directory missing:"
+readonly MSG_ERROR_LOG_DIR_PARENT_MISSING="Log directory cannot be created! Parent dir missing:"
+readonly MSG_ERROR_LOG_DIR_CREATE_FAILED="Log directory could not be created:"
+readonly MSG_INFO_LOG_DIR_CREATED="Log directory automatically created:"
+
+# Module Directory
+readonly MSG_WARNING_MODULE_DIR_MISSING="Module directory missing:"
+readonly MSG_ERROR_MODULE_DIR_PARENT_MISSING="Module directory cannot be created! Parent dir missing:"
+readonly MSG_ERROR_MODULE_DIR_CREATE_FAILED="Module directory could not be created:"
+readonly MSG_INFO_MODULE_DIR_CREATED="Module directory automatically created:"
+
+# Mount Directory
+readonly MSG_WARNING_MOUNT_DIR_MISSING="Mount directory missing:"
+readonly MSG_ERROR_MOUNT_DIR_PARENT_MISSING="Mount directory cannot be created! Parent dir missing:"
+readonly MSG_ERROR_MOUNT_DIR_CREATE_FAILED="Mount directory could not be created:"
+readonly MSG_INFO_MOUNT_DIR_CREATED="Mount directory automatically created:"
+readonly MSG_ERROR_MOUNT_POINT_CREATE_FAILED="Mount point could not be created:"
+
+# Debug Messages
+readonly MSG_DEBUG_SUBFOLDER_EXISTS="folders_ensure_subfolder: Path already exists:"
+readonly MSG_DEBUG_SUBFOLDER_PERMISSIONS_NORMAL="folders_ensure_subfolder: Folder created with permissions"
+readonly MSG_DEBUG_SUBFOLDER_PERMISSIONS_PUBLIC="folders_ensure_subfolder: Folder created with permissions"
+
+# Common Suffixes
+readonly MSG_SUFFIX_TRY_CREATE=" - attempting to create"
+readonly MSG_SUFFIX_MISSING_PERMISSIONS=" (missing permissions?)"

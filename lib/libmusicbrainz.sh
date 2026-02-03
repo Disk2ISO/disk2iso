@@ -88,14 +88,14 @@ get_path_musicbrainz() {
 # Funktion.: Liefert den Cache-Pfad für temporäre Query-Results
 # Parameter: keine
 # Rückgabe.: Vollständiger Pfad zum Cache-Verzeichnis
-# Hinweis..: Nutzt get_module_folder_path() mit Fallback-Logik:
+# Hinweis..: Nutzt files_get_module_folder_path() mit Fallback-Logik:
 #            1. [folders] cache aus INI (spezifisch)
 #            2. [folders] output + /cache (konstruiert)
 #            3. OUTPUT_DIR/cache (global)
 #            Ordner wird von check_module_dependencies() erstellt
 # ===========================================================================
 get_cachepath_musicbrainz() {
-    get_module_folder_path "musicbrainz" "cache"
+    files_get_module_folder_path "musicbrainz" "cache"
 }
 
 # ===========================================================================
@@ -104,14 +104,14 @@ get_cachepath_musicbrainz() {
 # Funktion.: Liefert den Pfad für temporäre Cover-Thumbnails (Modal)
 # Parameter: keine
 # Rückgabe.: Vollständiger Pfad zum Covers-Verzeichnis
-# Hinweis..: Nutzt get_module_folder_path() mit Fallback-Logik:
+# Hinweis..: Nutzt files_get_module_folder_path() mit Fallback-Logik:
 #            1. [folders] covers aus INI (spezifisch)
 #            2. [folders] output + /covers (konstruiert)
 #            3. OUTPUT_DIR/covers (global)
 #            Ordner wird von check_module_dependencies() erstellt
 # ===========================================================================
 get_coverpath_musicbrainz() {
-    get_module_folder_path "musicbrainz" "covers"
+    files_get_module_folder_path "musicbrainz" "covers"
 }
 
 # ============================================================================

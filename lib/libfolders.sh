@@ -51,27 +51,11 @@ folders_check_dependencies() {
 }
 
 # ============================================================================
-# PATH CONSTANTS
+# GENERIC HELPER FUNCTIONS
 # ============================================================================
-# Konstanten für Unterordner-Namen (relativ zu OUTPUT_DIR)
-# ----------------------------------------------------------------------------
-# 1. CoreModules nutzen diese Konstanten für konsistente Ordner-Struktur
-# 2. folders_ensure_subfolder() nutzt diese Konstanten für konsistente Ordner-Erstellung
-# 3. Optionale Module können eigene Unterordner definieren (z.B. audio-cd, dvd-video)
-# ----------------------------------------------------------------------------
 # Globale Festsetzung für Zugriffsrechte in Ordnern -------------------------
 readonly DIR_PERMISSIONS_NORMAL="755"        # Normale Ordner
 readonly DIR_PERMISSIONS_PUBLIC="777"        # Öffentl. Ordner (.log, .temp)
-
-# Globale Flags für Lazy Initialization -------------------------------------
-_OUTPUT_DIR_CREATED=false                    # Ausgabe-Verzeichnis erstellt
-_TEMP_DIR_CREATED=false                      # Temp-Verzeichnis erstellt
-_LOG_DIR_CREATED=false                       # Log-Verzeichnis erstellt
-_MOUNT_DIR_CREATED=false                     # Mount-Verzeichnis erstellt
-
-# ============================================================================
-# GENERIC HELPER FUNCTIONS
-# ============================================================================
 
 # ===========================================================================
 # folders_ensure_subfolder
@@ -101,14 +85,14 @@ folders_ensure_subfolder() {
     #-- Prüfung in zwei Schritten -------------------------------------------
     #-- 1. Ordner existiert bereits -----------------------------------------    
     if [[ -d "$full_path" ]]; then
-        log_debug "folders_ensure_subfolder: Path existiert bereits: '${subfolder}'"
+        log_debug "$MSG_DEBUG_SUBFOLDER_EXISTS '${subfolder}'"
         return 0
     fi
     
     #-- 2. Prüfe ob Parent-Dir existiert (für Self-Repair) ------------------
     local parent_dir="$(dirname "$full_path")"
     if [[ ! -d "$parent_dir" ]]; then
-        log_error "Parent-Verzeichnis fehlt: $parent_dir (für $subfolder)" >&2
+        log_error "$MSG_ERROR_PARENT_DIR_MISSING $parent_dir (für $subfolder)" >&2
         return 1
     fi
     
@@ -119,10 +103,10 @@ folders_ensure_subfolder() {
         local perms="755"
         if [[ "$subfolder" =~ ^\.(log|temp) ]] || [[ "$subfolder" =~ /\.(log|temp)($|/) ]]; then
             chmod $DIR_PERMISSIONS_NORMAL "$full_path" 2>/dev/null
-            log_debug "folders_ensure_subfolder: Ordner erstellt mit Permissions ${DIR_PERMISSIONS_NORMAL}"
+            log_debug "$MSG_DEBUG_SUBFOLDER_PERMISSIONS_NORMAL ${DIR_PERMISSIONS_NORMAL}"
         else
             chmod $DIR_PERMISSIONS_PUBLIC "$full_path" 2>/dev/null
-            log_debug "folders_ensure_subfolder: Ordner erstellt mit Permissions ${DIR_PERMISSIONS_PUBLIC}"
+            log_debug "$MSG_DEBUG_SUBFOLDER_PERMISSIONS_PUBLIC ${DIR_PERMISSIONS_PUBLIC}"
         fi
     else
         #-- Fehler loggen und Return-Code setzen ----------------------------
@@ -137,6 +121,14 @@ folders_ensure_subfolder() {
 # ============================================================================
 # CORE FOLDER MANAGEMENT FUNCTIONS
 # ============================================================================
+# ============================================================================
+# PATH CONSTANTS
+# ============================================================================
+# Globale Flags für Lazy Initialization -------------------------------------
+_OUTPUT_DIR_CREATED=false                    # Ausgabe-Verzeichnis erstellt
+_TEMP_DIR_CREATED=false                      # Temp-Verzeichnis erstellt
+_LOG_DIR_CREATED=false                       # Log-Verzeichnis erstellt
+_MOUNT_DIR_CREATED=false                     # Mount-Verzeichnis erstellt
 
 # ===========================================================================
 # folders_get_output_dir
@@ -156,33 +148,33 @@ folders_get_output_dir() {
     if [[ "$_OUTPUT_DIR_CREATED" == false ]]; then
         #-- Lese Ausgabe-Verzeichnis aus Konfiguration ----------------------
         local output_dir=$(config_get_output_dir) || {
-            log_error "Ausgabe-Verzeichnis konnte nicht aus Konfiguration gelesen werden" >&2
+            log_error "$MSG_ERROR_OUTPUT_DIR_READ_FAILED" >&2
             echo ""
             return 1
         }
         
         #-- Kontrolle ob das Ausgabe-Verzeichnis bereits existiert ----------
         if [[ ! -d "$output_dir" ]]; then
-            log_warning "Ausgabe-Verzeichnis fehlt: $output_dir - versuche zu erstellen" >&2
+            log_warning "$MSG_WARNING_OUTPUT_DIR_MISSING $output_dir$MSG_SUFFIX_TRY_CREATE" >&2
             
             #-- Prüfe ob Parent-Directory existiert -------------------------
             local parent_dir="$(dirname "$output_dir")"
             if [[ ! -d "$parent_dir" ]]; then
-                log_error "Ausgabe-Verzeichnis das Parent-Dir fehlt: $parent_dir" >&2
+                log_error "$MSG_ERROR_OUTPUT_DIR_PARENT_MISSING $parent_dir" >&2
                 echo ""
                 return 1
             fi
             
             #-- Versuche das Ausgabe-Verzeichnis zu erstellen ---------------
             if ! mkdir -p "$output_dir" 2>/dev/null; then
-                log_error "Ausgabe-Verzeichnis konnte nicht erstellt werden: $output_dir (fehlende Rechte?)" >&2
+                log_error "$MSG_ERROR_OUTPUT_DIR_CREATE_FAILED $output_dir$MSG_SUFFIX_MISSING_PERMISSIONS" >&2
                 echo ""
                 return 1
             fi
             
             #-- Setze Berechtigungen ----------------------------------------
             chmod $DIR_PERMISSIONS_PUBLIC "$output_dir" 2>/dev/null
-            log_info "Ausgabe-Verzeichnis automatisch erstellt: $output_dir" >&2
+            log_info "$MSG_INFO_OUTPUT_DIR_CREATED $output_dir" >&2
 
             #-- Flag setzen -----------------------------------------------------
             _OUTPUT_DIR_CREATED=true
@@ -213,21 +205,21 @@ folders_get_temp_dir() {
     if [[ "$_TEMP_DIR_CREATED" == false ]]; then
         #-- Prüfe ob Temp-Verzeichnis existiert -----------------------------
         if [[ ! -d "$temp_dir" ]]; then
-            log_warning "Temp-Verzeichnis fehlt: $temp_dir - versuche zu erstellen" >&2
+            log_warning "$MSG_WARNING_TEMP_DIR_MISSING $temp_dir$MSG_SUFFIX_TRY_CREATE" >&2
 
             #-- Prüfe ob Parent-Directory existiert ---------------------------
             local parent_dir="$(dirname "$temp_dir")"
             if [[ ! -d "$parent_dir" ]]; then
-                log_error "Temp-Verzeichnis kann nicht erstellt werden! Das Parent-Dir fehlt: $parent_dir" >&2
+                log_error "$MSG_ERROR_TEMP_DIR_PARENT_MISSING $parent_dir" >&2
                 return 1
             fi
 
             #-- Versuche das Temp-Verzeichnis zu erstellen --------------------
             if ! folders_ensure_subfolder "$temp_dir"; then
-                log_error "Temp-Verzeichnis konnte nicht erstellt werden: $temp_dir (fehlende Rechte?)" >&2
+                log_error "$MSG_ERROR_TEMP_DIR_CREATE_FAILED $temp_dir$MSG_SUFFIX_MISSING_PERMISSIONS" >&2
                 return 1
             fi
-            log_info "Temp-Verzeichnis automatisch erstellt: $temp_dir" >&2
+            log_info "$MSG_INFO_TEMP_DIR_CREATED $temp_dir" >&2
 
             #-- Flag setzen -----------------------------------------------------
             _TEMP_DIR_CREATED=true
@@ -259,21 +251,21 @@ folders_get_log_dir() {
     if [[ "$_LOG_DIR_CREATED" == false ]]; then
         #-- Prüfe ob Log-Verzeichnis existiert ------------------------------
         if [[ ! -d "$log_dir" ]]; then
-            log_warning "Log-Verzeichnis fehlt: $log_dir - versuche zu erstellen" >&2
+            log_warning "$MSG_WARNING_LOG_DIR_MISSING $log_dir$MSG_SUFFIX_TRY_CREATE" >&2
 
             #-- Prüfe ob Parent-Directory existiert -------------------------
             local parent_dir="$(dirname "$log_dir")"
             if [[ ! -d "$parent_dir" ]]; then
-                log_error "Log-Verzeichnis kann nicht erstellt werden! Das Parent-Dir fehlt: $parent_dir" >&2
+                log_error "$MSG_ERROR_LOG_DIR_PARENT_MISSING $parent_dir" >&2
                 return 1
             fi
 
             #-- Versuche das Log-Verzeichnis zu erstellen -------------------
             if ! folders_ensure_subfolder ".log"; then
-                log_error "Log-Verzeichnis konnte nicht erstellt werden: $log_dir (fehlende Rechte?)" >&2
+                log_error "$MSG_ERROR_LOG_DIR_CREATE_FAILED $log_dir$MSG_SUFFIX_MISSING_PERMISSIONS" >&2
                 return 1
             fi
-            log_info "Log-Verzeichnis automatisch erstellt: $log_dir" >&2
+            log_info "$MSG_INFO_LOG_DIR_CREATED $log_dir" >&2
         fi
 
         #-- Flag setzen -----------------------------------------------------
@@ -302,21 +294,21 @@ folders_get_modul_output_dir() {
 
     #-- Prüfe ob Data-Verzeichnis existiert ---------------------------------
     if [[ ! -d "$module_subdir" ]]; then
-        log_warning "Modul-Verzeichnis fehlt: $module_subdir - versuche zu erstellen" >&2
+        log_warning "$MSG_WARNING_MODULE_DIR_MISSING $module_subdir$MSG_SUFFIX_TRY_CREATE" >&2
 
         #-- Prüfe ob Parent-Directory existiert -----------------------------
         local parent_dir="$(dirname "$module_subdir")"
         if [[ ! -d "$parent_dir" ]]; then
-            log_error "Modul-Verzeichnis kann nicht erstellt werden! Das Parent-Dir fehlt: $parent_dir" >&2
+            log_error "$MSG_ERROR_MODULE_DIR_PARENT_MISSING $parent_dir" >&2
             return 1
         fi
 
         #-- Versuche das Data-Verzeichnis zu erstellen ----------------------
         if ! folders_ensure_subfolder "$module_subdir"; then
-            log_error "Modul-Verzeichnis konnte nicht erstellt werden: $module_subdir (fehlende Rechte?)" >&2
+            log_error "$MSG_ERROR_MODULE_DIR_CREATE_FAILED $module_subdir$MSG_SUFFIX_MISSING_PERMISSIONS" >&2
             return 1
         fi
-        log_info "Modul-Verzeichnis automatisch erstellt: $module_subdir" >&2
+        log_info "$MSG_INFO_MODULE_DIR_CREATED $module_subdir" >&2
     fi
 
     #-- Gebe Verzeichnis zurück ---------------------------------------------
@@ -349,21 +341,21 @@ folders_get_mount_dir() {
     if [[ "$_MOUNT_DIR_CREATED" == false ]]; then
         #-- Prüfe ob Mount-Verzeichnis existiert ----------------------------
         if [[ ! -d "$mount_dir" ]]; then
-            log_warning "Mount-Verzeichnis fehlt: $mount_dir - versuche zu erstellen" >&2
+            log_warning "$MSG_WARNING_MOUNT_DIR_MISSING $mount_dir$MSG_SUFFIX_TRY_CREATE" >&2
 
             #-- Prüfe ob Parent-Directory existiert -------------------------
             local parent_dir="$(dirname "$mount_dir")"
             if [[ ! -d "$parent_dir" ]]; then
-                log_error "Mount-Verzeichnis kann nicht erstellt werden! Das Parent-Dir fehlt: $parent_dir" >&2
+                log_error "$MSG_ERROR_MOUNT_DIR_PARENT_MISSING $parent_dir" >&2
                 return 1
             fi
 
             #-- Versuche das Mount-Verzeichnis zu erstellen -----------------
             if ! folders_ensure_subfolder "$MOUNTPOINTS_DIR"; then
-                log_error "Mount-Verzeichnis konnte nicht erstellt werden: $mount_dir (fehlende Rechte?)" >&2
+                log_error "$MSG_ERROR_MOUNT_DIR_CREATE_FAILED $mount_dir$MSG_SUFFIX_MISSING_PERMISSIONS" >&2
                 return 1
             fi
-            log_info "Mount-Verzeichnis automatisch erstellt: $mount_dir" >&2
+            log_info "$MSG_INFO_MOUNT_DIR_CREATED $mount_dir" >&2
         fi
 
         #-- Flag setzen -----------------------------------------------------
@@ -395,7 +387,7 @@ folders_get_unique_mountpoint() {
     
     #-- Erstelle Mount-Point ------------------------------------------------
     if ! mkdir -p "$mount_point" 2>/dev/null; then
-        log_error "Mount-Point konnte nicht erstellt werden: $mount_point" >&2
+        log_error "$MSG_ERROR_MOUNT_POINT_CREATE_FAILED $mount_point" >&2
         return 1
     fi
     
@@ -407,193 +399,253 @@ folders_get_unique_mountpoint() {
     return 0
 }
 
-# ============================================================================
-# TODO: Ab hier ist das Modul noch nicht fertig implementiert!
-# ============================================================================
-
-
-
-
-
-
-# ============================================================================
-# PATH GETTER
-# ============================================================================
-
 # ===========================================================================
-# MODUL-ORDNER KONSTANTEN (für Manifest-Datei-Mapping)
+# PATH GETTER FÜR CORE VERZEICHNISSE
 # ===========================================================================
-
-# Ordner für Modul-Komponenten (relativ zu INSTALL_DIR)
+# ---------------------------------------------------------------------------
+# Ordner für Core-Modul-Komponenten (relativ zu INSTALL_DIR)
+# ---------------------------------------------------------------------------
 readonly MODULE_LIB_DIR="lib"                    # Bash-Module
 readonly MODULE_LANG_DIR="lang"                  # Sprachdateien
 readonly MODULE_CONF_DIR="conf"                  # Konfiguration
 readonly MODULE_DOC_DIR="doc"                    # Dokumentation
 readonly MODULE_API_DIR="api"                    # API JSON-Dateien
 
-# Web-Frontend Ordner
-readonly MODULE_HTML_DIR="www/templates"         # HTML-Partials
-readonly MODULE_CSS_DIR="www/static/css"         # Stylesheets
-readonly MODULE_JS_DIR="www/static/js"           # JavaScript
-
-# Backend Ordner
-readonly MODULE_ROUTER_DIR="www/routes"          # Python-Routes
+# ===========================================================================
+# folders_get_lib_dir
+# ---------------------------------------------------------------------------
+# Funktion.: Liefert den Pfad zum Library-Verzeichnis für Bash-Module
+# Parameter: keine
+# Rückgabe.: 0 = Ordner existiert (Pfad in stdout)
+# .........  1 = Ordner fehlt (leerer String in stdout)
+# Beispiel.: folders_get_lib_dir → "/opt/disk2iso/lib"
+# Hinweis..: Erstellt KEINEN Ordner - nur von install.sh erstellt
+# ===========================================================================
+folders_get_lib_dir() {
+    #-- Ermitteln des kompletten Verzeichnis-Pfad ---------------------------
+    local lib_dir="${INSTALL_DIR}/${MODULE_LIB_DIR}"
+    
+    #-- Prüfe ob Verzeichnis existiert --------------------------------------
+    if [[ ! -d "$lib_dir" ]]; then
+        echo ""
+        return 1
+    fi
+    
+    #-- Gebe Verzeichnis zurück ---------------------------------------------
+    echo "$lib_dir"
+    return 0
+}
 
 # ===========================================================================
-# get_conf_dir
+# folders_get_lang_dir
+# ---------------------------------------------------------------------------
+# Funktion.: Liefert den Pfad zum Sprach-Verzeichnis für Language-Dateien
+# Parameter: keine
+# Rückgabe.: 0 = Ordner existiert (Pfad in stdout)
+# .........  1 = Ordner fehlt (leerer String in stdout)
+# Beispiel.: folders_get_lang_dir → "/opt/disk2iso/lang"
+# Hinweis..: Erstellt KEINEN Ordner - nur von install.sh erstellt
+# ===========================================================================
+folders_get_lang_dir() {
+    #-- Ermitteln des kompletten Verzeichnis-Pfad ---------------------------
+    local lang_dir="${INSTALL_DIR}/${MODULE_LANG_DIR}"
+    
+    #-- Prüfe ob Verzeichnis existiert --------------------------------------
+    if [[ ! -d "$lang_dir" ]]; then
+        echo ""
+        return 1
+    fi
+    
+    #-- Gebe Verzeichnis zurück ---------------------------------------------
+    echo "$lang_dir"
+    return 0
+}
+
+# ===========================================================================
+# folders_get_conf_dir
 # ---------------------------------------------------------------------------
 # Funktion.: Liefert den Pfad zum Konfigurations-Verzeichnis
 # Parameter: keine
 # Rückgabe.: 0 = Ordner existiert (Pfad in stdout)
-#            1 = Ordner fehlt (leerer String in stdout)
-# Beispiel.: get_conf_dir
-#            → "/opt/disk2iso/conf"
+# .........  1 = Ordner fehlt (leerer String in stdout)
+# Beispiel.: folders_get_conf_dir → "/opt/disk2iso/conf"
 # Hinweis..: Erstellt KEINEN Ordner - nur von install.sh erstellt
 # ===========================================================================
-get_conf_dir() {
+folders_get_conf_dir() {
+    #-- Ermitteln des kompletten Verzeichnis-Pfad ---------------------------
     local conf_dir="${INSTALL_DIR}/${MODULE_CONF_DIR}"
     
-    # Prüfe ob Verzeichnis existiert
+    #-- Prüfe ob Verzeichnis existiert --------------------------------------
     if [[ ! -d "$conf_dir" ]]; then
         echo ""
         return 1
     fi
     
+    #-- Gebe Verzeichnis zurück ---------------------------------------------
     echo "$conf_dir"
     return 0
 }
 
 # ===========================================================================
-# get_api_dir
+# folders_get_doc_dir
+# ---------------------------------------------------------------------------
+# Funktion.: Liefert den Pfad zum Dokumentations-Verzeichnis
+# Parameter: keine
+# Rückgabe.: 0 = Ordner existiert (Pfad in stdout)
+# .........  1 = Ordner fehlt (leerer String in stdout)
+# Beispiel.: folders_get_doc_dir → "/opt/disk2iso/doc"
+# Hinweis..: Erstellt KEINEN Ordner - nur von install.sh erstellt
+# ===========================================================================
+folders_get_doc_dir() {
+    #-- Ermitteln des kompletten Verzeichnis-Pfad ---------------------------
+    local doc_dir="${INSTALL_DIR}/${MODULE_DOC_DIR}"
+    
+    #-- Prüfe ob Verzeichnis existiert --------------------------------------
+    if [[ ! -d "$doc_dir" ]]; then
+        echo ""
+        return 1
+    fi
+    
+    #-- Gebe Verzeichnis zurück ---------------------------------------------
+    echo "$doc_dir"
+    return 0
+}
+
+# ===========================================================================
+# folders_get_api_dir
 # ---------------------------------------------------------------------------
 # Funktion.: Liefert den Pfad zum API-Verzeichnis für JSON-Dateien
 # Parameter: keine
 # Rückgabe.: 0 = Ordner existiert (Pfad in stdout)
-#            1 = Ordner fehlt (leerer String in stdout)
-# Beispiel.: get_api_dir
-#            → "/opt/disk2iso/api"
+# .........  1 = Ordner fehlt (leerer String in stdout)
+# Beispiel.: folders_get_api_dir → "/opt/disk2iso/api"
 # Hinweis..: Erstellt KEINEN Ordner - nur von install.sh erstellt
 # ===========================================================================
-get_api_dir() {
+folders_get_api_dir() {
+    #-- Ermitteln des kompletten Verzeichnis-Pfad ---------------------------
     local api_dir="${INSTALL_DIR}/${MODULE_API_DIR}"
     
-    # Prüfe ob Verzeichnis existiert
+    #-- Prüfe ob Verzeichnis existiert --------------------------------------
     if [[ ! -d "$api_dir" ]]; then
         echo ""
         return 1
     fi
     
+    #-- Gebe Verzeichnis zurück ---------------------------------------------
     echo "$api_dir"
     return 0
 }
 
-# ===========================================================================
-# get_module_folder_path
 # ---------------------------------------------------------------------------
-# Funktion.: Ermittle vollständigen Pfad zu Modul-Ordner mit Fallback-Logik
-# Parameter: $1 = module_name (z.B. "tmdb", "audio", "metadata")
-#            $2 = folder_type (z.B. "cache", "covers", "temp", "logs")
-# Rückgabe.: Vollständiger Pfad zum Ordner
-# Beispiel.: get_module_folder_path "tmdb" "cache"
-#            → "/media/iso/metadata/tmdb/cache"
-# Fallbacks: 1. [folders] <folder_type> aus INI (spezifisch)
-#            2. [folders] output aus INI + /<folder_type> (konstruiert)
-#            3. folders_get_output_dir() + /<folder_type> (global)
-# Nutzt....: get_module_ini_path() aus libfiles.sh
-#            get_ini_value() aus libconfig.sh
+# Ordner für Web-Frontend (relativ zu INSTALL_DIR)
+# ---------------------------------------------------------------------------
+readonly MODULE_HTML_DIR="www/templates"         # HTML-Partials
+readonly MODULE_CSS_DIR="www/static/css"         # Stylesheets
+readonly MODULE_JS_DIR="www/static/js"           # JavaScript
+
 # ===========================================================================
-get_module_folder_path() {
-    local module_name="$1"
-    local folder_type="$2"
+# folders_get_html_dir
+# ---------------------------------------------------------------------------
+# Funktion.: Liefert den Pfad zum HTML-Template-Verzeichnis
+# Parameter: keine
+# Rückgabe.: 0 = Ordner existiert (Pfad in stdout)
+# .........  1 = Ordner fehlt (leerer String in stdout)
+# Beispiel.: folders_get_html_dir → "/opt/disk2iso/www/templates"
+# Hinweis..: Erstellt KEINEN Ordner - nur von install.sh erstellt
+# ===========================================================================
+folders_get_html_dir() {
+    #-- Ermitteln des kompletten Verzeichnis-Pfad ---------------------------
+    local html_dir="${INSTALL_DIR}/${MODULE_HTML_DIR}"
     
-    if [[ -z "$module_name" ]] || [[ -z "$folder_type" ]]; then
+    #-- Prüfe ob Verzeichnis existiert --------------------------------------
+    if [[ ! -d "$html_dir" ]]; then
+        echo ""
         return 1
     fi
     
-    local ini_file=$(get_module_ini_path "$module_name")
-    local folder_path
-    local output_path
-    
-    # 1. Primär: Spezifischer Ordner aus INI
-    folder_path=$(get_ini_value "$ini_file" "folders" "$folder_type")
-    
-    if [[ -n "$folder_path" ]]; then
-        echo "${OUTPUT_DIR}/${folder_path}"
-        return 0
-    fi
-    
-    # 2. Fallback: output-Basis + Unterordner
-    output_path=$(get_ini_value "$ini_file" "folders" "output")
-    
-    if [[ -n "$output_path" ]]; then
-        echo "${OUTPUT_DIR}/${output_path}/${folder_type}"
-        return 0
-    fi
-    
-    # 3. Letzter Fallback: Globaler Output-Ordner
-    echo "$(folders_get_output_dir)/${folder_type}"
+    #-- Gebe Verzeichnis zurück ---------------------------------------------
+    echo "$html_dir"
+    return 0
 }
 
 # ===========================================================================
-# get_module_file_path
+# folders_get_css_dir
 # ---------------------------------------------------------------------------
-# Funktion.: Ermittle vollständigen Pfad zu Modul-Datei
-# Parameter: $1 = file_type ("libary", "language", "js", "css", etc.)
-#            $2 = filename (z.B. "libmetadata.sh")
-# Rückgabe.: Vollständiger Pfad
-# Beispiel.: get_module_file_path "libary" "libmetadata.sh"
-#            → "/opt/disk2iso/lib/libmetadata.sh"
+# Funktion.: Liefert den Pfad zum CSS-Verzeichnis für Stylesheets
+# Parameter: keine
+# Rückgabe.: 0 = Ordner existiert (Pfad in stdout)
+# .........  1 = Ordner fehlt (leerer String in stdout)
+# Beispiel.: folders_get_css_dir → "/opt/disk2iso/www/static/css"
+# Hinweis..: Erstellt KEINEN Ordner - nur von install.sh erstellt
 # ===========================================================================
-get_module_file_path() {
-    local file_type="$1"
-    local filename="$2"
+folders_get_css_dir() {
+    #-- Ermitteln des kompletten Verzeichnis-Pfad ---------------------------
+    local css_dir="${INSTALL_DIR}/${MODULE_CSS_DIR}"
     
-    if [[ -z "$file_type" ]] || [[ -z "$filename" ]]; then
+    #-- Prüfe ob Verzeichnis existiert --------------------------------------
+    if [[ ! -d "$css_dir" ]]; then
+        echo ""
         return 1
     fi
     
-    local base_dir="${INSTALL_DIR:-/opt/disk2iso}"
+    #-- Gebe Verzeichnis zurück ---------------------------------------------
+    echo "$css_dir"
+    return 0
+}
+
+# ===========================================================================
+# folders_get_js_dir
+# ---------------------------------------------------------------------------
+# Funktion.: Liefert den Pfad zum JavaScript-Verzeichnis
+# Parameter: keine
+# Rückgabe.: 0 = Ordner existiert (Pfad in stdout)
+# .........  1 = Ordner fehlt (leerer String in stdout)
+# Beispiel.: folders_get_js_dir → "/opt/disk2iso/www/static/js"
+# Hinweis..: Erstellt KEINEN Ordner - nur von install.sh erstellt
+# ===========================================================================
+folders_get_js_dir() {
+    #-- Ermitteln des kompletten Verzeichnis-Pfad ---------------------------
+    local js_dir="${INSTALL_DIR}/${MODULE_JS_DIR}"
     
-    # Mappe file_type zu Ordner
-    case "$file_type" in
-        lib)
-            echo "${base_dir}/${MODULE_LIB_DIR}/${filename}"
-            ;;
-        lang)
-            # Sprachdateien haben Suffix (z.B. .de, .en)
-            # Wenn filename ohne Suffix → nur Basis-Name
-            if [[ "$filename" =~ \.(de|en|es|fr|it)$ ]]; then
-                echo "${base_dir}/${MODULE_LANG_DIR}/${filename}"
-            else
-                # Gib Pattern zurück (für Existenz-Check mit Wildcard)
-                echo "${base_dir}/${MODULE_LANG_DIR}/${filename}.*"
-            fi
-            ;;
-        js)
-            echo "${base_dir}/${MODULE_JS_DIR}/${filename}"
-            ;;
-        css)
-            echo "${base_dir}/${MODULE_CSS_DIR}/${filename}"
-            ;;
-        html)
-            echo "${base_dir}/${MODULE_HTML_DIR}/${filename}"
-            ;;
-        router)
-            # Python-Dateien haben prefix "routes_"
-            if [[ "$filename" == routes_* ]]; then
-                echo "${base_dir}/${MODULE_ROUTER_DIR}/${filename}"
-            else
-                echo "${base_dir}/${MODULE_ROUTER_DIR}/routes_${filename}"
-            fi
-            ;;
-        docu)
-            echo "${base_dir}/${MODULE_DOC_DIR}/${filename}"
-            ;;
-        *)
-            # Unbekannter Typ → Fehler
-            return 1
-            ;;
-    esac
+    #-- Prüfe ob Verzeichnis existiert --------------------------------------
+    if [[ ! -d "$js_dir" ]]; then
+        echo ""
+        return 1
+    fi
+    
+    #-- Gebe Verzeichnis zurück ---------------------------------------------
+    echo "$js_dir"
+    return 0
+}
+
+# ---------------------------------------------------------------------------
+# Ordner für Web-Backend (relativ zu INSTALL_DIR)
+# ---------------------------------------------------------------------------
+readonly MODULE_ROUTER_DIR="www/routes"          # Python-Routes
+
+# ===========================================================================
+# folders_get_router_dir
+# ---------------------------------------------------------------------------
+# Funktion.: Liefert den Pfad zum Python-Router-Verzeichnis
+# Parameter: keine
+# Rückgabe.: 0 = Ordner existiert (Pfad in stdout)
+# .........  1 = Ordner fehlt (leerer String in stdout)
+# Beispiel.: folders_get_router_dir → "/opt/disk2iso/www/routes"
+# Hinweis..: Erstellt KEINEN Ordner - nur von install.sh erstellt
+# ===========================================================================
+folders_get_router_dir() {
+    #-- Ermitteln des kompletten Verzeichnis-Pfad ---------------------------
+    local router_dir="${INSTALL_DIR}/${MODULE_ROUTER_DIR}"
+    
+    #-- Prüfe ob Verzeichnis existiert --------------------------------------
+    if [[ ! -d "$router_dir" ]]; then
+        echo ""
+        return 1
+    fi
+    
+    #-- Gebe Verzeichnis zurück ---------------------------------------------
+    echo "$router_dir"
+    return 0
 }
 
 # ============================================================================

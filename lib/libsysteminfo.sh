@@ -185,7 +185,7 @@ check_disk_space() {
 collect_system_information() {
     # Hole API-Verzeichnis (mit Fallback-Erstellung)
     local api_dir
-    api_dir=$(get_api_dir)
+    api_dir=$(folders_get_api_dir)
     
     # Fallback: Erstelle API-Verzeichnis wenn nicht vorhanden
     if [[ -z "$api_dir" ]]; then

@@ -12,17 +12,49 @@
 # VERZEICHNIS-OPERATIONEN
 # ============================================================================
 
-readonly MSG_TEMP_DIR_CREATED="Temp-Verzeichnis erstellt"
-readonly MSG_TEMP_DIR_CLEANED="Temp-Verzeichnis bereinigt"
-readonly MSG_LOG_DIR_CREATED="Log-Verzeichnis sichergestellt"
-readonly MSG_OUTPUT_DIR_CREATED="Ausgabe-Verzeichnis sichergestellt"
-readonly MSG_ALBUM_DIR_CREATED="Album-Verzeichnis erstellt"
-readonly MSG_BACKUP_DIR_CREATED="Backup-Verzeichnis erstellt"
-readonly MSG_ERROR_BACKUP_DIR_FAILED="FEHLER: Konnte Backup-Verzeichnis nicht erstellen"
+# Subfolder Operations
 readonly MSG_ERROR_ENSURE_SUBFOLDER_NO_NAME="FEHLER: folders_ensure_subfolder benötigt Ordner-Namen"
 readonly MSG_SUBFOLDER_CREATED="Unterordner erstellt:"
 readonly MSG_ERROR_CREATE_SUBFOLDER="FEHLER: Kann Unterordner nicht erstellen:"
-readonly MSG_ERROR_CREATE_TEMP_SUBFOLDER="FEHLER: Kann Temp-Unterordner nicht erstellen:"
-readonly MSG_ERROR_LOG_DIR_NOT_EXIST="FEHLER: Log-Verzeichnis existiert nicht:"
-readonly MSG_ERROR_OUTPUT_DIR_NOT_EXIST="FEHLER: Ausgabeverzeichnis existiert nicht:"
-readonly MSG_WARNING_TYPE_DIR_NOT_EXIST="WARNUNG: Typ-Verzeichnis existiert nicht:"
+readonly MSG_ERROR_PARENT_DIR_MISSING="Parent-Verzeichnis fehlt:"
+
+# Output Directory
+readonly MSG_ERROR_OUTPUT_DIR_READ_FAILED="Ausgabe-Verzeichnis konnte nicht aus Konfiguration gelesen werden"
+readonly MSG_WARNING_OUTPUT_DIR_MISSING="Ausgabe-Verzeichnis fehlt:"
+readonly MSG_ERROR_OUTPUT_DIR_PARENT_MISSING="Ausgabe-Verzeichnis das Parent-Dir fehlt:"
+readonly MSG_ERROR_OUTPUT_DIR_CREATE_FAILED="Ausgabe-Verzeichnis konnte nicht erstellt werden:"
+readonly MSG_INFO_OUTPUT_DIR_CREATED="Ausgabe-Verzeichnis automatisch erstellt:"
+
+# Temp Directory
+readonly MSG_WARNING_TEMP_DIR_MISSING="Temp-Verzeichnis fehlt:"
+readonly MSG_ERROR_TEMP_DIR_PARENT_MISSING="Temp-Verzeichnis kann nicht erstellt werden! Das Parent-Dir fehlt:"
+readonly MSG_ERROR_TEMP_DIR_CREATE_FAILED="Temp-Verzeichnis konnte nicht erstellt werden:"
+readonly MSG_INFO_TEMP_DIR_CREATED="Temp-Verzeichnis automatisch erstellt:"
+
+# Log Directory
+readonly MSG_WARNING_LOG_DIR_MISSING="Log-Verzeichnis fehlt:"
+readonly MSG_ERROR_LOG_DIR_PARENT_MISSING="Log-Verzeichnis kann nicht erstellt werden! Das Parent-Dir fehlt:"
+readonly MSG_ERROR_LOG_DIR_CREATE_FAILED="Log-Verzeichnis konnte nicht erstellt werden:"
+readonly MSG_INFO_LOG_DIR_CREATED="Log-Verzeichnis automatisch erstellt:"
+
+# Module Directory
+readonly MSG_WARNING_MODULE_DIR_MISSING="Modul-Verzeichnis fehlt:"
+readonly MSG_ERROR_MODULE_DIR_PARENT_MISSING="Modul-Verzeichnis kann nicht erstellt werden! Das Parent-Dir fehlt:"
+readonly MSG_ERROR_MODULE_DIR_CREATE_FAILED="Modul-Verzeichnis konnte nicht erstellt werden:"
+readonly MSG_INFO_MODULE_DIR_CREATED="Modul-Verzeichnis automatisch erstellt:"
+
+# Mount Directory
+readonly MSG_WARNING_MOUNT_DIR_MISSING="Mount-Verzeichnis fehlt:"
+readonly MSG_ERROR_MOUNT_DIR_PARENT_MISSING="Mount-Verzeichnis kann nicht erstellt werden! Das Parent-Dir fehlt:"
+readonly MSG_ERROR_MOUNT_DIR_CREATE_FAILED="Mount-Verzeichnis konnte nicht erstellt werden:"
+readonly MSG_INFO_MOUNT_DIR_CREATED="Mount-Verzeichnis automatisch erstellt:"
+readonly MSG_ERROR_MOUNT_POINT_CREATE_FAILED="Mount-Point konnte nicht erstellt werden:"
+
+# Debug Messages
+readonly MSG_DEBUG_SUBFOLDER_EXISTS="folders_ensure_subfolder: Path existiert bereits:"
+readonly MSG_DEBUG_SUBFOLDER_PERMISSIONS_NORMAL="folders_ensure_subfolder: Ordner erstellt mit Permissions"
+readonly MSG_DEBUG_SUBFOLDER_PERMISSIONS_PUBLIC="folders_ensure_subfolder: Ordner erstellt mit Permissions"
+
+# Common Suffixes
+readonly MSG_SUFFIX_TRY_CREATE=" - versuche zu erstellen"
+readonly MSG_SUFFIX_MISSING_PERMISSIONS=" (fehlende Rechte?)"

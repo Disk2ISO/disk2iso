@@ -256,7 +256,7 @@ init_filenames() {
 # Rückgabe.: Vollständiger Pfad zur INI-Datei
 # Beispiel.: get_module_ini_path "tmdb"
 #            → "/opt/disk2iso/conf/libtmdb.ini"
-# Nutzt....: get_conf_dir() aus libfolders.sh
+# Nutzt....: folders_get_conf_dir() aus libfolders.sh
 # ===========================================================================
 get_module_ini_path() {
     local module_name="$1"
@@ -265,7 +265,264 @@ get_module_ini_path() {
         return 1
     fi
     
-    echo "$(get_conf_dir)/lib${module_name}.ini"
+    echo "$(folders_get_conf_dir)/lib${module_name}.ini"
+}
+
+# ============================================================================
+# FILE PATH GETTER (INSTALL_DIR-BASED)
+# ============================================================================
+
+# ===========================================================================
+# files_get_lib_path
+# ---------------------------------------------------------------------------
+# Funktion.: Liefert vollständigen Pfad zu einem Bash-Modul
+# Parameter: $1 = filename (z.B. "libmetadata.sh")
+# Rückgabe.: Vollständiger Pfad zur Datei
+# Beispiel.: files_get_lib_path "libmetadata.sh"
+#            → "/opt/disk2iso/lib/libmetadata.sh"
+# Nutzt....: folders_get_lib_dir() aus libfolders.sh
+# ===========================================================================
+files_get_lib_path() {
+    local filename="$1"
+    
+    if [[ -z "$filename" ]]; then
+        return 1
+    fi
+    
+    local lib_dir
+    lib_dir=$(folders_get_lib_dir) || return 1
+    
+    echo "${lib_dir}/${filename}"
+}
+
+# ===========================================================================
+# files_get_lang_path
+# ---------------------------------------------------------------------------
+# Funktion.: Liefert vollständigen Pfad zu einer Sprachdatei
+# Parameter: $1 = filename (z.B. "libfolders" oder "libfolders.de")
+# Rückgabe.: Vollständiger Pfad zur Datei (mit Wildcard wenn ohne Suffix)
+# Beispiel.: files_get_lang_path "libfolders.de"
+#            → "/opt/disk2iso/lang/libfolders.de"
+#            files_get_lang_path "libfolders"
+#            → "/opt/disk2iso/lang/libfolders.*"
+# Nutzt....: folders_get_lang_dir() aus libfolders.sh
+# Hinweis..: Ohne Suffix (.de/.en/.es/.fr) wird Wildcard-Pattern zurückgegeben
+# ===========================================================================
+files_get_lang_path() {
+    local filename="$1"
+    
+    if [[ -z "$filename" ]]; then
+        return 1
+    fi
+    
+    local lang_dir
+    lang_dir=$(folders_get_lang_dir) || return 1
+    
+    # Prüfe ob Dateiname bereits Sprach-Suffix hat
+    if [[ "$filename" =~ \.(de|en|es|fr|it)$ ]]; then
+        echo "${lang_dir}/${filename}"
+    else
+        # Gib Pattern zurück (für Existenz-Check mit Wildcard)
+        echo "${lang_dir}/${filename}.*"
+    fi
+}
+
+# ===========================================================================
+# files_get_conf_path
+# ---------------------------------------------------------------------------
+# Funktion.: Liefert vollständigen Pfad zu einer Konfigurations-Datei
+# Parameter: $1 = filename (z.B. "disk2iso.conf" oder "libtmdb.ini")
+# Rückgabe.: Vollständiger Pfad zur Datei
+# Beispiel.: files_get_conf_path "disk2iso.conf"
+#            → "/opt/disk2iso/conf/disk2iso.conf"
+# Nutzt....: folders_get_conf_dir() aus libfolders.sh
+# ===========================================================================
+files_get_conf_path() {
+    local filename="$1"
+    
+    if [[ -z "$filename" ]]; then
+        return 1
+    fi
+    
+    local conf_dir
+    conf_dir=$(folders_get_conf_dir) || return 1
+    
+    echo "${conf_dir}/${filename}"
+}
+
+# ===========================================================================
+# files_get_doc_path
+# ---------------------------------------------------------------------------
+# Funktion.: Liefert vollständigen Pfad zu einer Dokumentations-Datei
+# Parameter: $1 = filename (z.B. "Handbuch.md" oder "Installation.md")
+# Rückgabe.: Vollständiger Pfad zur Datei
+# Beispiel.: files_get_doc_path "Handbuch.md"
+#            → "/opt/disk2iso/doc/Handbuch.md"
+# Nutzt....: folders_get_doc_dir() aus libfolders.sh
+# ===========================================================================
+files_get_doc_path() {
+    local filename="$1"
+    
+    if [[ -z "$filename" ]]; then
+        return 1
+    fi
+    
+    local doc_dir
+    doc_dir=$(folders_get_doc_dir) || return 1
+    
+    echo "${doc_dir}/${filename}"
+}
+
+# ===========================================================================
+# files_get_html_path
+# ---------------------------------------------------------------------------
+# Funktion.: Liefert vollständigen Pfad zu einem HTML-Template
+# Parameter: $1 = filename (z.B. "header.html" oder "footer.html")
+# Rückgabe.: Vollständiger Pfad zur Datei
+# Beispiel.: files_get_html_path "header.html"
+#            → "/opt/disk2iso/www/templates/header.html"
+# Nutzt....: folders_get_html_dir() aus libfolders.sh
+# ===========================================================================
+files_get_html_path() {
+    local filename="$1"
+    
+    if [[ -z "$filename" ]]; then
+        return 1
+    fi
+    
+    local html_dir
+    html_dir=$(folders_get_html_dir) || return 1
+    
+    echo "${html_dir}/${filename}"
+}
+
+# ===========================================================================
+# files_get_css_path
+# ---------------------------------------------------------------------------
+# Funktion.: Liefert vollständigen Pfad zu einem CSS-Stylesheet
+# Parameter: $1 = filename (z.B. "main.css" oder "theme.css")
+# Rückgabe.: Vollständiger Pfad zur Datei
+# Beispiel.: files_get_css_path "main.css"
+#            → "/opt/disk2iso/www/static/css/main.css"
+# Nutzt....: folders_get_css_dir() aus libfolders.sh
+# ===========================================================================
+files_get_css_path() {
+    local filename="$1"
+    
+    if [[ -z "$filename" ]]; then
+        return 1
+    fi
+    
+    local css_dir
+    css_dir=$(folders_get_css_dir) || return 1
+    
+    echo "${css_dir}/${filename}"
+}
+
+# ===========================================================================
+# files_get_js_path
+# ---------------------------------------------------------------------------
+# Funktion.: Liefert vollständigen Pfad zu einer JavaScript-Datei
+# Parameter: $1 = filename (z.B. "app.js" oder "utils.js")
+# Rückgabe.: Vollständiger Pfad zur Datei
+# Beispiel.: files_get_js_path "app.js"
+#            → "/opt/disk2iso/www/static/js/app.js"
+# Nutzt....: folders_get_js_dir() aus libfolders.sh
+# ===========================================================================
+files_get_js_path() {
+    local filename="$1"
+    
+    if [[ -z "$filename" ]]; then
+        return 1
+    fi
+    
+    local js_dir
+    js_dir=$(folders_get_js_dir) || return 1
+    
+    echo "${js_dir}/${filename}"
+}
+
+# ===========================================================================
+# files_get_router_path
+# ---------------------------------------------------------------------------
+# Funktion.: Liefert vollständigen Pfad zu einer Python-Router-Datei
+# Parameter: $1 = filename (z.B. "api.py" oder "routes_api.py")
+# Rückgabe.: Vollständiger Pfad zur Datei
+# Beispiel.: files_get_router_path "api.py"
+#            → "/opt/disk2iso/www/routes/routes_api.py"
+#            files_get_router_path "routes_api.py"
+#            → "/opt/disk2iso/www/routes/routes_api.py"
+# Nutzt....: folders_get_router_dir() aus libfolders.sh
+# Hinweis..: Fügt automatisch "routes_" Prefix hinzu wenn nicht vorhanden
+# ===========================================================================
+files_get_router_path() {
+    local filename="$1"
+    
+    if [[ -z "$filename" ]]; then
+        return 1
+    fi
+    
+    local router_dir
+    router_dir=$(folders_get_router_dir) || return 1
+    
+    # Füge "routes_" Prefix hinzu wenn nicht vorhanden
+    if [[ "$filename" == routes_* ]]; then
+        echo "${router_dir}/${filename}"
+    else
+        echo "${router_dir}/routes_${filename}"
+    fi
+}
+
+# ============================================================================
+# MODULE FOLDER PATH WITH INI FALLBACK LOGIC
+# ============================================================================
+
+# ===========================================================================
+# files_get_module_folder_path
+# ---------------------------------------------------------------------------
+# Funktion.: Ermittle vollständigen Pfad zu Modul-Ordner mit Fallback-Logik
+# Parameter: $1 = module_name (z.B. "tmdb", "audio", "metadata")
+#            $2 = folder_type (z.B. "cache", "covers", "temp", "logs")
+# Rückgabe.: Vollständiger Pfad zum Ordner
+# Beispiel.: files_get_module_folder_path "tmdb" "cache"
+#            → "/media/iso/metadata/tmdb/cache"
+# Fallbacks: 1. [folders] <folder_type> aus INI (spezifisch)
+#            2. [folders] output aus INI + /<folder_type> (konstruiert)
+#            3. folders_get_output_dir() + /<folder_type> (global)
+# Nutzt....: get_module_ini_path() für INI-Datei
+#            get_ini_value() aus libconfig.sh für Werte
+#            folders_get_output_dir() aus libfolders.sh als Fallback
+# ===========================================================================
+files_get_module_folder_path() {
+    local module_name="$1"
+    local folder_type="$2"
+    
+    if [[ -z "$module_name" ]] || [[ -z "$folder_type" ]]; then
+        return 1
+    fi
+    
+    local ini_file=$(get_module_ini_path "$module_name")
+    local folder_path
+    local output_path
+    
+    # 1. Primär: Spezifischer Ordner aus INI
+    folder_path=$(get_ini_value "$ini_file" "folders" "$folder_type")
+    
+    if [[ -n "$folder_path" ]]; then
+        echo "${OUTPUT_DIR}/${folder_path}"
+        return 0
+    fi
+    
+    # 2. Fallback: output-Basis + Unterordner
+    output_path=$(get_ini_value "$ini_file" "folders" "output")
+    
+    if [[ -n "$output_path" ]]; then
+        echo "${OUTPUT_DIR}/${output_path}/${folder_type}"
+        return 0
+    fi
+    
+    # 3. Letzter Fallback: Globaler Output-Ordner
+    echo "$(folders_get_output_dir)/${folder_type}"
 }
 
 # ============================================================================
