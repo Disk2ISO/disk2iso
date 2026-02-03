@@ -48,14 +48,9 @@ files_check_dependencies() {
 }
 
 # ============================================================================
-# FILE CONSTANTS
-# ============================================================================
-
-readonly FAILED_DISCS_FILE=".failed_discs"    # Zentrale Fehler-Tracking Datei
-
-# ============================================================================
 # FAILED DISC TRACKING PATH
 # ============================================================================
+readonly FAILED_DISCS_FILE=".failed_discs"    # Zentrale Fehler-Tracking Datei
 
 # ===========================================================================
 # get_failed_disc_path
@@ -276,17 +271,26 @@ get_module_ini_path() {
 # files_get_lib_path
 # ---------------------------------------------------------------------------
 # Funktion.: Liefert vollständigen Pfad zu einem Bash-Modul
-# Parameter: $1 = filename (z.B. "libmetadata.sh")
+# Parameter: $1 = filename (z.B. "libmetadata.sh" oder "metadata" [DEPRECATED])
 # Rückgabe.: Vollständiger Pfad zur Datei
 # Beispiel.: files_get_lib_path "libmetadata.sh"
 #            → "/opt/disk2iso/lib/libmetadata.sh"
+#            files_get_lib_path "metadata"  # DEPRECATED
+#            → "/opt/disk2iso/lib/libmetadata.sh"
 # Nutzt....: folders_get_lib_dir() aus libfolders.sh
+# Hinweis..: Fallback für Modulname (ohne lib-Prefix/Suffix) ist DEPRECATED
 # ===========================================================================
 files_get_lib_path() {
     local filename="$1"
     
     if [[ -z "$filename" ]]; then
         return 1
+    fi
+    
+    # DEPRECATED: Automatische Konstruktion wenn nur Modulname übergeben wurde
+    if [[ "$filename" != *.sh ]]; then
+        log_warning "files_get_lib_path: DEPRECATED - Bitte vollständigen Dateinamen verwenden statt Modulname: '${filename}'"
+        filename="lib${filename}.sh"
     fi
     
     local lib_dir
@@ -299,20 +303,29 @@ files_get_lib_path() {
 # files_get_lang_path
 # ---------------------------------------------------------------------------
 # Funktion.: Liefert vollständigen Pfad zu einer Sprachdatei
-# Parameter: $1 = filename (z.B. "libfolders" oder "libfolders.de")
+# Parameter: $1 = filename (z.B. "libfolders", "libfolders.de" oder "folders" [DEPRECATED])
 # Rückgabe.: Vollständiger Pfad zur Datei (mit Wildcard wenn ohne Suffix)
 # Beispiel.: files_get_lang_path "libfolders.de"
 #            → "/opt/disk2iso/lang/libfolders.de"
 #            files_get_lang_path "libfolders"
 #            → "/opt/disk2iso/lang/libfolders.*"
+#            files_get_lang_path "folders"  # DEPRECATED
+#            → "/opt/disk2iso/lang/libfolders.*"
 # Nutzt....: folders_get_lang_dir() aus libfolders.sh
 # Hinweis..: Ohne Suffix (.de/.en/.es/.fr) wird Wildcard-Pattern zurückgegeben
+#            Fallback für Modulname (ohne lib-Prefix) ist DEPRECATED
 # ===========================================================================
 files_get_lang_path() {
     local filename="$1"
     
     if [[ -z "$filename" ]]; then
         return 1
+    fi
+    
+    # DEPRECATED: Automatische Konstruktion wenn nur Modulname übergeben wurde
+    if [[ "$filename" != lib* ]] && [[ "$filename" != debug* ]]; then
+        log_warning "files_get_lang_path: DEPRECATED - Bitte vollständigen Dateinamen verwenden statt Modulname: '${filename}'"
+        filename="lib${filename}"
     fi
     
     local lang_dir
@@ -331,17 +344,28 @@ files_get_lang_path() {
 # files_get_conf_path
 # ---------------------------------------------------------------------------
 # Funktion.: Liefert vollständigen Pfad zu einer Konfigurations-Datei
-# Parameter: $1 = filename (z.B. "disk2iso.conf" oder "libtmdb.ini")
+# Parameter: $1 = filename (z.B. "disk2iso.conf", "libtmdb.ini" oder "tmdb" [DEPRECATED])
 # Rückgabe.: Vollständiger Pfad zur Datei
 # Beispiel.: files_get_conf_path "disk2iso.conf"
 #            → "/opt/disk2iso/conf/disk2iso.conf"
+#            files_get_conf_path "libtmdb.ini"
+#            → "/opt/disk2iso/conf/libtmdb.ini"
+#            files_get_conf_path "tmdb"  # DEPRECATED
+#            → "/opt/disk2iso/conf/libtmdb.ini"
 # Nutzt....: folders_get_conf_dir() aus libfolders.sh
+# Hinweis..: Fallback für Modulname (ohne lib-Prefix/Suffix) ist DEPRECATED
 # ===========================================================================
 files_get_conf_path() {
     local filename="$1"
     
     if [[ -z "$filename" ]]; then
         return 1
+    fi
+    
+    # DEPRECATED: Automatische Konstruktion wenn nur Modulname übergeben wurde
+    if [[ "$filename" != *.* ]] && [[ "$filename" != disk2iso ]]; then
+        log_warning "files_get_conf_path: DEPRECATED - Bitte vollständigen Dateinamen verwenden statt Modulname: '${filename}'"
+        filename="lib${filename}.ini"
     fi
     
     local conf_dir

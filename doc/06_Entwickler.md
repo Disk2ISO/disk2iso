@@ -75,7 +75,7 @@ Disc einlegen
 [disk2iso.sh] Modul-Auswahl: lib-dvd.sh
     ↓
 [lib-dvd.sh] copy_video_dvd()
-    ├─► [lib-folders.sh] ensure_dvd_dir()
+    ├─► [lib-folders.sh] folders_ensure_subfolder()
     ├─► [lib-files.sh] sanitize_filename()
     ├─► dvdbackup (extern)
     ├─► genisoimage (extern)
