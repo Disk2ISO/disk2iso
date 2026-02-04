@@ -83,14 +83,21 @@ load_module_language "disk2iso"
 # ============================================================================
 # PRÜFE KERN-ABHÄNGIGKEITEN (kritisch - Abbruch bei Fehler)
 # ============================================================================
-# Alle Core-Module werden nach einander geladen und müssen ihre Abhängigkeiten 
+# Alle Core-Module werden nacheinander geladen und müssen ihre Abhängigkeiten 
 # erfüllen, sonst kann disk2iso nicht funktionieren. 
 # 
-# Lade-Reihenfolge (optimiert):
-# 1. libconfig.sh  - Konfiguration (keine Dependencies)
-# 2. liblogging.sh - Logging (nur Bash-Built-ins)
-# 3. libfolders.sh - Ordner-Management (nutzt liblogging)
-# 4. libfiles.sh   - Datei-Management (nutzt libfolders + liblogging)
+# Lade-Reihenfolge (dependency-optimiert):
+# 1. libconfig.sh     - Konfiguration (keine Dependencies)
+# 2. liblogging.sh    - Logging (nur Bash-Built-ins)
+# 3. libfolders.sh    - Ordner-Management (nutzt liblogging)
+# 4. libfiles.sh      - Datei-Management (nutzt libfolders + liblogging)
+# 5. libintegrity.sh  - Integrity-Checks (nutzt libconfig, liblogging, libfolders)
+#                       WICHTIG: Früh laden! Wird von optionalen Modulen benötigt
+# 6. libapi.sh        - API-Interface (nutzt liblogging, libfolders)
+# 7. libsysteminfo.sh - System-Infos (nutzt liblogging, libfolders)
+# 8. libdrivestat.sh  - Drive-Status (nutzt liblogging)
+# 9. libdiskinfos.sh  - Disk-Informationen (nutzt liblogging, libfolders)
+# 10. libcommon.sh    - Gemeinsame Funktionen (nutzt liblogging, libfolders)
 
 source "${SCRIPT_DIR}/lib/libconfig.sh"
 if ! config_check_dependencies; then
@@ -116,21 +123,21 @@ if ! files_check_dependencies; then
     exit 1
 fi
 
-source "${SCRIPT_DIR}/lib/libapi.sh"
-if ! api_check_dependencies; then
-    log_error "API-Modul Abhängigkeiten nicht erfüllt"
-    exit 1
-fi
-
 source "${SCRIPT_DIR}/lib/libintegrity.sh"
 if ! integrity_check_dependencies; then
     log_error "Integrity-Modul Abhängigkeiten nicht erfüllt"
     exit 1
 fi
 
-source "${SCRIPT_DIR}/lib/libdiskinfos.sh"
-if ! diskinfos_check_dependencies; then
-    log_error "Disk-Information-Modul Abhängigkeiten nicht erfüllt"
+source "${SCRIPT_DIR}/lib/libapi.sh"
+if ! api_check_dependencies; then
+    log_error "API-Modul Abhängigkeiten nicht erfüllt"
+    exit 1
+fi
+
+source "${SCRIPT_DIR}/lib/libsysteminfo.sh"
+if ! systeminfo_check_dependencies; then
+    log_error "$MSG_ABORT_SYSTEMINFO_DEPENDENCIES"
     exit 1
 fi
 
@@ -140,9 +147,9 @@ if ! drivestat_check_dependencies; then
     exit 1
 fi
 
-source "${SCRIPT_DIR}/lib/libsysteminfo.sh"
-if ! systeminfo_check_dependencies; then
-    log_error "$MSG_ABORT_SYSTEMINFO_DEPENDENCIES"
+source "${SCRIPT_DIR}/lib/libdiskinfos.sh"
+if ! diskinfos_check_dependencies; then
+    log_error "Disk-Information-Modul Abhängigkeiten nicht erfüllt"
     exit 1
 fi
 
