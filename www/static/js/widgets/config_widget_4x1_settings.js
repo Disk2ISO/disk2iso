@@ -152,25 +152,10 @@
         const outputDirField = document.getElementById('output_dir');
         if (!outputDirField) return;
         
-        const configKey = outputDirField.getAttribute('data-config-key');
-        const originalValue = window.originalValues ? window.originalValues[configKey] : null;
-        
         outputDirField.value = currentBrowserPath;
         
-        // Triggere Änderungs-Logik (nutzt globale Funktionen aus settings.js)
-        if (window.changedValues && originalValue !== undefined) {
-            if (currentBrowserPath !== originalValue) {
-                window.changedValues[configKey] = currentBrowserPath;
-                outputDirField.classList.add('changed');
-            } else {
-                delete window.changedValues[configKey];
-                outputDirField.classList.remove('changed');
-            }
-        }
-        
-        if (window.updateSaveButtonState) {
-            window.updateSaveButtonState();
-        }
+        // Auto-Save: Trigger blur event to save immediately
+        outputDirField.dispatchEvent(new Event('blur'));
         
         closeDirectoryBrowser();
     };

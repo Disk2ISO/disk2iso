@@ -4,7 +4,7 @@
     <h2>{{ t.INDEX_TARGET }}</h2>
     <div class="info-row">
         <span class="info-label">{{ t.SYSTEM_OUTPUT_DIR }}</span>
-        <span class="info-value" id="outputdir-widget-path">{{ config.output_dir if config else '/media/iso' }}</span>
+        <span class="info-value" id="outputdir-widget-path">{{ settings.output_dir if settings else '/media/iso' }}</span>
     </div>
     <div class="info-row">
         <span class="info-label">{{ t.INDEX_SIZE }}</span>
@@ -17,3 +17,4 @@
         <div class="progress-overlay" id="outputdir-widget-progress-bar" style="width: 100%"></div>
     </div>
 </div>
+

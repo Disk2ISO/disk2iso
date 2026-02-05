@@ -13,31 +13,34 @@ common_settings_bp = Blueprint('common_settings', __name__)
 
 def get_common_settings():
     """
-    Liest die Common-Einstellungen aus der Konfigurationsdatei
-    Analog zu get_mqtt_config() in routes_mqtt.py
+    Liest Common-Einstellungen via libsettings.sh (BASH)
+    Python = Middleware ONLY - keine direkten File-Zugriffe!
     """
     try:
-        # Lese Einstellungen aus config.sh
-        config_sh = '/opt/disk2iso/conf/config.sh'
+        import subprocess
         
-        config = {
-            "ddrescue_retries": 1,  # Default: 1 Wiederholung
+        script = """
+        source /opt/disk2iso/lib/libsettings.sh
+        settings_get_value_conf "disk2iso" "DDRESCUE_RETRIES" "1"
+        """
+        
+        result = subprocess.run(
+            ['/bin/bash', '-c', script],
+            capture_output=True,
+            text=True,
+            timeout=2
+        )
+        
+        ddrescue_retries = 1
+        if result.returncode == 0 and result.stdout.strip():
+            try:
+                ddrescue_retries = int(result.stdout.strip())
+            except ValueError:
+                pass
+        
+        return {
+            "ddrescue_retries": ddrescue_retries,
         }
-        
-        if os.path.exists(config_sh):
-            with open(config_sh, 'r') as f:
-                for line in f:
-                    line = line.strip()
-                    
-                    # DDRESCUE_RETRIES
-                    elif line.startswith('DDRESCUE_RETRIES='):
-                        value = line.split('=', 1)[1].strip('"').strip("'")
-                        try:
-                            config['ddrescue_retries'] = int(value)
-                        except ValueError:
-                            pass
-        
-        return config
         
     except Exception as e:
         print(f"Fehler beim Lesen der Common-Einstellungen: {e}", file=sys.stderr)
@@ -56,5 +59,6 @@ def api_common_settings_widget():
     
     # Rendere Widget-Template
     return render_template('widgets/common_widget_settings.html',
-                         config=config,
+                         settings=settings,
                          t=t)
+

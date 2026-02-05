@@ -10,7 +10,7 @@
     <div class="form-group">
         <label for="output_dir">{{ t.SYSTEM_OUTPUT_DIR }}</label>
         <div class="directory-input-wrapper">
-            <input type="text" id="output_dir" name="output_dir" class="directory-input" value="{{ config.output_dir }}" required>
+            <input type="text" id="output_dir" name="output_dir" class="directory-input" value="{{ settings.output_dir }}" required>
             <button type="button" class="directory-browse-btn" onclick="openDirectoryBrowser()" title="Verzeichnis durchsuchen">
                 <span class="browse-icon">📁</span>
             </button>
@@ -44,3 +44,4 @@
         </div>
     </div>
 </div>
+

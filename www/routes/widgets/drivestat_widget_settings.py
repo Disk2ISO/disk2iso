@@ -13,40 +13,56 @@ drivestat_settings_bp = Blueprint('drivestat_settings', __name__)
 
 def get_drivestat_settings():
     """
-    Liest die Drivestat-Einstellungen aus der Konfigurationsdatei
-    Analog zu get_mqtt_config() in routes_mqtt.py
+    Liest Drivestat-Einstellungen via libsettings.sh (BASH)
+    Python = Middleware ONLY - keine direkten File-Zugriffe!
     """
     try:
-        # Lese Einstellungen aus config.sh
-        config_sh = '/opt/disk2iso/conf/config.sh'
+        import subprocess
         
-        config = {
-            "usb_detection_attempts": 5,  # Default
-            "usb_detection_delay": 10,  # Default
+        # USB Detection Attempts
+        script_attempts = """
+        source /opt/disk2iso/lib/libsettings.sh
+        settings_get_value_conf "disk2iso" "USB_DRIVE_DETECTION_ATTEMPTS" "5"
+        """
+        
+        result_attempts = subprocess.run(
+            ['/bin/bash', '-c', script_attempts],
+            capture_output=True,
+            text=True,
+            timeout=2
+        )
+        
+        usb_detection_attempts = 5
+        if result_attempts.returncode == 0 and result_attempts.stdout.strip():
+            try:
+                usb_detection_attempts = int(result_attempts.stdout.strip())
+            except ValueError:
+                pass
+        
+        # USB Detection Delay
+        script_delay = """
+        source /opt/disk2iso/lib/libsettings.sh
+        settings_get_value_conf "disk2iso" "USB_DRIVE_DETECTION_DELAY" "10"
+        """
+        
+        result_delay = subprocess.run(
+            ['/bin/bash', '-c', script_delay],
+            capture_output=True,
+            text=True,
+            timeout=2
+        )
+        
+        usb_detection_delay = 10
+        if result_delay.returncode == 0 and result_delay.stdout.strip():
+            try:
+                usb_detection_delay = int(result_delay.stdout.strip())
+            except ValueError:
+                pass
+        
+        return {
+            "usb_detection_attempts": usb_detection_attempts,
+            "usb_detection_delay": usb_detection_delay,
         }
-        
-        if os.path.exists(config_sh):
-            with open(config_sh, 'r') as f:
-                for line in f:
-                    line = line.strip()
-                    
-                    # USB_DRIVE_DETECTION_ATTEMPTS
-                    if line.startswith('USB_DRIVE_DETECTION_ATTEMPTS='):
-                        value = line.split('=', 1)[1].strip('"').strip("'")
-                        try:
-                            config['usb_detection_attempts'] = int(value)
-                        except ValueError:
-                            pass
-                    
-                    # USB_DRIVE_DETECTION_DELAY
-                    elif line.startswith('USB_DRIVE_DETECTION_DELAY='):
-                        value = line.split('=', 1)[1].strip('"').strip("'")
-                        try:
-                            config['usb_detection_delay'] = int(value)
-                        except ValueError:
-                            pass
-        
-        return config
         
     except Exception as e:
         print(f"Fehler beim Lesen der Drivestat-Einstellungen: {e}", file=sys.stderr)
@@ -66,5 +82,6 @@ def api_drivestat_settings_widget():
     
     # Rendere Widget-Template
     return render_template('widgets/drivestat_widget_settings.html',
-                         config=config,
+                         settings=settings,
                          t=t)
+

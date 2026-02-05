@@ -9,13 +9,14 @@
     
     <div class="form-group">
         <label for="usb_detection_attempts">USB-Laufwerk Erkennungsversuche</label>
-        <input type="number" id="usb_detection_attempts" name="usb_detection_attempts" value="{{ config.usb_detection_attempts }}" min="1" max="20">
+        <input type="number" id="usb_detection_attempts" name="usb_detection_attempts" value="{{ settings.usb_detection_attempts }}" min="1" max="20">
         <div class="help-text">Anzahl Versuche zum Erkennen eines USB-Laufwerks</div>
     </div>
     
     <div class="form-group">
         <label for="usb_detection_delay">Verzögerung zwischen Versuchen (Sekunden)</label>
-        <input type="number" id="usb_detection_delay" name="usb_detection_delay" value="{{ config.usb_detection_delay }}" min="1" max="60">
+        <input type="number" id="usb_detection_delay" name="usb_detection_delay" value="{{ settings.usb_detection_delay }}" min="1" max="60">
         <div class="help-text">Sekunden zwischen Erkennungsversuchen</div>
     </div>
 </div>
+

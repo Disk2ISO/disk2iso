@@ -1,13 +1,14 @@
-#!/usr/bin/env python3
+﻿#!/usr/bin/env python3
 """
 disk2iso Web Interface
 Version: 1.2.0
-Description: Flask-basierte Web-Oberfläche für disk2iso Monitoring
+Description: Flask-basierte Web-OberflÃ¤che fÃ¼r disk2iso Monitoring
 """
 
 from flask import Flask, render_template, jsonify, request, Response, g, send_file
 import os
 import sys
+import time
 import json
 import subprocess
 from datetime import datetime
@@ -16,22 +17,18 @@ from i18n import get_translations
 
 app = Flask(__name__)
 
-# Register Blueprints für modulare Routen
-# Core Config API (field-by-field)
-try:
-    from routes import config_bp
-    app.register_blueprint(config_bp)
-    print("INFO: Core Config API loaded", file=sys.stderr)
-except ImportError as e:
-    print(f"ERROR: Core Config API failed to load: {e}", file=sys.stderr)
+# Register Blueprints fÃ¼r modulare Routen
+# DEPRECATED: Core Config API removed - now using widget-specific endpoints
+# Was: from routes import config_bp
+# Config is now managed via routes/widgets/*_widget_settings.py
 
 # Widget Settings Blueprints (Core Widgets)
 try:
-    from routes.widgets.config_widget_settings import config_settings_bp
+    from routes.widgets.config_widget_settings import settings_bp
     from routes.widgets.common_widget_settings import common_settings_bp
     from routes.widgets.drivestat_widget_settings import drivestat_settings_bp
     from routes.widgets.metadata_widget_settings import metadata_widget_settings_bp
-    app.register_blueprint(config_settings_bp)
+    app.register_blueprint(settings_bp)
     app.register_blueprint(common_settings_bp)
     app.register_blueprint(drivestat_settings_bp)
     app.register_blueprint(metadata_widget_settings_bp)
@@ -51,7 +48,7 @@ except ImportError:
 
 # Konfiguration
 INSTALL_DIR = Path("/opt/disk2iso")
-CONFIG_FILE = INSTALL_DIR / "conf" / "disk2iso.conf"
+SETTINGS_FILE = INSTALL_DIR / "conf" / "disk2iso.conf"
 VERSION_FILE = INSTALL_DIR / "VERSION"
 API_DIR = INSTALL_DIR / "api"
 
@@ -64,89 +61,70 @@ def get_version():
         pass
     return "1.2.0"
 
-def get_config():
-    """Liest Core-Konfiguration aus config.sh (ohne Modul-spezifische Werte)"""
-    config = {
-        "output_dir": "/media/iso",
-        "mp3_quality": 2,
-        "ddrescue_retries": 1,
-        "usb_detection_attempts": 5,
-        "usb_detection_delay": 10,
-        "tmdb_api_key": "",
-        # Module-Schalter (Standard: alle aktiviert)
-        "metadata_enabled": True,
-        "cd_enabled": True,
-        "dvd_enabled": True,
-        "bluray_enabled": True,
+def get_setting_value(key, default=""):
+    """
+    Liest EINZELNEN Wert aus disk2iso.conf via libsettings.sh
+    Architektur-Prinzip: Python = Middleware, BASH = Settings-Logic
+    """
+    try:
+        script = f"""
+        source {INSTALL_DIR}/lib/libsettings.sh
+        settings_get_value_conf "disk2iso" "{key}" "{default}"
+        """
+        result = subprocess.run(
+            ['/bin/bash', '-c', script],
+            capture_output=True,
+            text=True,
+            timeout=2
+        )
+        if result.returncode == 0:
+            return result.stdout.strip()
+        return default
+    except Exception as e:
+        print(f"Fehler beim Lesen von {key}: {e}", file=sys.stderr)
+        return default
+
+def get_settings():
+    """
+    Liest Core-Konfiguration via libsettings.sh (BASH)
+    Python macht KEIN direktes File-Parsing - Architektur vor Performance!
+    """
+    settings = {
+        "output_dir": get_setting_value("DEFAULT_OUTPUT_DIR", "/media/iso"),
+        "mp3_quality": int(get_setting_value("MP3_QUALITY", "2")),
+        "ddrescue_retries": int(get_setting_value("DDRESCUE_RETRIES", "1")),
+        "usb_detection_attempts": int(get_setting_value("USB_DRIVE_DETECTION_ATTEMPTS", "5")),
+        "usb_detection_delay": int(get_setting_value("USB_DRIVE_DETECTION_DELAY", "10")),
+        "tmdb_api_key": get_setting_value("TMDB_API_KEY", ""),
+        # Module-Schalter
+        "metadata_enabled": get_setting_value("METADATA_ENABLED", "true") == "true",
+        "cd_enabled": get_setting_value("CD_ENABLED", "true") == "true",
+        "dvd_enabled": get_setting_value("DVD_ENABLED", "true") == "true",
+        "bluray_enabled": get_setting_value("BLURAY_ENABLED", "true") == "true",
     }
     
-    try:
-        if CONFIG_FILE.exists():
-            with open(CONFIG_FILE, 'r') as f:
-                for line in f:
-                    line = line.strip()
-                    if line.startswith('DEFAULT_OUTPUT_DIR='):
-                        config['output_dir'] = line.split('=', 1)[1].strip('"')
-                    elif line.startswith('MP3_QUALITY='):
-                        try:
-                            config['mp3_quality'] = int(line.split('=', 1)[1].strip())
-                        except:
-                            pass
-                    elif line.startswith('DDRESCUE_RETRIES='):
-                        try:
-                            config['ddrescue_retries'] = int(line.split('=', 1)[1].strip())
-                        except:
-                            pass
-                    elif line.startswith('USB_DRIVE_DETECTION_ATTEMPTS='):
-                        try:
-                            config['usb_detection_attempts'] = int(line.split('=', 1)[1].strip())
-                        except:
-                            pass
-                    elif line.startswith('USB_DRIVE_DETECTION_DELAY='):
-                        try:
-                            config['usb_detection_delay'] = int(line.split('=', 1)[1].strip())
-                        except:
-                            pass
-                    elif line.startswith('TMDB_API_KEY='):
-                        value = line.split('=', 1)[1].strip()
-                        if '#' in value:
-                            value = value.split('#')[0]
-                        value = value.strip().strip('"').strip()
-                        config['tmdb_api_key'] = value
-                    # Module-Schalter
-                    elif line.startswith('METADATA_ENABLED='):
-                        config['metadata_enabled'] = 'true' in line.lower()
-                    elif line.startswith('CD_ENABLED='):
-                        config['cd_enabled'] = 'true' in line.lower()
-                    elif line.startswith('DVD_ENABLED='):
-                        config['dvd_enabled'] = 'true' in line.lower()
-                    elif line.startswith('BLURAY_ENABLED='):
-                        config['bluray_enabled'] = 'true' in line.lower()
-    except Exception as e:
-        print(f"Fehler beim Lesen der Konfiguration: {e}", file=sys.stderr)
-    
-    # Module-spezifische Configs hinzufügen (wenn Module verfügbar)
+    # Module-spezifische Settings hinzufÃ¼gen (wenn Module verfÃ¼gbar)
     if MQTT_MODULE_AVAILABLE:
         try:
             from routes.routes_mqtt import get_mqtt_config
-            config.update(get_mqtt_config())
+            settings.update(get_mqtt_config())
         except Exception as e:
             print(f"MQTT config error: {e}", file=sys.stderr)
     
-    return config
+    return settings
 
 @app.before_request
 def before_request():
-    """Lädt Übersetzungen vor jedem Request"""
+    """LÃ¤dt Ãœbersetzungen vor jedem Request"""
     g.t = get_translations()
 
 @app.context_processor
 def inject_translations():
-    """Macht Übersetzungen in allen Templates verfügbar"""
+    """Macht Ãœbersetzungen in allen Templates verfÃ¼gbar"""
     return {'t': g.get('t', {})}
 
 def get_service_status_detailed(service_name):
-    """Prüft detaillierten Status eines systemd Service
+    """PrÃ¼ft detaillierten Status eines systemd Service
     
     Args:
         service_name: Name des Service ohne .service Endung
@@ -155,7 +133,7 @@ def get_service_status_detailed(service_name):
         dict mit 'status' (not_installed|inactive|active|error) und 'running' (bool)
     """
     try:
-        # Prüfe ob Service existiert
+        # PrÃ¼fe ob Service existiert
         result_exists = subprocess.run(
             ['/usr/bin/systemctl', 'list-unit-files', f'{service_name}.service'],
             capture_output=True,
@@ -166,7 +144,7 @@ def get_service_status_detailed(service_name):
         if service_name not in result_exists.stdout:
             return {'status': 'not_installed', 'running': False}
         
-        # Prüfe Service-Status
+        # PrÃ¼fe Service-Status
         result = subprocess.run(
             ['/usr/bin/systemctl', 'is-active', service_name],
             capture_output=True,
@@ -189,7 +167,7 @@ def get_service_status_detailed(service_name):
         return {'status': 'error', 'running': False}
 
 def get_service_status():
-    """Prüft Status des disk2iso Service (Legacy-Kompatibilität)"""
+    """PrÃ¼ft Status des disk2iso Service (Legacy-KompatibilitÃ¤t)"""
     status = get_service_status_detailed('disk2iso')
     return status['running']
 
@@ -211,7 +189,7 @@ def get_disk_space(path):
         return {'free_gb': 0, 'total_gb': 0, 'used_percent': 0, 'free_percent': 0}
 
 def count_iso_files(path):
-    """Zählt ISO-Dateien im Ausgabeverzeichnis"""
+    """ZÃ¤hlt ISO-Dateien im Ausgabeverzeichnis"""
     try:
         if not os.path.exists(path):
             return 0
@@ -251,7 +229,7 @@ def get_iso_files_by_type(path):
                         'modified': datetime.fromtimestamp(stat.st_mtime).strftime('%Y-%m-%d %H:%M:%S')
                     }
                     
-                    # Prüfe ob .nfo Metadaten existieren
+                    # PrÃ¼fe ob .nfo Metadaten existieren
                     nfo_path = filepath.replace('.iso', '.nfo')
                     if os.path.exists(nfo_path):
                         try:
@@ -265,7 +243,7 @@ def get_iso_files_by_type(path):
                         except:
                             pass
                     
-                    # Prüfe ob Thumbnail existiert
+                    # PrÃ¼fe ob Thumbnail existiert
                     thumb_path = filepath.replace('.iso', '-thumb.jpg')
                     if os.path.exists(thumb_path):
                         file_info['thumbnail'] = os.path.basename(thumb_path)
@@ -275,7 +253,7 @@ def get_iso_files_by_type(path):
                     path_parts = os.path.normpath(root).split(os.sep)
                     filename_lower = filename.lower()
                     
-                    # Prüfe zuerst Ordnerstruktur
+                    # PrÃ¼fe zuerst Ordnerstruktur
                     if 'audio' in path_parts:
                         result['audio'].append(file_info)
                     elif 'dvd' in path_parts:
@@ -408,7 +386,7 @@ def get_live_status():
         'timestamp': ''
     }
     
-    # Für Audio-CDs: total_tracks aus attributes verwenden
+    # FÃ¼r Audio-CDs: total_tracks aus attributes verwenden
     disc_type = attributes.get('disc_type', '')
     if disc_type == 'audio-cd':
         total_value = attributes.get('total_tracks', progress.get('total_mb', 0))
@@ -431,7 +409,7 @@ def get_live_status():
     }
 
 def get_history():
-    """Liest Aktivitäts-History"""
+    """Liest AktivitÃ¤ts-History"""
     history = read_api_json('history.json')
     return history if history else []
 
@@ -445,13 +423,13 @@ def get_status_text(live_status, service_running):
     status = live_status.get('status', 'idle')
     method = live_status.get('method', 'unknown')
     
-    # Prüfe ob MusicBrainz User-Input benötigt
+    # PrÃ¼fe ob MusicBrainz User-Input benÃ¶tigt
     mb_selection = read_api_json('musicbrainz_selection.json')
     if mb_selection and mb_selection.get('status') == 'waiting_user_input':
         return t.get('MUSICBRAINZ_WAITING', 'Waiting for user selection...')
     
     if status == 'idle':
-        # Prüfe ob jemals ein Laufwerk erkannt wurde
+        # PrÃ¼fe ob jemals ein Laufwerk erkannt wurde
         if not method or method == 'unknown':
             return t.get('STATUS_NO_DRIVE', 'No drive detected')
         else:
@@ -471,15 +449,15 @@ def get_status_text(live_status, service_running):
 @app.route('/')
 def index():
     """Haupt-Status-Seite"""
-    config = get_config()
+    settings = get_settings()
     version = get_version()
     service_running = get_service_status()
     
-    # Service-Status für alle drei Services
+    # Service-Status fÃ¼r alle drei Services
     disk2iso_status = get_service_status_detailed('disk2iso')
-    webui_status = {'status': 'active', 'running': True}  # Web-UI läuft wenn diese Route aufgerufen wird
+    webui_status = {'status': 'active', 'running': True}  # Web-UI lÃ¤uft wenn diese Route aufgerufen wird
     
-    # MQTT-Status wird nicht mehr hier übergeben - Widget lädt dynamisch via /api/mqtt/widget
+    # MQTT-Status wird nicht mehr hier Ã¼bergeben - Widget lÃ¤dt dynamisch via /api/mqtt/widget
     
     disk_space = get_disk_space(config['output_dir'])
     iso_count = count_iso_files(config['output_dir'])
@@ -513,13 +491,13 @@ def index():
 
 @app.route('/favicon.ico')
 def favicon():
-    """Unterdrücke Favicon-404-Fehler"""
+    """UnterdrÃ¼cke Favicon-404-Fehler"""
     return '', 204
 
 @app.route('/settings')
 def settings_page():
     """Einstellungs-Seite"""
-    config = get_config()
+    settings = get_settings()
     version = get_version()
     
     return render_template('settings.html',
@@ -531,7 +509,7 @@ def settings_page():
 
 @app.route('/archive')
 def archive_page():
-    """Archiv-Übersicht-Seite"""
+    """Archiv-Ãœbersicht-Seite"""
     version = get_version()
     
     return render_template('archive.html',
@@ -553,7 +531,7 @@ def logs_page():
 
 @app.route('/system')
 def system_page():
-    """System-Übersicht-Seite"""
+    """System-Ãœbersicht-Seite"""
     version = get_version()
     
     return render_template('system.html',
@@ -575,14 +553,14 @@ def help_page():
 
 @app.route('/api/modules')
 def api_modules():
-    """API-Endpoint für Modul-Status (für dynamisches JS-Loading)
+    """API-Endpoint fÃ¼r Modul-Status (fÃ¼r dynamisches JS-Loading)
     
     VARIANTE A: Radikale Trennung
     - Liest enabled-Status direkt aus INI-Dateien der Module
     - Keine Modul-Konfiguration mehr in disk2iso.conf
     - Jedes Modul verwaltet seinen Status selbst in [module].enabled
     
-    Frontend nutzt dies um nur benötigte JS-Dateien zu laden.
+    Frontend nutzt dies um nur benÃ¶tigte JS-Dateien zu laden.
     """
     enabled_modules = {}
     
@@ -606,7 +584,7 @@ def api_modules():
     enabled_modules['dvd'] = get_module_enabled('dvd', True)
     enabled_modules['bluray'] = get_module_enabled('bluray', True)
     
-    # MQTT nur hinzufügen wenn Modul installiert UND aktiviert
+    # MQTT nur hinzufÃ¼gen wenn Modul installiert UND aktiviert
     if MQTT_MODULE_AVAILABLE:
         enabled_modules['mqtt'] = get_module_enabled('mqtt', False)
     
@@ -617,9 +595,9 @@ def api_modules():
 
 @app.route('/api/service/status/<service_name>')
 def api_service_status(service_name):
-    """API-Endpoint für Service-Status
+    """API-Endpoint fÃ¼r Service-Status
     
-    Nutzt libservice.sh für Service-Management
+    Nutzt libservice.sh fÃ¼r Service-Management
     """
     try:
         result = subprocess.run(
@@ -650,9 +628,9 @@ def api_service_status(service_name):
 
 @app.route('/api/service/restart/<service_name>', methods=['POST'])
 def api_service_restart(service_name):
-    """API-Endpoint für Service-Neustart
+    """API-Endpoint fÃ¼r Service-Neustart
     
-    Nutzt libservice.sh für Service-Management
+    Nutzt libservice.sh fÃ¼r Service-Management
     """
     try:
         result = subprocess.run(
@@ -682,15 +660,15 @@ def api_service_restart(service_name):
 
 @app.route('/api/modules/<module_name>/software')
 def api_module_software(module_name):
-    """API-Endpoint für Modul-spezifische Software-Informationen
+    """API-Endpoint fÃ¼r Modul-spezifische Software-Informationen
     
     Ruft <module>_get_software_info() aus dem jeweiligen Modul auf.
-    Module müssen diese Funktion in ihrer lib<module>.sh implementieren.
+    Module mÃ¼ssen diese Funktion in ihrer lib<module>.sh implementieren.
     
     Beispiel: /api/modules/audio/software ruft audio_get_software_info() auf
     """
     try:
-        # Sicherheitsprüfung: Nur alphanumerische Modulnamen erlauben
+        # SicherheitsprÃ¼fung: Nur alphanumerische Modulnamen erlauben
         if not module_name.replace('-', '').replace('_', '').isalnum():
             return jsonify({
                 'success': False,
@@ -698,7 +676,7 @@ def api_module_software(module_name):
                 'timestamp': datetime.now().isoformat()
             }), 400
         
-        # Prüfe ob Modul-Library existiert
+        # PrÃ¼fe ob Modul-Library existiert
         module_lib = INSTALL_DIR / 'lib' / f'lib{module_name}.sh'
         if not module_lib.exists():
             return jsonify({
@@ -744,13 +722,13 @@ def api_module_software(module_name):
 
 @app.route('/api/software/install/<software_name>', methods=['POST'])
 def api_software_install(software_name):
-    """API-Endpoint für Software-Installation/Update
+    """API-Endpoint fÃ¼r Software-Installation/Update
     
     Nutzt systeminfo_install_software() aus libsysteminfo.sh
-    ACHTUNG: Benötigt sudo-Rechte!
+    ACHTUNG: BenÃ¶tigt sudo-Rechte!
     """
     try:
-        # Sicherheitsprüfung: Nur alphanumerische Namen + Bindestriche
+        # SicherheitsprÃ¼fung: Nur alphanumerische Namen + Bindestriche
         if not software_name.replace('-', '').replace('_', '').isalnum():
             return jsonify({
                 'success': False,
@@ -758,7 +736,7 @@ def api_software_install(software_name):
                 'timestamp': datetime.now().isoformat()
             }), 400
         
-        # Rufe Installation auf (mit sudo wenn verfügbar)
+        # Rufe Installation auf (mit sudo wenn verfÃ¼gbar)
         result = subprocess.run(
             ['sudo', 'bash', '-c', f'source {INSTALL_DIR}/lib/liblogging.sh && source {INSTALL_DIR}/lib/libsysteminfo.sh && systeminfo_install_software "{software_name}"'],
             capture_output=True, text=True, timeout=120  # 2 Minuten Timeout
@@ -793,11 +771,11 @@ def api_software_install(software_name):
 
 @app.route('/api/system')
 def api_system():
-    """API-Endpoint für System-Informationen (OS, Hardware, Software)
+    """API-Endpoint fÃ¼r System-Informationen (OS, Hardware, Software)
     
     Nutzt die neuen Bash-Funktionen:
-    - systeminfo_get_os_info() für OS-Daten
-    - systeminfo_get_software_info() für Software-Dependencies
+    - systeminfo_get_os_info() fÃ¼r OS-Daten
+    - systeminfo_get_software_info() fÃ¼r Software-Dependencies
     """
     try:
         # OS-Informationen abrufen
@@ -821,11 +799,11 @@ def api_system():
 
 @app.route('/api/archive')
 def api_archive():
-    """API-Endpoint für Archiv- und Speicherplatz-Informationen
+    """API-Endpoint fÃ¼r Archiv- und Speicherplatz-Informationen
     
     Nutzt die neuen Bash-Funktionen:
-    - systeminfo_get_storage_info() für Speicherplatz
-    - systeminfo_get_archiv_info() für Archiv-Zähler
+    - systeminfo_get_storage_info() fÃ¼r Speicherplatz
+    - systeminfo_get_archiv_info() fÃ¼r Archiv-ZÃ¤hler
     """
     try:
         # Speicherplatz-Informationen abrufen
@@ -850,13 +828,13 @@ def api_archive():
 
 @app.route('/api/live_status')
 def api_live_status():
-    """API-Endpoint für Live-Status (für Service-Restart-Warnung)"""
+    """API-Endpoint fÃ¼r Live-Status (fÃ¼r Service-Restart-Warnung)"""
     return jsonify(get_live_status())
 
 @app.route('/api/status')
 def api_status():
-    """API-Endpoint für Status-Abfrage (AJAX)"""
-    config = get_config()
+    """API-Endpoint fÃ¼r Status-Abfrage (AJAX)"""
+    settings = get_settings()
     live_status = get_live_status()
     
     # Archive-Counts ermitteln
@@ -868,7 +846,7 @@ def api_status():
         'bluray': len(all_files.get('bluray', []))
     }
     
-    # MQTT-Status nur wenn Modul verfügbar
+    # MQTT-Status nur wenn Modul verfÃ¼gbar
     result = {
         'version': get_version(),
         'service_running': get_service_status(),
@@ -880,21 +858,21 @@ def api_status():
         'timestamp': datetime.now().isoformat()
     }
     
-    # MQTT-Informationen nur hinzufügen wenn Modul verfügbar
+    # MQTT-Informationen nur hinzufÃ¼gen wenn Modul verfÃ¼gbar
     if MQTT_MODULE_AVAILABLE:
-        result['mqtt_enabled'] = config.get('mqtt_enabled', False)
-        result['mqtt_broker'] = config.get('mqtt_broker', '')
+        result['mqtt_enabled'] = settings.get('mqtt_enabled', False)
+        result['mqtt_broker'] = settings.get('mqtt_broker', '')
     
     return jsonify(result)
 
 @app.route('/api/history')
 def api_history():
-    """API-Endpoint für Aktivitäts-History"""
+    """API-Endpoint fÃ¼r AktivitÃ¤ts-History"""
     return jsonify(get_history())
 
 @app.route('/api/musicbrainz/releases')
 def api_musicbrainz_releases():
-    """API-Endpoint für MusicBrainz Release-Auswahl"""
+    """API-Endpoint fÃ¼r MusicBrainz Release-Auswahl"""
     releases = read_api_json('musicbrainz_releases.json')
     selection = read_api_json('musicbrainz_selection.json')
     
@@ -915,13 +893,12 @@ def api_musicbrainz_releases():
 def api_musicbrainz_cover(release_id):
     """API-Endpoint zum Abrufen von Cover-Art (via Bash)"""
     try:
-        config = get_config()
-        output_dir = config.get('output_dir', '/media/iso')
+        settings = get_settings()
+        output_dir = settings.get('output_dir', '/media/iso')
         
-        # Rufe Bash-Funktion auf (vollständige Library-Kette + OUTPUT_DIR setzen)
+        # Rufe Bash-Funktion auf (vollstÃ¤ndige Library-Kette + OUTPUT_DIR setzen)
         script = f"""
         export PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
-        source {INSTALL_DIR}/lib/lib-config.sh
         source {INSTALL_DIR}/lib/lib-logging.sh
         source {INSTALL_DIR}/lib/lib-files.sh
         source {INSTALL_DIR}/lib/lib-folders.sh
@@ -955,7 +932,7 @@ def api_musicbrainz_cover(release_id):
                 return jsonify({'error': response_data.get('message', g.t.get('API_ERROR_UNKNOWN', 'Unknown error'))}), 404
                 
         except json.JSONDecodeError as e:
-            return jsonify({'error': f'Ungültige JSON-Antwort: {str(e)}'}), 500
+            return jsonify({'error': f'UngÃ¼ltige JSON-Antwort: {str(e)}'}), 500
             
     except subprocess.TimeoutExpired:
         return jsonify({'error': g.t.get('API_ERROR_TIMEOUT', 'Timeout')}), 500
@@ -964,7 +941,7 @@ def api_musicbrainz_cover(release_id):
 
 @app.route('/api/musicbrainz/select', methods=['POST'])
 def api_musicbrainz_select():
-    """API-Endpoint zum Auswählen eines MusicBrainz Release"""
+    """API-Endpoint zum AuswÃ¤hlen eines MusicBrainz Release"""
     try:
         data = request.get_json()
         
@@ -983,7 +960,7 @@ def api_musicbrainz_select():
         }
         
         # Schreibe in API-Datei
-        api_file = Path(CONFIG_FILE).parent.parent / 'api' / 'musicbrainz_selection.json'
+        api_file = Path(SETTINGS_FILE).parent.parent / 'api' / 'musicbrainz_selection.json'
         with open(api_file, 'w') as f:
             json.dump(selection_data, f, indent=2)
         
@@ -994,7 +971,7 @@ def api_musicbrainz_select():
 
 @app.route('/api/musicbrainz/manual', methods=['POST'])
 def api_musicbrainz_manual():
-    """API-Endpoint für manuelle Metadaten-Eingabe"""
+    """API-Endpoint fÃ¼r manuelle Metadaten-Eingabe"""
     try:
         data = request.get_json()
         
@@ -1011,7 +988,7 @@ def api_musicbrainz_manual():
             'timestamp': datetime.now().isoformat()
         }
         
-        api_file = Path(CONFIG_FILE).parent.parent / 'api' / 'musicbrainz_manual.json'
+        api_file = Path(SETTINGS_FILE).parent.parent / 'api' / 'musicbrainz_manual.json'
         with open(api_file, 'w') as f:
             json.dump(manual_data, f, indent=2)
         
@@ -1022,7 +999,7 @@ def api_musicbrainz_manual():
 
 @app.route('/api/tmdb/results')
 def api_tmdb_results():
-    """API-Endpoint für TMDB-Suchergebnisse"""
+    """API-Endpoint fÃ¼r TMDB-Suchergebnisse"""
     results = read_api_json('tmdb_results.json')
     
     if not results:
@@ -1036,7 +1013,7 @@ def api_tmdb_results():
 
 @app.route('/api/tmdb/select', methods=['POST'])
 def api_tmdb_select():
-    """API-Endpoint zum Auswählen eines TMDB Films"""
+    """API-Endpoint zum AuswÃ¤hlen eines TMDB Films"""
     try:
         data = request.get_json()
         
@@ -1053,7 +1030,7 @@ def api_tmdb_select():
         }
         
         # Schreibe in API-Datei
-        api_file = Path(CONFIG_FILE).parent.parent / 'api' / 'tmdb_selection.json'
+        api_file = Path(SETTINGS_FILE).parent.parent / 'api' / 'tmdb_selection.json'
         with open(api_file, 'w') as f:
             json.dump(selection_data, f, indent=2)
         
@@ -1064,8 +1041,8 @@ def api_tmdb_select():
 
 @app.route('/api/archive')
 def api_archive():
-    """API-Endpoint für Archiv-Daten gruppiert nach Typ"""
-    config = get_config()
+    """API-Endpoint fÃ¼r Archiv-Daten gruppiert nach Typ"""
+    settings = get_settings()
     archives = get_iso_files_by_type(config['output_dir'])
     
     total = sum(len(files) for files in archives.values())
@@ -1080,7 +1057,7 @@ def api_archive():
 def api_archive_thumbnail(filename):
     """API-Endpoint zum Abrufen von ISO-Thumbnails"""
     try:
-        config = get_config()
+        settings = get_settings()
         output_dir = Path(config['output_dir'])
         
         # Suche Thumbnail in allen Unterverzeichnissen
@@ -1110,9 +1087,9 @@ def api_metadata_pending():
     }
     """
     try:
-        # Prüfe ob .mbquery oder .tmdbquery Datei existiert
-        config = get_config()
-        output_dir = config.get('output_dir', '/media/iso')
+        # PrÃ¼fe ob .mbquery oder .tmdbquery Datei existiert
+        settings = get_settings()
+        output_dir = settings.get('output_dir', '/media/iso')
         
         # Suche nach .mbquery Dateien (Audio-CD)
         mbquery_files = list(Path(output_dir).glob('**/*.mbquery'))
@@ -1126,7 +1103,7 @@ def api_metadata_pending():
             elapsed = int(time.time() - file_mtime)
             
             # Lese Timeout aus Config
-            bash_cmd = f'source {CONFIG_FILE} && echo "$METADATA_SELECTION_TIMEOUT"'
+            bash_cmd = f'source {SETTINGS_FILE} && echo "$METADATA_SELECTION_TIMEOUT"'
             result = subprocess.run(
                 ['bash', '-c', bash_cmd],
                 capture_output=True, text=True, timeout=5
@@ -1153,7 +1130,7 @@ def api_metadata_pending():
             file_mtime = tmdbquery_file.stat().st_mtime
             elapsed = int(time.time() - file_mtime)
             
-            bash_cmd = f'source {CONFIG_FILE} && echo "$METADATA_SELECTION_TIMEOUT"'
+            bash_cmd = f'source {SETTINGS_FILE} && echo "$METADATA_SELECTION_TIMEOUT"'
             result = subprocess.run(
                 ['bash', '-c', bash_cmd],
                 capture_output=True, text=True, timeout=5
@@ -1195,8 +1172,8 @@ def api_metadata_select():
         index = data.get('index', 'skip')
         disc_type = data.get('disc_type', 'audio-cd')
         
-        config = get_config()
-        output_dir = config.get('output_dir', '/media/iso')
+        settings = get_settings()
+        output_dir = settings.get('output_dir', '/media/iso')
         
         # Erstelle Selection-Datei
         selection_data = {
@@ -1207,7 +1184,7 @@ def api_metadata_select():
         }
         
         if disc_type == 'audio-cd':
-            # .mbselect Datei für Service
+            # .mbselect Datei fÃ¼r Service
             selection_file = Path(output_dir) / f'{disc_id}_mb.mbselect'
         else:
             # .tmdbselect Datei
@@ -1221,92 +1198,17 @@ def api_metadata_select():
     except Exception as e:
         return jsonify({'success': False, 'message': str(e)}), 500
 
-@app.route('/api/config', methods=['GET', 'POST'])
-def api_config():
-    """API-Endpoint für Konfigurations-Verwaltung (via Bash)"""
-    if request.method == 'GET':
-        # Konfiguration lesen via Bash
-        try:
-            script = f"""
-            source {INSTALL_DIR}/lib/lib-config.sh
-            get_all_config_values
-            """
-            
-            result = subprocess.run(
-                ['/bin/bash', '-c', script],
-                capture_output=True,
-                text=True,
-                timeout=5
-            )
-            
-            if result.returncode != 0:
-                return jsonify({'success': False, 'message': g.t.get('API_ERROR_CONFIG_READ', 'Error reading configuration')}), 500
-            
-            # Parse JSON-Output
-            try:
-                config_data = json.loads(result.stdout)
-                if config_data.get('success'):
-                    # Entferne success-Key für Kompatibilität
-                    config_data.pop('success', None)
-                    return jsonify(config_data)
-                else:
-                    return jsonify({'error': config_data.get('message', 'Unknown error')}), 500
-            except json.JSONDecodeError as e:
-                return jsonify({'error': f"{g.t.get('API_ERROR_INVALID_JSON', 'Invalid JSON response')}: {str(e)}"}), 500
-                
-        except subprocess.TimeoutExpired:
-            return jsonify({'error': g.t.get('API_ERROR_TIMEOUT', 'Timeout')}), 500
-        except Exception as e:
-            return jsonify({'error': str(e)}), 500
-    
-    elif request.method == 'POST':
-        # Neue Architektur: Granulare Config-Updates mit intelligenten Service-Neustarts
-        try:
-            changes = request.get_json()
-            
-            if not changes or not isinstance(changes, dict):
-                return jsonify({'success': False, 'message': g.t.get('API_ERROR_NO_DATA', 'No data received')}), 400
-            
-            # Konvertiere zu JSON-String für Bash
-            changes_json = json.dumps(changes)
-            json_escaped = changes_json.replace("'", "'\\''")
-            
-            # Rufe neue Bash-Funktion apply_config_changes auf
-            script = f"""
-            source {INSTALL_DIR}/lib/lib-config.sh
-            apply_config_changes '{json_escaped}'
-            """
-            
-            result = subprocess.run(
-                ['/bin/bash', '-c', script],
-                capture_output=True,
-                text=True,
-                timeout=30
-            )
-            
-            # Parse Response
-            if result.returncode == 0:
-                try:
-                    response_data = json.loads(result.stdout)
-                    return jsonify(response_data), 200
-                except json.JSONDecodeError:
-                    return jsonify({
-                        'success': False,
-                        'message': f"{g.t.get('API_ERROR_INVALID_JSON', 'Invalid JSON response')}",
-                        'stdout': result.stdout
-                    }), 500
-            else:
-                error_msg = result.stderr if result.stderr else g.t.get('API_ERROR_CONFIG_SAVE', 'Unknown error')
-                return jsonify({'success': False, 'message': error_msg}), 500
-                
-        except subprocess.TimeoutExpired:
-            return jsonify({'success': False, 'message': f"{g.t.get('API_ERROR_TIMEOUT', 'Timeout')}: Config-Update"}), 500
-        except Exception as e:
-            # Debug: Logge vollständigen Fehler
-            import traceback
-            print(f"ERROR in POST /api/config: {str(e)}", flush=True)
-            print(traceback.format_exc(), flush=True)
-            return jsonify({'success': False, 'message': f'Fehler: {str(e)}'}), 500
+# DEPRECATED ROUTE REMOVED: /api/config
+# Replaced by widget-specific endpoints:
+#   - /api/widgets/config/settings (config_widget_settings.py)
+#   - /api/widgets/common/settings (common_widget_settings.py)
+#   - /api/widgets/drivestat/settings (drivestat_widget_settings.py)
+#   - /api/widgets/metadata/settings (metadata_widget_settings.py)
+#   - /api/widgets/audio/settings (audio_widget_settings.py)
+#   - /api/widgets/mqtt/settings (mqtt_widget_settings.py)
+#   - /api/widgets/tmdb/settings (tmdb_widget_settings.py)
+# Each widget loads and saves its own settings independently.
+# No batch-loading, no centralized /api/config endpoint.
 
 @app.route('/api/service/restart', methods=['POST'])
 def restart_service():
@@ -1324,12 +1226,13 @@ def restart_service():
         
         # Validierung
         if service_name not in ['disk2iso', 'disk2iso-web']:
-            return jsonify({'success': False, 'message': 'Ungültiger Service-Name'}), 400
+            return jsonify({'success': False, 'message': 'UngÃ¼ltiger Service-Name'}), 400
         
         # Rufe Bash-Funktion auf
         script = f"""
-        source {INSTALL_DIR}/lib/lib-config.sh
-        restart_service '{service_name}'
+        # DEPRECATED: Use libservice.sh instead
+        source {INSTALL_DIR}/lib/libservice.sh
+        service_restart '{service_name}'
         """
         
         result = subprocess.run(
@@ -1347,7 +1250,7 @@ def restart_service():
             except json.JSONDecodeError:
                 return jsonify({
                     'success': False,
-                    'message': 'Ungültige JSON-Antwort'
+                    'message': 'UngÃ¼ltige JSON-Antwort'
                 }), 500
         else:
             error_msg = result.stderr if result.stderr else 'Unbekannter Fehler'
@@ -1361,7 +1264,7 @@ def restart_service():
 @app.route('/api/browse_directories', methods=['POST'])
 def browse_directories():
     """
-    Listet Verzeichnisse für Directory Browser auf
+    Listet Verzeichnisse fÃ¼r Directory Browser auf
     POST body: { "path": "/mnt" }
     Returns: { "success": true, "directories": [...], "current_path": "/mnt" }
     """
@@ -1376,7 +1279,7 @@ def browse_directories():
         # Path object erstellen
         dir_path = Path(path)
         
-        # Prüfen ob Verzeichnis existiert
+        # PrÃ¼fen ob Verzeichnis existiert
         if not dir_path.exists():
             return jsonify({
                 'success': False, 
@@ -1406,11 +1309,11 @@ def browse_directories():
         try:
             for item in sorted(dir_path.iterdir()):
                 if item.is_dir():
-                    # Versteckte Ordner überspringen (optional)
+                    # Versteckte Ordner Ã¼berspringen (optional)
                     if item.name.startswith('.'):
                         continue
                     
-                    # Schreibrechte prüfen
+                    # Schreibrechte prÃ¼fen
                     writable = os.access(str(item), os.W_OK)
                     
                     directories.append({
@@ -1422,7 +1325,7 @@ def browse_directories():
         except PermissionError:
             return jsonify({
                 'success': False,
-                'message': f'Keine Berechtigung für: {path}'
+                'message': f'Keine Berechtigung fÃ¼r: {path}'
             }), 403
         
         return jsonify({
@@ -1440,9 +1343,9 @@ def browse_directories():
 
 @app.route('/api/logs/current')
 def api_logs_current():
-    """API-Endpoint für aktuelles Log"""
+    """API-Endpoint fÃ¼r aktuelles Log"""
     try:
-        config = get_config()
+        settings = get_settings()
         output_dir = Path(config['output_dir'])
         log_dir = output_dir / '.log'
         
@@ -1482,9 +1385,9 @@ def api_logs_current():
 
 @app.route('/api/logs/system')
 def api_logs_system():
-    """API-Endpoint für System-Log (journalctl)"""
+    """API-Endpoint fÃ¼r System-Log (journalctl)"""
     try:
-        # Lese die letzten 200 Zeilen aus journalctl für disk2iso Service
+        # Lese die letzten 200 Zeilen aus journalctl fÃ¼r disk2iso Service
         result = subprocess.run(
             ['journalctl', '-u', 'disk2iso', '-n', '200', '--no-pager'],
             capture_output=True,
@@ -1501,7 +1404,7 @@ def api_logs_system():
         else:
             return jsonify({
                 'success': False,
-                'message': 'journalctl nicht verfügbar oder Fehler',
+                'message': 'journalctl nicht verfÃ¼gbar oder Fehler',
                 'logs': result.stderr or 'Keine Ausgabe',
                 'lines': 0
             })
@@ -1522,9 +1425,9 @@ def api_logs_system():
 
 @app.route('/api/logs/archived')
 def api_logs_archived():
-    """API-Endpoint für Liste der archivierten Log-Dateien"""
+    """API-Endpoint fÃ¼r Liste der archivierten Log-Dateien"""
     try:
-        config = get_config()
+        settings = get_settings()
         output_dir = Path(config['output_dir'])
         log_dir = output_dir / '.log'
         
@@ -1557,18 +1460,18 @@ def api_logs_archived():
 
 @app.route('/api/logs/archived/<filename>')
 def api_logs_archived_file(filename):
-    """API-Endpoint für eine spezifische archivierte Log-Datei"""
+    """API-Endpoint fÃ¼r eine spezifische archivierte Log-Datei"""
     try:
         # Sicherheitscheck: Nur .log Dateien erlauben und keine Pfad-Traversierung
         if not filename.endswith('.log') or '/' in filename or '\\' in filename or '..' in filename:
             return jsonify({
                 'success': False,
-                'message': 'Ungültiger Dateiname',
+                'message': 'UngÃ¼ltiger Dateiname',
                 'logs': '',
                 'lines': 0
             }), 400
         
-        config = get_config()
+        settings = get_settings()
         output_dir = Path(config['output_dir'])
         log_dir = output_dir / '.log'
         log_file = log_dir / filename
@@ -1640,7 +1543,7 @@ def get_package_version(package_name):
             for line in result.stdout.split('\n'):
                 if line.startswith('Version:'):
                     version = line.split(':', 1)[1].strip()
-                    # Kürze Debian-Versionsnummern
+                    # KÃ¼rze Debian-Versionsnummern
                     if '-' in version:
                         version = version.split('-')[0]
                     if '+' in version:
@@ -1651,7 +1554,7 @@ def get_package_version(package_name):
         return None
 
 def get_available_package_version(package_name):
-    """Holt verfügbare Version eines Pakets aus den Repositories"""
+    """Holt verfÃ¼gbare Version eines Pakets aus den Repositories"""
     try:
         result = subprocess.run(
             ['apt-cache', 'policy', package_name],
@@ -1665,7 +1568,7 @@ def get_available_package_version(package_name):
                 if 'Candidate:' in line:
                     version = line.split(':', 1)[1].strip()
                     if version and version != '(none)':
-                        # Kürze Debian-Versionsnummern
+                        # KÃ¼rze Debian-Versionsnummern
                         if '-' in version:
                             version = version.split('-')[0]
                         if '+' in version:
@@ -1779,7 +1682,7 @@ def check_software_versions():
             installed_version = get_command_version(soft['version_cmd'][0], 
                                                     soft['version_cmd'][1:] if len(soft['version_cmd']) > 1 else None)
         
-        # Prüfe ob Update verfügbar
+        # PrÃ¼fe ob Update verfÃ¼gbar
         update_available = False
         if installed_version and available_version and available_version != 'Unbekannt':
             try:
@@ -1941,7 +1844,7 @@ def get_disk2iso_info():
     return info
 
 def get_software_list_from_system_json(software_data):
-    """Konvertiert Software-Dict aus system.json zu Liste für Frontend"""
+    """Konvertiert Software-Dict aus system.json zu Liste fÃ¼r Frontend"""
     software_list = []
     
     # Mapping von internen Namen zu Display-Namen
@@ -1972,13 +1875,13 @@ def get_software_list_from_system_json(software_data):
 
 @app.route('/api/system')
 def api_system():
-    """API-Endpoint für System-Informationen"""
+    """API-Endpoint fÃ¼r System-Informationen"""
     try:
         # Versuche zuerst system.json zu lesen (von disk2iso Service generiert)
         system_data = read_api_json('system.json')
         
         if system_data:
-            # Nutze cached Daten und ergänze sie
+            # Nutze cached Daten und ergÃ¤nze sie
             return jsonify({
                 'success': True,
                 'os': system_data.get('os', {}),
@@ -2025,13 +1928,12 @@ def api_tmdb_search():
         script = f"""
 export PATH=/usr/local/bin:/usr/bin:/bin:/usr/local/sbin:/usr/sbin:/sbin
 source {INSTALL_DIR}/conf/disk2iso.conf 2>/dev/null
-source {INSTALL_DIR}/lib/lib-config.sh 2>/dev/null
 source {INSTALL_DIR}/lib/lib-logging.sh 2>/dev/null
 source {INSTALL_DIR}/lib/lib-common.sh 2>/dev/null
 source {INSTALL_DIR}/lib/lib-folders.sh 2>/dev/null
 source {INSTALL_DIR}/lib/lib-dvd-metadata.sh 2>/dev/null
 
-# Setze OUTPUT_DIR explizit aus DEFAULT_OUTPUT_DIR (wird vom Service benötigt)
+# Setze OUTPUT_DIR explizit aus DEFAULT_OUTPUT_DIR (wird vom Service benÃ¶tigt)
 OUTPUT_DIR="${{DEFAULT_OUTPUT_DIR:-/media/iso}}"
 
 search_and_cache_tmdb "$1"
@@ -2059,8 +1961,8 @@ fi
         
         # Schritt 2: Python verarbeitet die raw response (wie bei MusicBrainz)
         iso_basename = iso_filename.replace('.iso', '')
-        config = get_config()
-        output_dir = config.get('output_dir', '/media/iso')
+        settings = get_settings()
+        output_dir = settings.get('output_dir', '/media/iso')
         cache_dir = Path(output_dir) / '.temp' / 'tmdb'
         thumbs_dir = cache_dir / 'thumbs'
         raw_cache_file = cache_dir / f"{iso_basename}_raw.json"
@@ -2076,21 +1978,21 @@ fi
         with open(raw_cache_file, 'r', encoding='utf-8') as f:
             raw_data = json.load(f)
         
-        # Prüfe auf API-Fehler
+        # PrÃ¼fe auf API-Fehler
         if 'error' in raw_data:
             return jsonify({
                 'success': False,
                 'message': 'TMDB-API-Fehler'
             }), 500
         
-        # Extrahiere Suchbegriff (aus Bash-Script übernommen)
+        # Extrahiere Suchbegriff (aus Bash-Script Ã¼bernommen)
         # Erkenne Media-Type
         media_type = "movie"
         if '_season' in iso_filename.lower() or '_s' in iso_filename.lower():
             media_type = "tv"
         
-        # Parse search term aus raw response (rückwärts vom Dateinamen)
-        # Bash hat bereits prepare_search_string() ausgeführt
+        # Parse search term aus raw response (rÃ¼ckwÃ¤rts vom Dateinamen)
+        # Bash hat bereits prepare_search_string() ausgefÃ¼hrt
         search_term = iso_basename.replace('_', ' ').title()
         
         # Verarbeite Ergebnisse (max. 10)
@@ -2186,7 +2088,8 @@ def api_tmdb_apply():
         script = f"""
 export PATH=/usr/local/bin:/usr/bin:/bin:/usr/local/sbin:/usr/sbin:/sbin
 source {INSTALL_DIR}/conf/disk2iso.conf
-source {INSTALL_DIR}/lib/lib-config.sh
+# DEPRECATED: lib-config.sh does not exist
+# source {INSTALL_DIR}/lib/lib-config.sh
 source {INSTALL_DIR}/lib/lib-logging.sh 2>/dev/null
 source {INSTALL_DIR}/lib/lib-common.sh 2>/dev/null
 source {INSTALL_DIR}/lib/lib-dvd-metadata.sh 2>/dev/null
@@ -2232,13 +2135,13 @@ echo "$new_path"
             
             return jsonify({
                 'success': True,
-                'message': 'Metadaten erfolgreich hinzugefügt',
+                'message': 'Metadaten erfolgreich hinzugefÃ¼gt',
                 'new_path': new_path
             })
         else:
             return jsonify({
                 'success': False,
-                'message': 'Fehler beim Hinzufügen der Metadaten',
+                'message': 'Fehler beim HinzufÃ¼gen der Metadaten',
                 'error': result.stderr
             }), 500
             
@@ -2254,11 +2157,11 @@ def api_musicbrainz_search():
         album = data.get('album', '').strip()
         iso_path = data.get('iso_path', '').strip()
         
-        # Zähle Tracks in ISO für präzisere Suche
+        # ZÃ¤hle Tracks in ISO fÃ¼r prÃ¤zisere Suche
         track_count = 0
         if iso_path and os.path.isfile(iso_path):
             try:
-                # Mount ISO temporär und zähle MP3-Dateien
+                # Mount ISO temporÃ¤r und zÃ¤hle MP3-Dateien
                 import tempfile
                 with tempfile.TemporaryDirectory() as mount_point:
                     mount_result = subprocess.run(
@@ -2268,7 +2171,7 @@ def api_musicbrainz_search():
                     )
                     if mount_result.returncode == 0:
                         try:
-                            # Zähle MP3-Dateien
+                            # ZÃ¤hle MP3-Dateien
                             mp3_files = []
                             for root, dirs, files in os.walk(mount_point):
                                 mp3_files.extend([f for f in files if f.lower().endswith('.mp3')])
@@ -2283,7 +2186,6 @@ def api_musicbrainz_search():
         script = f"""
 export PATH=/usr/local/bin:/usr/bin:/bin:/usr/local/sbin:/usr/sbin:/sbin
 source {INSTALL_DIR}/conf/disk2iso.conf 2>/dev/null
-source {INSTALL_DIR}/lib/lib-config.sh 2>/dev/null
 source {INSTALL_DIR}/lib/lib-logging.sh 2>/dev/null
 source {INSTALL_DIR}/lib/lib-common.sh 2>/dev/null
 source {INSTALL_DIR}/lib/lib-folders.sh 2>/dev/null
@@ -2326,12 +2228,12 @@ search_musicbrainz_json "$1" "$2" "$3" "$4"
         except json.JSONDecodeError as e:
             return jsonify({
                 'success': False,
-                'message': f'Ungültige JSON-Antwort: {str(e)}',
+                'message': f'UngÃ¼ltige JSON-Antwort: {str(e)}',
                 'stdout': result.stdout
             }), 500
         
     except subprocess.TimeoutExpired:
-        return jsonify({'success': False, 'message': 'MusicBrainz-Suche: Zeitüberschreitung'}), 500
+        return jsonify({'success': False, 'message': 'MusicBrainz-Suche: ZeitÃ¼berschreitung'}), 500
     except Exception as e:
         return jsonify({'success': False, 'message': f'MusicBrainz-Suche fehlgeschlagen: {str(e)}'}), 500
 
@@ -2354,15 +2256,15 @@ def api_musicbrainz_apply():
             return jsonify({'success': False, 'message': g.t.get('API_ERROR_RELEASE_ID_REQUIRED', 'MusicBrainz Release ID required')}), 400
         
         # Starte Remaster-Prozess im Hintergrund
-        config = get_config()
-        output_dir = config.get('output_dir', '/media/iso')
+        settings = get_settings()
+        output_dir = settings.get('output_dir', '/media/iso')
         
         script = f"""
 export PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 export OUTPUT_DIR="{output_dir}"
 export DEFAULT_OUTPUT_DIR="{output_dir}"
 
-source {INSTALL_DIR}/lib/lib-config.sh
+# DEPRECATED: source {INSTALL_DIR}/lib/lib-config.sh
 source {INSTALL_DIR}/lib/lib-logging.sh
 source {INSTALL_DIR}/lib/lib-files.sh
 source {INSTALL_DIR}/lib/lib-folders.sh
@@ -2381,7 +2283,7 @@ fi
         
         print(f"[DEBUG] Starte Remaster-Prozess...", file=sys.stderr)
         
-        # Timeout erhöhen (Remaster kann 5-10 Minuten dauern)
+        # Timeout erhÃ¶hen (Remaster kann 5-10 Minuten dauern)
         result = subprocess.run(
             ['/bin/bash', '-c', script],
             capture_output=True,
@@ -2434,5 +2336,7 @@ def internal_error(error):
     return jsonify({'error': 'Internal server error'}), 500
 
 if __name__ == '__main__':
-    # Nur für Entwicklung - In Produktion wird Gunicorn/Flask Server verwendet
+    # Nur fÃ¼r Entwicklung - In Produktion wird Gunicorn/Flask Server verwendet
     app.run(host='0.0.0.0', port=8080, debug=False)
+
+

@@ -9,32 +9,36 @@ from flask import Blueprint, render_template, jsonify, request
 from i18n import t
 
 # Blueprint für Config Settings Widget
-config_settings_bp = Blueprint('config_settings', __name__)
+settings_bp = Blueprint('config_settings', __name__)
 
 def get_config_settings():
     """
-    Liest die Config-Einstellungen aus der Konfigurationsdatei
-    Analog zu get_mqtt_config() in routes_mqtt.py
+    Liest Config-Einstellungen via libsettings.sh (BASH)
+    Python = Middleware ONLY - keine direkten File-Zugriffe!
     """
     try:
-        # Lese output_dir aus config.sh
-        config_sh = '/opt/disk2iso/conf/config.sh'
+        import subprocess
         
-        config = {
-            "output_dir": "/media/iso",  # Default
+        # Rufe libsettings.sh auf (Architektur-konform)
+        script = """
+        source /opt/disk2iso/lib/libsettings.sh
+        settings_get_value_conf "disk2iso" "DEFAULT_OUTPUT_DIR" "/media/iso"
+        """
+        
+        result = subprocess.run(
+            ['/bin/bash', '-c', script],
+            capture_output=True,
+            text=True,
+            timeout=2
+        )
+        
+        output_dir = "/media/iso"  # Default
+        if result.returncode == 0 and result.stdout.strip():
+            output_dir = result.stdout.strip()
+        
+        return {
+            "output_dir": output_dir,
         }
-        
-        if os.path.exists(config_sh):
-            with open(config_sh, 'r') as f:
-                for line in f:
-                    line = line.strip()
-                    
-                    # DEFAULT_OUTPUT_DIR
-                    if line.startswith('DEFAULT_OUTPUT_DIR='):
-                        value = line.split('=', 1)[1].strip('"').strip("'")
-                        config['output_dir'] = value
-        
-        return config
         
     except Exception as e:
         print(f"Fehler beim Lesen der Config-Einstellungen: {e}", file=sys.stderr)
@@ -43,21 +47,21 @@ def get_config_settings():
         }
 
 
-@config_settings_bp.route('/api/widgets/config/settings')
+@settings_bp.route('/api/widgets/config/settings')
 def api_config_settings_widget():
     """
     Rendert das Config Settings Widget
     Zeigt System-Einstellungen (Output Dir, Sprache)
     """
-    config = get_config_settings()
+    settings = get_config_settings()
     
     # Rendere Widget-Template
     return render_template('widgets/config_widget_settings.html',
-                         config=config,
+                         settings=settings,
                          t=t)
 
 
-@config_settings_bp.route('/api/browse_directories', methods=['POST'])
+@settings_bp.route('/api/browse_directories', methods=['POST'])
 def browse_directories():
     """
     Directory Browser API
@@ -110,3 +114,5 @@ def browse_directories():
             'success': False,
             'message': f'Serverfehler: {str(e)}'
         }), 500
+
+
