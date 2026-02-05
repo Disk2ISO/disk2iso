@@ -19,6 +19,12 @@
 
         <!-- disk2iso Service Widget (2x1) -->
         {% include 'widgets/disk2iso_widget_2x1_status.html' %}
+        
+        <!-- Output Directory Widget (2x1) -->
+        {% include 'widgets/systeminfo_widget_2x1_outputdir.html' %}
+        
+        <!-- Archiv Widget (2x1) -->
+        {% include 'widgets/systeminfo_widget_2x1_archiv.html' %}
     </div>
 
     <!-- Software Dependencies (Modulare Widgets) -->
@@ -62,6 +68,8 @@
     <script src="{{ url_for('static', filename='js/system.js') }}"></script>
     <script src="{{ url_for('static', filename='js/widgets/systeminfo_widget_2x1_sysinfo.js') }}"></script>
     <script src="{{ url_for('static', filename='js/widgets/disk2iso_widget_2x1_status.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/widgets/systeminfo_widget_2x1_outputdir.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/widgets/systeminfo_widget_2x1_archiv.js') }}"></script>
     
     <!-- Core Dependencies Widget (immer geladen) -->
     <script src="{{ url_for('static', filename='js/widgets/systeminfo_widget_4x1_dependencies.js') }}"></script>

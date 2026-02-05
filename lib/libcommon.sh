@@ -10,7 +10,7 @@
 #   - common_cleanup_disc_operation(), common_monitor_copy_progress()
 #   - Fehler-Tracking: common_register_disc_failure(), common_clear_disc_failures()
 #   
-#   Hinweis: check_disk_space() ist in libsysteminfo.sh
+#   Hinweis: systeminfo_check_disk_space() ist in libsysteminfo.sh
 #            init_copy_log(), finish_copy_log() sind in liblogging.sh
 #
 # -----------------------------------------------------------------------------
@@ -178,7 +178,7 @@ common_copy_data_disc_ddrescue() {
         log_copying "$MSG_ISO_VOLUME_DETECTED $(discinfo_get_size_sectors) $MSG_ISO_BLOCKS_SIZE 2048 $MSG_ISO_BYTES (${size_mb} $MSG_PROGRESS_MB)"
         
         #-- Prüfe Speicherplatz mit vorberechneter Größe (inkl. Overhead) ---
-        if ! check_disk_space "$(discinfo_get_estimated_size_mb)"; then
+        if ! systeminfo_check_disk_space "$(discinfo_get_estimated_size_mb)"; then
             return 1
         fi
     fi
@@ -245,7 +245,7 @@ common_copy_data_disc_dd() {
         log_copying "$MSG_ISO_VOLUME_DETECTED $volume_size $MSG_ISO_BLOCKS_SIZE $block_size $MSG_ISO_BYTES (${size_mb} $MSG_PROGRESS_MB)"
         
         #-- Prüfe Speicherplatz mit vorberechneter Größe (inkl. Overhead) ---
-        if ! check_disk_space "$(discinfo_get_estimated_size_mb)"; then
+        if ! systeminfo_check_disk_space "$(discinfo_get_estimated_size_mb)"; then
             return 1
         fi
     fi
@@ -623,4 +623,80 @@ common_cleanup_disc_operation() {
     
     # 3. Variablen zurücksetzen (immer)
     discinfo_init
+}
+
+# ===========================================================================
+# common_collect_software_info
+# ---------------------------------------------------------------------------
+# Funktion.: Sammelt Informationen über installierte Core-Software
+# Parameter: keine
+# Rückgabe.: Schreibt JSON-Datei mit Software-Informationen
+# ===========================================================================
+common_collect_software_info() {
+    log_debug "COMMON: Sammle Software-Informationen..."
+    
+    # Lade INI-Datei um Dependencies zu lesen
+    local ini_file="${INSTALL_DIR}/conf/libcommon.ini"
+    if [[ ! -f "$ini_file" ]]; then
+        log_error "COMMON: INI-Datei nicht gefunden: $ini_file"
+        return 1
+    fi
+    
+    # Lese Dependencies aus INI
+    local dependencies
+    dependencies=$(grep -A 10 "^\[dependencies\]" "$ini_file" | grep -E "^(external|optional)=" | cut -d'=' -f2 | tr '\n' ',' | sed 's/,$//')
+    
+    if [[ -z "$dependencies" ]]; then
+        log_debug "COMMON: Keine Dependencies in INI definiert"
+        return 0
+    fi
+    
+    # Nutze zentrale Funktion aus libsysteminfo.sh
+    if type -t systeminfo_check_software_list &>/dev/null; then
+        local json_result
+        json_result=$(systeminfo_check_software_list "$dependencies")
+        
+        # Speichere in api/common_software_info.json
+        local output_file
+        output_file="$(folders_get_api_dir)/common_software_info.json"
+        echo "$json_result" > "$output_file"
+        
+        log_debug "COMMON: Software-Informationen gespeichert in $output_file"
+        return 0
+    else
+        log_error "COMMON: systeminfo_check_software_list nicht verfügbar"
+        return 1
+    fi
+}
+
+# ===========================================================================
+# common_get_software_info
+# ---------------------------------------------------------------------------
+# Funktion.: Gibt Software-Informationen als JSON zurück
+# Parameter: keine
+# Rückgabe.: JSON-String mit Software-Informationen
+# ===========================================================================
+common_get_software_info() {
+    local cache_file
+    cache_file="$(folders_get_api_dir)/common_software_info.json"
+    
+    # Wenn Cache existiert und < 1 Stunde alt, verwende ihn
+    if [[ -f "$cache_file" ]]; then
+        local cache_age
+        cache_age=$(($(date +%s) - $(stat -c %Y "$cache_file" 2>/dev/null || echo 0)))
+        if [[ $cache_age -lt 3600 ]]; then
+            cat "$cache_file"
+            return 0
+        fi
+    fi
+    
+    # Sonst neu sammeln
+    common_collect_software_info
+    
+    # Ausgabe
+    if [[ -f "$cache_file" ]]; then
+        cat "$cache_file"
+    else
+        echo '{"software":[],"error":"Cache-Datei nicht gefunden"}'
+    fi
 }

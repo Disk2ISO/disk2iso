@@ -1029,17 +1029,24 @@ body {
     width: auto;
 }
 
-/* Zweite Spalte (Version) - feste Breite, rechtsbündig */
+/* Zweite Spalte (Installiert) - feste Breite, rechtsbündig */
 .software-table th:nth-child(2),
 .software-table td:nth-child(2) {
-    width: 150px;
+    width: 120px;
     text-align: right;
 }
 
-/* Dritte Spalte (Status) - feste Breite, zentriert */
+/* Dritte Spalte (Verfügbar + Status) - feste Breite */
 .software-table th:nth-child(3),
 .software-table td:nth-child(3) {
-    width: 180px;
+    width: 200px;
+    text-align: left;
+}
+
+/* Vierte Spalte (Aktion) - feste Breite, zentriert */
+.software-table th:nth-child(4),
+.software-table td:nth-child(4) {
+    width: 140px;
     text-align: center;
 }
 
@@ -1103,6 +1110,78 @@ body {
     background: #ff6b6b;
 }
 
+/* Status Badges für Software (neu - Update-Erkennung) */
+.status-badge {
+    display: inline-block;
+    padding: 4px 10px;
+    border-radius: 12px;
+    font-size: 0.8em;
+    font-weight: 600;
+    margin-left: 8px;
+    white-space: nowrap;
+}
+
+.status-current {
+    background: #d3f9d8;
+    color: #2b8a3e;
+}
+
+.status-outdated {
+    background: #fff3bf;
+    color: #e67700;
+}
+
+.status-missing {
+    background: #ffe3e3;
+    color: #c92a2a;
+}
+
+.status-unknown {
+    background: #e9ecef;
+    color: #868e96;
+}
+
+/* Row-Styling basierend auf Status */
+.row-inactive {
+    opacity: 0.6;
+    background: #f8f9fa;
+}
+
+.row-warning {
+    background: #fff9e6;
+}
+
+/* Software Widget Action Buttons (verwenden .btn aus formular.css) */
+.btn-install {
+    padding: 6px 14px;
+    font-size: 0.85em;
+    text-transform: none;
+    letter-spacing: normal;
+}
+
+.btn-update {
+    padding: 6px 14px;
+    font-size: 0.85em;
+    text-transform: none;
+    letter-spacing: normal;
+    background: linear-gradient(135deg, #fab005 0%, #f59f00 100%);
+    color: #000;
+}
+
+.btn-update:hover {
+    box-shadow: 0 4px 12px rgba(245, 159, 0, 0.4);
+}
+
+.btn-success {
+    background: linear-gradient(135deg, #51cf66 0%, #40c057 100%) !important;
+    color: white !important;
+}
+
+.btn-error {
+    background: linear-gradient(135deg, #ff6b6b 0%, #fa5252 100%) !important;
+    color: white !important;
+}
+
 /* Service Restart Button */
 .btn-restart-service {
     background: #667eea;
@@ -1139,6 +1218,88 @@ body {
 
 .btn-restart-service-small:active {
     background: #5568d3;
+}
+
+/* ============================================================================
+   SOFTWARE CHECK WIDGET (2x1) - Compact Status Display
+   ============================================================================ */
+
+#systeminfo-softwarecheck-widget .card-body {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 180px;
+}
+
+/* Loading Indicator */
+.loading-indicator {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.spinner {
+    border: 3px solid #f3f3f3;
+    border-top: 3px solid #667eea;
+    border-radius: 50%;
+    width: 40px;
+    height: 40px;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+/* Status Icons */
+.status-icon {
+    font-size: 3em;
+    line-height: 1;
+    margin-bottom: 5px;
+}
+
+.status-ok .status-icon {
+    filter: drop-shadow(0 2px 4px rgba(43, 138, 62, 0.3));
+}
+
+.status-warning .status-icon {
+    filter: drop-shadow(0 2px 4px rgba(230, 119, 0, 0.3));
+    animation: pulse-warning 2s ease-in-out infinite;
+}
+
+.status-critical .status-icon {
+    filter: drop-shadow(0 2px 4px rgba(201, 42, 42, 0.3));
+    animation: pulse-critical 1.5s ease-in-out infinite;
+}
+
+.status-error .status-icon {
+    opacity: 0.6;
+}
+
+@keyframes pulse-warning {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.1); }
+}
+
+@keyframes pulse-critical {
+    0%, 100% { transform: scale(1); }
+    25% { transform: scale(1.15); }
+    75% { transform: scale(1.05); }
+}
+
+/* Small Button Variant */
+.btn-small {
+    padding: 8px 16px;
+    font-size: 0.9em;
+    text-decoration: none;
+    display: inline-block;
+    border-radius: 6px;
+    transition: all 0.2s;
+}
+
+.btn-small:hover {
+    transform: translateY(-1px);
 }
 
 .update-notice {

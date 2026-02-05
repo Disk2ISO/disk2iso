@@ -1738,8 +1738,8 @@ get_disc_size() {
 # Beschr...: Leitet Container-Typ aus globalen Variablen ab
 # ===========================================================================
 discinfo_get_container_type() {
-    if [[ "${IS_CONTAINER:-false}" == "true" ]]; then
-        echo "${CONTAINER_TYPE:-unknown}"
+    if systeminfo_is_container; then
+        systeminfo_get_container_type
     else
         echo "none"
     fi
@@ -1801,4 +1801,73 @@ get_volume_label() {
 get_disc_label() {
     discinfo_detect_label
     return $?
+}
+
+# ===========================================================================
+# diskinfos_collect_software_info
+# ---------------------------------------------------------------------------
+# Funktion.: Sammelt Informationen über installierte Disk-Info-Software
+# Parameter: keine
+# Rückgabe.: Schreibt JSON-Datei mit Software-Informationen
+# ===========================================================================
+diskinfos_collect_software_info() {
+    log_debug "DISKINFOS: Sammle Software-Informationen..."
+    
+    local ini_file="${INSTALL_DIR}/conf/libdiskinfos.ini"
+    if [[ ! -f "$ini_file" ]]; then
+        log_error "DISKINFOS: INI-Datei nicht gefunden: $ini_file"
+        return 1
+    fi
+    
+    local dependencies
+    dependencies=$(grep -A 10 "^\[dependencies\]" "$ini_file" | grep -E "^(external|optional)=" | cut -d'=' -f2 | tr '\n' ',' | sed 's/,$//')
+    
+    if [[ -z "$dependencies" ]]; then
+        log_debug "DISKINFOS: Keine Dependencies in INI definiert"
+        return 0
+    fi
+    
+    if type -t systeminfo_check_software_list &>/dev/null; then
+        local json_result
+        json_result=$(systeminfo_check_software_list "$dependencies")
+        
+        local output_file
+        output_file="$(folders_get_api_dir)/diskinfos_software_info.json"
+        echo "$json_result" > "$output_file"
+        
+        log_debug "DISKINFOS: Software-Informationen gespeichert in $output_file"
+        return 0
+    else
+        log_error "DISKINFOS: systeminfo_check_software_list nicht verfügbar"
+        return 1
+    fi
+}
+
+# ===========================================================================
+# diskinfos_get_software_info
+# ---------------------------------------------------------------------------
+# Funktion.: Gibt Software-Informationen als JSON zurück
+# Parameter: keine
+# Rückgabe.: JSON-String mit Software-Informationen
+# ===========================================================================
+diskinfos_get_software_info() {
+    local cache_file
+    cache_file="$(folders_get_api_dir)/diskinfos_software_info.json"
+    
+    if [[ -f "$cache_file" ]]; then
+        local cache_age
+        cache_age=$(($(date +%s) - $(stat -c %Y "$cache_file" 2>/dev/null || echo 0)))
+        if [[ $cache_age -lt 3600 ]]; then
+            cat "$cache_file"
+            return 0
+        fi
+    fi
+    
+    diskinfos_collect_software_info
+    
+    if [[ -f "$cache_file" ]]; then
+        cat "$cache_file"
+    else
+        echo '{"software":[],"error":"Cache-Datei nicht gefunden"}'
+    fi
 }

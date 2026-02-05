@@ -316,6 +316,74 @@ def read_api_json(filename):
         print(f"Fehler beim Lesen von {filename}: {e}", file=sys.stderr)
     return None
 
+def get_os_info():
+    """Ruft OS-Informationen via Bash-Funktion ab
+    
+    Nutzt systeminfo_get_os_info() aus libsysteminfo.sh
+    """
+    try:
+        result = subprocess.run(
+            ['bash', '-c', f'source {INSTALL_DIR}/lib/libsysteminfo.sh && systeminfo_get_os_info'],
+            capture_output=True, text=True, timeout=5
+        )
+        if result.returncode == 0:
+            return json.loads(result.stdout.strip())
+        return {}
+    except Exception as e:
+        print(f"Fehler beim Abrufen von OS-Informationen: {e}", file=sys.stderr)
+        return {}
+
+def get_storage_info():
+    """Ruft Speicherplatz-Informationen via Bash-Funktion ab
+    
+    Nutzt systeminfo_get_storage_info() aus libsysteminfo.sh
+    """
+    try:
+        result = subprocess.run(
+            ['bash', '-c', f'source {INSTALL_DIR}/lib/libsysteminfo.sh && source {INSTALL_DIR}/lib/libfolders.sh && systeminfo_get_storage_info'],
+            capture_output=True, text=True, timeout=5
+        )
+        if result.returncode == 0:
+            return json.loads(result.stdout.strip())
+        return {}
+    except Exception as e:
+        print(f"Fehler beim Abrufen von Speicherplatz-Informationen: {e}", file=sys.stderr)
+        return {}
+
+def get_archiv_info():
+    """Ruft Archiv-Informationen via Bash-Funktion ab
+    
+    Nutzt systeminfo_get_archiv_info() aus libsysteminfo.sh
+    """
+    try:
+        result = subprocess.run(
+            ['bash', '-c', f'source {INSTALL_DIR}/lib/libsysteminfo.sh && source {INSTALL_DIR}/lib/libfolders.sh && systeminfo_get_archiv_info'],
+            capture_output=True, text=True, timeout=5
+        )
+        if result.returncode == 0:
+            return json.loads(result.stdout.strip())
+        return {}
+    except Exception as e:
+        print(f"Fehler beim Abrufen von Archiv-Informationen: {e}", file=sys.stderr)
+        return {}
+
+def get_software_info():
+    """Ruft Software-Informationen via Bash-Funktion ab
+    
+    Nutzt systeminfo_get_software_info() aus libsysteminfo.sh
+    """
+    try:
+        result = subprocess.run(
+            ['bash', '-c', f'source {INSTALL_DIR}/lib/libsysteminfo.sh && systeminfo_get_software_info'],
+            capture_output=True, text=True, timeout=5
+        )
+        if result.returncode == 0:
+            return json.loads(result.stdout.strip())
+        return {}
+    except Exception as e:
+        print(f"Fehler beim Abrufen von Software-Informationen: {e}", file=sys.stderr)
+        return {}
+
 def get_live_status():
     """Liest Live-Status aus API JSON-Dateien"""
     status = read_api_json('status.json') or {'status': 'idle', 'timestamp': ''}
@@ -546,6 +614,239 @@ def api_modules():
         'enabled_modules': enabled_modules,
         'timestamp': datetime.now().isoformat()
     })
+
+@app.route('/api/service/status/<service_name>')
+def api_service_status(service_name):
+    """API-Endpoint für Service-Status
+    
+    Nutzt libservice.sh für Service-Management
+    """
+    try:
+        result = subprocess.run(
+            ['bash', '-c', f'source {INSTALL_DIR}/lib/liblogging.sh && source {INSTALL_DIR}/lib/libfolders.sh && source {INSTALL_DIR}/lib/libsettings.sh && source {INSTALL_DIR}/lib/libservice.sh && service_get_status "{service_name}"'],
+            capture_output=True, text=True, timeout=5
+        )
+        
+        if result.returncode == 0:
+            status_data = json.loads(result.stdout.strip())
+            return jsonify({
+                'success': True,
+                **status_data,
+                'service': service_name,
+                'timestamp': datetime.now().isoformat()
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'error': 'Service status check failed',
+                'timestamp': datetime.now().isoformat()
+            }), 500
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e),
+            'timestamp': datetime.now().isoformat()
+        }), 500
+
+@app.route('/api/service/restart/<service_name>', methods=['POST'])
+def api_service_restart(service_name):
+    """API-Endpoint für Service-Neustart
+    
+    Nutzt libservice.sh für Service-Management
+    """
+    try:
+        result = subprocess.run(
+            ['bash', '-c', f'source {INSTALL_DIR}/lib/liblogging.sh && source {INSTALL_DIR}/lib/libservice.sh && service_restart "{service_name}"'],
+            capture_output=True, text=True, timeout=10
+        )
+        
+        if result.returncode == 0:
+            return jsonify({
+                'success': True,
+                'message': f'Service {service_name} erfolgreich neu gestartet',
+                'timestamp': datetime.now().isoformat()
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'message': f'Fehler beim Neustart von {service_name}',
+                'error': result.stderr,
+                'timestamp': datetime.now().isoformat()
+            }), 500
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e),
+            'timestamp': datetime.now().isoformat()
+        }), 500
+
+@app.route('/api/modules/<module_name>/software')
+def api_module_software(module_name):
+    """API-Endpoint für Modul-spezifische Software-Informationen
+    
+    Ruft <module>_get_software_info() aus dem jeweiligen Modul auf.
+    Module müssen diese Funktion in ihrer lib<module>.sh implementieren.
+    
+    Beispiel: /api/modules/audio/software ruft audio_get_software_info() auf
+    """
+    try:
+        # Sicherheitsprüfung: Nur alphanumerische Modulnamen erlauben
+        if not module_name.replace('-', '').replace('_', '').isalnum():
+            return jsonify({
+                'success': False,
+                'error': 'Invalid module name',
+                'timestamp': datetime.now().isoformat()
+            }), 400
+        
+        # Prüfe ob Modul-Library existiert
+        module_lib = INSTALL_DIR / 'lib' / f'lib{module_name}.sh'
+        if not module_lib.exists():
+            return jsonify({
+                'success': False,
+                'error': f'Module {module_name} not found',
+                'timestamp': datetime.now().isoformat()
+            }), 404
+        
+        # Rufe Modul-Funktion auf
+        result = subprocess.run(
+            ['bash', '-c', f'source {INSTALL_DIR}/lib/liblogging.sh && source {INSTALL_DIR}/lib/libfolders.sh && source {INSTALL_DIR}/lib/libsettings.sh && source {INSTALL_DIR}/lib/libsysteminfo.sh && source {module_lib} && {module_name}_get_software_info'],
+            capture_output=True, text=True, timeout=5
+        )
+        
+        if result.returncode == 0:
+            software_list = json.loads(result.stdout.strip())
+            return jsonify({
+                'success': True,
+                'module': module_name,
+                'software': software_list,
+                'timestamp': datetime.now().isoformat()
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'error': f'Module function {module_name}_get_software_info failed',
+                'stderr': result.stderr,
+                'timestamp': datetime.now().isoformat()
+            }), 500
+    except json.JSONDecodeError as e:
+        return jsonify({
+            'success': False,
+            'error': 'Invalid JSON response from module',
+            'details': str(e),
+            'timestamp': datetime.now().isoformat()
+        }), 500
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e),
+            'timestamp': datetime.now().isoformat()
+        }), 500
+
+@app.route('/api/software/install/<software_name>', methods=['POST'])
+def api_software_install(software_name):
+    """API-Endpoint für Software-Installation/Update
+    
+    Nutzt systeminfo_install_software() aus libsysteminfo.sh
+    ACHTUNG: Benötigt sudo-Rechte!
+    """
+    try:
+        # Sicherheitsprüfung: Nur alphanumerische Namen + Bindestriche
+        if not software_name.replace('-', '').replace('_', '').isalnum():
+            return jsonify({
+                'success': False,
+                'error': 'Invalid software name',
+                'timestamp': datetime.now().isoformat()
+            }), 400
+        
+        # Rufe Installation auf (mit sudo wenn verfügbar)
+        result = subprocess.run(
+            ['sudo', 'bash', '-c', f'source {INSTALL_DIR}/lib/liblogging.sh && source {INSTALL_DIR}/lib/libsysteminfo.sh && systeminfo_install_software "{software_name}"'],
+            capture_output=True, text=True, timeout=120  # 2 Minuten Timeout
+        )
+        
+        if result.returncode == 0:
+            return jsonify({
+                'success': True,
+                'message': f'Software {software_name} erfolgreich installiert/aktualisiert',
+                'software': software_name,
+                'timestamp': datetime.now().isoformat()
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'message': f'Fehler bei Installation von {software_name}',
+                'error': result.stderr,
+                'timestamp': datetime.now().isoformat()
+            }), 500
+    except subprocess.TimeoutExpired:
+        return jsonify({
+            'success': False,
+            'error': 'Installation timeout (>2min)',
+            'timestamp': datetime.now().isoformat()
+        }), 504
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e),
+            'timestamp': datetime.now().isoformat()
+        }), 500
+
+@app.route('/api/system')
+def api_system():
+    """API-Endpoint für System-Informationen (OS, Hardware, Software)
+    
+    Nutzt die neuen Bash-Funktionen:
+    - systeminfo_get_os_info() für OS-Daten
+    - systeminfo_get_software_info() für Software-Dependencies
+    """
+    try:
+        # OS-Informationen abrufen
+        os_info = get_os_info()
+        
+        # Software-Informationen abrufen
+        software_info = get_software_info()
+        
+        return jsonify({
+            'success': True,
+            'os': os_info,
+            'software': software_info,
+            'timestamp': datetime.now().isoformat()
+        })
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e),
+            'timestamp': datetime.now().isoformat()
+        }), 500
+
+@app.route('/api/archive')
+def api_archive():
+    """API-Endpoint für Archiv- und Speicherplatz-Informationen
+    
+    Nutzt die neuen Bash-Funktionen:
+    - systeminfo_get_storage_info() für Speicherplatz
+    - systeminfo_get_archiv_info() für Archiv-Zähler
+    """
+    try:
+        # Speicherplatz-Informationen abrufen
+        storage_info = get_storage_info()
+        
+        # Archiv-Informationen abrufen
+        archiv_info = get_archiv_info()
+        
+        return jsonify({
+            'success': True,
+            'output_dir': storage_info.get('output_dir'),
+            'disk_space': storage_info.get('disk_space'),
+            'archive_counts': archiv_info.get('archive_counts'),
+            'timestamp': datetime.now().isoformat()
+        })
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e),
+            'timestamp': datetime.now().isoformat()
+        }), 500
 
 @app.route('/api/live_status')
 def api_live_status():
@@ -1499,50 +1800,108 @@ def check_software_versions():
     return results
 
 def get_os_info():
-    """Sammelt Betriebssystem-Informationen"""
-    info = {
-        'distribution': 'Unbekannt',
-        'version': 'Unbekannt',
-        'kernel': 'Unbekannt',
-        'architecture': 'Unbekannt',
-        'hostname': 'Unbekannt',
-        'uptime': 'Unbekannt'
-    }
-    
+    """Liest OS-Informationen aus Bash (systeminfo_get_os_info)"""
     try:
-        # Distribution und Version
-        if os.path.exists('/etc/os-release'):
-            with open('/etc/os-release', 'r') as f:
-                for line in f:
-                    if line.startswith('NAME='):
-                        info['distribution'] = line.split('=', 1)[1].strip().strip('"')
-                    elif line.startswith('VERSION='):
-                        info['version'] = line.split('=', 1)[1].strip().strip('"')
+        # Rufe Bash-Funktion systeminfo_get_os_info() auf
+        script = f"""
+source {INSTALL_DIR}/lib/libfolders.sh 2>/dev/null
+source {INSTALL_DIR}/lib/libsettings.sh 2>/dev/null
+source {INSTALL_DIR}/lib/libsysteminfo.sh 2>/dev/null
+systeminfo_get_os_info
+"""
+        result = subprocess.run(
+            ['bash', '-c', script],
+            capture_output=True,
+            text=True,
+            timeout=5
+        )
         
-        # Kernel
-        result = subprocess.run(['uname', '-r'], capture_output=True, text=True, timeout=1)
-        if result.returncode == 0:
-            info['kernel'] = result.stdout.strip()
-        
-        # Architektur
-        result = subprocess.run(['uname', '-m'], capture_output=True, text=True, timeout=1)
-        if result.returncode == 0:
-            info['architecture'] = result.stdout.strip()
-        
-        # Hostname
-        result = subprocess.run(['hostname'], capture_output=True, text=True, timeout=1)
-        if result.returncode == 0:
-            info['hostname'] = result.stdout.strip()
-        
-        # Uptime
-        result = subprocess.run(['uptime', '-p'], capture_output=True, text=True, timeout=1)
-        if result.returncode == 0:
-            info['uptime'] = result.stdout.strip().replace('up ', '')
+        if result.returncode == 0 and result.stdout.strip():
+            return json.loads(result.stdout)
+        else:
+            print(f"Bash-Fehler: {result.stderr}", file=sys.stderr)
+            raise Exception("Bash-Aufruf fehlgeschlagen")
     
     except Exception as e:
-        print(f"Fehler beim Sammeln der OS-Infos: {e}", file=sys.stderr)
+        print(f"Fehler beim Lesen der OS-Infos: {e}", file=sys.stderr)
+        # Fallback
+        return {
+            'distribution': 'Unbekannt',
+            'version': 'Unbekannt',
+            'kernel': 'Unbekannt',
+            'architecture': 'Unbekannt',
+            'hostname': 'Unbekannt',
+            'uptime': 'Unbekannt'
+        }
+
+def get_storage_info():
+    """Liest Storage-Informationen aus Bash (systeminfo_get_storage_info)"""
+    try:
+        script = f"""
+source {INSTALL_DIR}/lib/libfolders.sh 2>/dev/null
+source {INSTALL_DIR}/lib/libsettings.sh 2>/dev/null
+source {INSTALL_DIR}/lib/libsysteminfo.sh 2>/dev/null
+systeminfo_get_storage_info
+"""
+        result = subprocess.run(
+            ['bash', '-c', script],
+            capture_output=True,
+            text=True,
+            timeout=5
+        )
+        
+        if result.returncode == 0 and result.stdout.strip():
+            return json.loads(result.stdout)
+    except Exception as e:
+        print(f"Fehler beim Lesen der Storage-Infos: {e}", file=sys.stderr)
     
-    return info
+    return {'output_dir': 'Unknown', 'total_gb': 0, 'free_gb': 0, 'used_percent': 0}
+
+def get_archiv_info():
+    """Liest Archiv-Informationen aus Bash (systeminfo_get_archiv_info)"""
+    try:
+        script = f"""
+source {INSTALL_DIR}/lib/libfolders.sh 2>/dev/null
+source {INSTALL_DIR}/lib/libsettings.sh 2>/dev/null
+source {INSTALL_DIR}/lib/libsysteminfo.sh 2>/dev/null
+systeminfo_get_archiv_info
+"""
+        result = subprocess.run(
+            ['bash', '-c', script],
+            capture_output=True,
+            text=True,
+            timeout=5
+        )
+        
+        if result.returncode == 0 and result.stdout.strip():
+            return json.loads(result.stdout)
+    except Exception as e:
+        print(f"Fehler beim Lesen der Archiv-Infos: {e}", file=sys.stderr)
+    
+    return {'hardware': {}, 'storage': {}}
+
+def get_software_info():
+    """Liest Software-Informationen aus Bash (systeminfo_get_software_info)"""
+    try:
+        script = f"""
+source {INSTALL_DIR}/lib/libfolders.sh 2>/dev/null
+source {INSTALL_DIR}/lib/libsettings.sh 2>/dev/null
+source {INSTALL_DIR}/lib/libsysteminfo.sh 2>/dev/null
+systeminfo_get_software_info
+"""
+        result = subprocess.run(
+            ['bash', '-c', script],
+            capture_output=True,
+            text=True,
+            timeout=5
+        )
+        
+        if result.returncode == 0 and result.stdout.strip():
+            return json.loads(result.stdout)
+    except Exception as e:
+        print(f"Fehler beim Lesen der Software-Infos: {e}", file=sys.stderr)
+    
+    return {}
 
 def get_disk2iso_info():
     """Sammelt disk2iso-spezifische Informationen"""

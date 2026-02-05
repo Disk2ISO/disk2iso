@@ -1,0 +1,15 @@
+[Unit]
+Description=disk2iso Volatile Data Update Timer
+Documentation=man:disk2iso(1)
+Requires=disk2iso-volatile-updater.service
+
+[Timer]
+# Starte 10 Sekunden nach Boot
+OnBootSec=10sec
+# Wiederhole alle 30 Sekunden
+OnUnitActiveSec=30sec
+# Erlaube Akkumulation wenn System busy war
+AccuracySec=5sec
+
+[Install]
+WantedBy=timers.target

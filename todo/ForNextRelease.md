@@ -206,7 +206,7 @@ Die folgenden Punkte waren ursprünglich für v1.3.0 geplant, sind aber **bereit
 
 ### ✅ Disk-Space-Check
 - **Status**: Implementiert in [lib-systeminfo.sh](../lib/lib-systeminfo.sh#L115)
-- **Funktion**: `check_disk_space(required_mb)`
+- **Funktion**: `systeminfo_check_disk_space(required_mb)`
 - **Verwendet von**: DVD/Blu-ray/CD-Ripping (vor Operation)
 - **Features**:
   - Prüft verfügbaren Speicherplatz mit `df -BM`

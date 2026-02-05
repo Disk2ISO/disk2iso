@@ -66,10 +66,13 @@
         {% include 'widgets/disk2iso-web_widget_2x1_status.html' %}
     </div>
     
-    <!-- MQTT Service (einspaltig falls aktiviert) -->
-    <div class="three-column-grid">
+    <!-- MQTT Service + Software Check (zweispaltig) -->
+    <div class="two-column-grid">
         <!-- MQTT Service Widget wird dynamisch geladen via mqtt_widget_2x1_status.js -->
         <!-- Widget-Container wird von mqtt_widget_2x1_status.js hier eingefügt falls MQTT_ENABLED=true -->
+        
+        <!-- Software Check Widget (2x1) -->
+        {% include 'widgets/systeminfo_widget_2x1_softwarecheck.html' %}
     </div>
     
     <!-- MusicBrainz Album-Auswahl Modal -->
@@ -109,10 +112,10 @@
 {% endblock %}
 
 {% block scripts %}
-    <script src="{{ url_for('static', filename='js/index.js') }}?v=1768148211"></script>
     <script src="{{ url_for('static', filename='js/widgets/disk2iso_widget_2x1_status.js') }}"></script>
     <script src="{{ url_for('static', filename='js/widgets/disk2iso-web_widget_2x1_status.js') }}"></script>
     <script src="{{ url_for('static', filename='js/widgets/systeminfo_widget_2x1_outputdir.js') }}"></script>
     <script src="{{ url_for('static', filename='js/widgets/systeminfo_widget_2x1_archiv.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/widgets/systeminfo_widget_2x1_softwarecheck.js') }}"></script>
 {% endblock %}
 

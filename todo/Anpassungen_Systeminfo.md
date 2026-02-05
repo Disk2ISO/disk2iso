@@ -164,8 +164,8 @@
 | Funktion | Zeile | Beschreibung | Problem |
 |----------|-------|--------------|---------|
 | `systeminfo_check_dependencies()` | 41 | Prüft ob df, blkid installiert sind | ✅ OK (wird bei Init genutzt) |
-| `detect_container_environment()` | 79 | Erkennt LXC/Docker/Podman | ✅ OK (setzt `IS_CONTAINER`, `CONTAINER_TYPE`) |
-| `check_disk_space(required_mb)` | 154 | Prüft verfügbaren Platz | ✅ OK (wird beim Kopieren genutzt) |
+| `systeminfo_detect_container_env()` | 79 | Erkennt LXC/Docker/Podman | ✅ OK (setzt `IS_CONTAINER`, `CONTAINER_TYPE`) |
+| `systeminfo_check_disk_space(required_mb)` | 154 | Prüft verfügbaren Platz | ✅ OK (wird beim Kopieren genutzt) |
 | `collect_system_information()` | 199 | **MONOLITH!** Generiert system.json | ❌ Problem: Zu groß, zu viel auf einmal |
 
 ### 3.2 Problem: `collect_system_information()` ist monolithisch
@@ -227,7 +227,7 @@ systeminfo_get_os_info() {
 # Rückgabe: JSON-String mit Container-Status
 # ---------------------------------------------------------------------------
 systeminfo_get_container_info() {
-    detect_container_environment  # Setzt IS_CONTAINER, CONTAINER_TYPE
+    systeminfo_detect_container_env  # Setzt IS_CONTAINER, CONTAINER_TYPE
     # ...
 }
 
@@ -417,24 +417,32 @@ systeminfo_get_module_software() {
 ## 6. IMPLEMENTIERUNGS-PRIORITÄTEN
 
 ### Phase 1: Kritisch (für Widget-Funktionalität)
-1. ✅ **`/api/service/status`** - Endpoint erstellen (für Status-Widgets)
-2. ✅ **`systeminfo_get_storage_info()`** - Bash-Funktion (für OutputDir-Widget)
-3. ✅ **`systeminfo_get_os_info()`** - Bash-Funktion (für Sysinfo-Widget)
+1. ✅ **`/api/service/status/<service>`** - ERLEDIGT (libservice.sh + app.py)
+2. ✅ **`/api/service/restart/<service>`** - ERLEDIGT (POST-Endpoint)
+3. ✅ **`systeminfo_collect_storage_info()`** - ERLEDIGT (schreibt storage_info.json)
+4. ✅ **`systeminfo_get_storage_info()`** - ERLEDIGT (liest storage_info.json)
+5. ✅ **`systeminfo_collect_os_info()`** - ERLEDIGT (schreibt os_info.json)
+6. ✅ **`systeminfo_get_os_info()`** - ERLEDIGT (liest os_info.json)
+7. ✅ **`systeminfo_collect_uptime_info()`** - ERLEDIGT (aktualisiert os_info.json)
 
 ### Phase 2: Wichtig (für Dependencies)
-4. ✅ **`systeminfo_get_core_software()`** - Core-Tools prüfen
-5. ✅ **`systeminfo_get_module_software()`** - Modul-Tools prüfen (INI-basiert)
-6. ✅ **`/api/system/software`** - Endpoint für Software-Prüfung
+8. ✅ **`systeminfo_collect_software_info()`** - ERLEDIGT (schreibt software_info.json, Core-Tools)
+9. ✅ **`systeminfo_get_software_info()`** - ERLEDIGT (liest software_info.json)
+10. ✅ **`/api/system`** - ERLEDIGT (liefert OS + Software)
+11. ✅ **`/api/archive`** - ERLEDIGT (liefert Storage + Archiv-Counts)
+12. ❌ **`systeminfo_get_module_software()`** - FEHLT (INI-basiertes Modul-Dependency-Management)
 
 ### Phase 3: Optimierung
-7. ⏳ **Caching-Strategie** - Wann `system.json` neu generieren?
-8. ⏳ **Auto-Update-Logik** - Widgets individuell aktualisieren
-9. ⏳ **Fehlerbehandlung** - Was wenn Bash-Funktionen fehlschlagen?
+13. ✅ **Caching-Strategie** - ERLEDIGT (JSON-basiert: statische vs. flüchtige Daten)
+14. ✅ **Auto-Update-Logik** - ERLEDIGT (systemd Timer alle 30s für flüchtige Daten)
+15. ✅ **Fehlerbehandlung** - ERLEDIGT (Fallback-Mechanismen in Getter-Funktionen)
+16. ✅ **Service-Management** - ERLEDIGT (libservice.sh für Service-Status)
 
 ### Phase 4: Cleanup
-10. ⏳ **Migration der Widgets** - Alte Endpoints ersetzen
-11. ⏳ **Deprecation** - `collect_system_information()` markieren
-12. ⏳ **Dokumentation** - API-Docs aktualisieren
+17. ✅ **Migration der Widgets** - ERLEDIGT (alle Systeminfo-Widgets nutzen neue API)
+18. ✅ **Deprecation** - ERLEDIGT (`collect_system_information()` als deprecated markiert)
+19. ✅ **Drive-Info ausgelagert** - ERLEDIGT (nach libdrivestat.sh verschoben)
+20. ⏳ **Dokumentation** - TEILWEISE (TODO-Kommentare vorhanden, API-Docs fehlen)
 
 ---
 
@@ -460,7 +468,211 @@ systeminfo_get_module_software() {
 
 ---
 
-## 8. NÄCHSTE SCHRITTE
+## 10. UMSETZUNGSSTAND (Stand: 2026-02-05)
+
+### ✅ VOLLSTÄNDIG UMGESETZT
+
+#### Modulare Bash-Architektur (libsysteminfo.sh)
+- ✅ **Collector-Funktionen** (schreiben JSON-Dateien):
+  - `systeminfo_collect_os_info()` → `api/os_info.json`
+  - `systeminfo_collect_uptime_info()` → aktualisiert `api/os_info.json`
+  - `systeminfo_collect_container_info()` → `api/container_info.json`
+  - `systeminfo_collect_storage_info()` → `api/storage_info.json`
+  - `systeminfo_collect_software_info()` → `api/software_info.json`
+
+- ✅ **Widget-Getter-Funktionen** (lesen JSON-Dateien):
+  - `systeminfo_get_os_info()` - für `widget_2x1_sysinfo`
+  - `systeminfo_get_storage_info()` - für `widget_2x1_outputdir`
+  - `systeminfo_get_archiv_info()` - für `widget_2x1_archiv`
+  - `systeminfo_get_software_info()` - für `widget_4x1_dependencies`
+
+#### Service-Management (libservice.sh - NEU!)
+- ✅ **libservice.sh** erstellt mit:
+  - `service_get_status(service_name)` - Ermittelt systemctl-Status
+  - `service_collect_status_info()` → `api/service_status.json`
+  - `service_get_status_info([service_name])` - Liest Service-Status
+  - `service_restart(service_name)` - Startet Service neu
+
+#### Drive-Management (libdrivestat.sh)
+- ✅ **Drive-Info verschoben** von libsysteminfo.sh → libdrivestat.sh:
+  - `drivestat_collect_drive_info()` → `api/drive_info.json`
+  - `drivestat_get_drive_info()` - Liest Drive-Status
+  - `systeminfo_collect_hardware_info()` als deprecated Wrapper
+
+#### Python Middleware (app.py)
+- ✅ **Neue Python-Funktionen**:
+  - `get_os_info()` - Ruft `systeminfo_get_os_info` via subprocess
+  - `get_storage_info()` - Ruft `systeminfo_get_storage_info` via subprocess
+  - `get_archiv_info()` - Ruft `systeminfo_get_archiv_info` via subprocess
+  - `get_software_info()` - Ruft `systeminfo_get_software_info` via subprocess
+
+- ✅ **Neue API-Endpoints**:
+  - `GET /api/system` - OS + Software-Informationen
+  - `GET /api/archive` - Storage + Archiv-Counts
+  - `GET /api/service/status/<service>` - Service-Status
+  - `POST /api/service/restart/<service>` - Service-Neustart
+
+#### Automatische Updates (systemd Timer)
+- ✅ **disk2iso-volatile-updater.timer** - Läuft alle 30 Sekunden
+- ✅ **disk2iso-volatile-updater.service** - OneShot Service
+- ✅ **update_volatile_data.sh** - Sammelt flüchtige Daten:
+  - Uptime (alle 30s)
+  - Speicherplatz (alle 30s)
+  - Service-Status (alle 30s)
+
+#### Widget-Integration
+- ✅ **Alle Systeminfo-Widgets** in [system.html](system.html) eingebunden:
+  - `systeminfo_widget_2x1_sysinfo.html` ✅
+  - `systeminfo_widget_2x1_outputdir.html` ✅
+  - `systeminfo_widget_2x1_archiv.html` ✅
+  - `systeminfo_widget_4x1_dependencies.html` ✅
+  - `disk2iso_widget_2x1_status.html` ✅
+  - `disk2iso-web_widget_2x1_status.html` ✅
+
+- ✅ **JavaScript-Widget-Loader** verwenden neue API-Endpoints:
+  - `/api/system` für OS + Software
+  - `/api/archive` für Storage + Archiv
+  - `/api/service/status/<service>` für Service-Status
+
+#### Deprecation & Migration
+- ✅ **collect_system_information()** als DEPRECATED markiert
+  - Ruft neue modulare Funktionen auf (Kompatibilitätsmodus)
+  - Warnung bei Verwendung geloggt
+- ✅ **systeminfo_collect_hardware_info()** als DEPRECATED markiert
+  - Wrapper für `drivestat_collect_drive_info()`
+
+### ❌ NOCH NICHT UMGESETZT
+
+#### INI-basiertes Modul-Dependency-Management
+- ❌ **`systeminfo_get_module_software(module_name)`** - FEHLT
+  - Sollte `[dependencies]` aus `lib<module>.ini` lesen
+  - Automatische Version-Checks für Modul-spezifische Tools
+  - **Aktuell:** Software-Liste in `systeminfo_collect_software_info()` hardcodiert
+
+#### Feinere API-Granularität (Optional)
+- ❌ **`/api/system/os`** - Nur OS-Daten (kleinerer Response)
+- ❌ **`/api/system/storage`** - Nur Storage-Daten
+- ❌ **`/api/system/software`** - Nur Software-Daten
+- **Aktuell:** `/api/system` und `/api/archive` liefern alles auf einmal
+- **Bewertung:** Nicht kritisch, aktuelle Endpoints sind ausreichend
+
+### ⏳ TEILWEISE UMGESETZT
+
+#### Dokumentation
+- ⏳ **Inline-Kommentare** - Vorhanden in allen neuen Funktionen
+- ⏳ **API-Dokumentation** - Fehlt (kein OpenAPI/Swagger)
+- ⏳ **Migration-Guide** - Diese Datei dient als Dokumentation
+
+---
+
+## 11. ARCHITEKTUR-ÜBERSICHT (IST-ZUSTAND)
+
+### Datenfluss: Statische Daten (einmalig beim Start)
+
+```
+disk2iso.service startet
+  ↓
+libsysteminfo.sh geladen
+  ↓
+systeminfo_collect_os_info() → api/os_info.json
+systeminfo_collect_container_info() → api/container_info.json
+systeminfo_collect_software_info() → api/software_info.json
+  ↓
+libdrivestat.sh geladen
+  ↓
+drivestat_collect_drive_info() → api/drive_info.json
+```
+
+### Datenfluss: Flüchtige Daten (alle 30s via Timer)
+
+```
+disk2iso-volatile-updater.timer (alle 30s)
+  ↓
+disk2iso-volatile-updater.service (OneShot)
+  ↓
+update_volatile_data.sh
+  ↓
+systeminfo_collect_uptime_info() → api/os_info.json (update .uptime)
+systeminfo_collect_storage_info() → api/storage_info.json
+service_collect_status_info() → api/service_status.json
+```
+
+### Datenfluss: Widget-Darstellung
+
+```
+Browser lädt /system
+  ↓
+JavaScript: fetch('/api/system')
+  ↓
+Python: api_system()
+  ↓
+Python: get_os_info() → subprocess → systeminfo_get_os_info
+  ↓
+Bash: cat api/os_info.json
+  ↓
+JSON → Python → JavaScript → DOM-Update
+```
+
+### JSON-Dateien (api/ Verzeichnis)
+
+| Datei | Erstellt von | Aktualisiert von | Inhalt |
+|-------|--------------|------------------|--------|
+| `os_info.json` | `systeminfo_collect_os_info()` | `systeminfo_collect_uptime_info()` | OS, Kernel, Uptime |
+| `container_info.json` | `systeminfo_collect_container_info()` | - | Container-Typ |
+| `storage_info.json` | `systeminfo_collect_storage_info()` | `systeminfo_collect_storage_info()` | Speicherplatz |
+| `software_info.json` | `systeminfo_collect_software_info()` | - | Software-Versionen |
+| `drive_info.json` | `drivestat_collect_drive_info()` | - | Laufwerk-Info |
+| `service_status.json` | `service_collect_status_info()` | `service_collect_status_info()` | Service-Status |
+
+---
+
+## 12. NÄCHSTE SCHRITTE (Priorisiert)
+
+### Sofort (Optional - Nice to have):
+- [ ] INI-basiertes Modul-Dependency-Management implementieren
+  - `systeminfo_get_module_software(module_name)` in libsysteminfo.sh
+  - Liest `[dependencies]` aus Modul-INI-Dateien
+  - Dynamische Software-Prüfung statt hardcodiert
+
+### Kurzfristig (Cleanup):
+- [ ] `collect_system_information()` komplett entfernen (aktuell deprecated)
+- [ ] `systeminfo_collect_hardware_info()` komplett entfernen (aktuell deprecated Wrapper)
+- [ ] Testing der Timer-Integration in Produktion
+
+### Mittelfristig (Dokumentation):
+- [ ] OpenAPI/Swagger-Dokumentation für alle API-Endpoints
+- [ ] Migration-Guide für andere Entwickler
+- [ ] Performance-Monitoring der Timer-basierten Updates
+
+### Langfristig (Erweiterungen):
+- [ ] Fehler-Aggregation in zentrales Error-Log
+- [ ] Historische Daten (Uptime-Tracking, Storage-Trends)
+- [ ] Notification bei kritischen Änderungen (Service down, wenig Speicher)
+
+---
+
+## 13. ZUSAMMENFASSUNG
+
+**Status:** ✅ **95% ABGESCHLOSSEN**
+
+**Was funktioniert:**
+- Modulare Bash-Architektur (Collector + Getter)
+- JSON-basierte Datenpersistenz
+- Automatische Updates via systemd Timer
+- Alle Widgets nutzen neue API-Endpoints
+- Service-Management vollständig integriert
+- Drive-Info sauber nach libdrivestat.sh ausgelagert
+
+**Was fehlt:**
+- INI-basiertes Modul-Dependency-Management (5% - Nice to have)
+- API-Dokumentation (Swagger/OpenAPI)
+
+**Bewertung:**
+Die ursprünglichen Ziele (modulare Architektur, Widget-Funktionalität, automatische Updates) sind **vollständig erreicht**. Das INI-basierte Dependency-Management ist ein **Nice-to-have** für zukünftige Skalierung, aber nicht kritisch für den Betrieb.
+
+---
+
+## 8. NÄCHSTE SCHRITTE (VERALTET - Siehe Kapitel 12)
 
 ### Sofort (Diese Session):
 - [ ] Entscheidung: Inkrementelle vs. Big Bang Migration
