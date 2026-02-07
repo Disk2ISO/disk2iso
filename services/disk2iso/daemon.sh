@@ -1,7 +1,7 @@
 #!/bin/bash
 ################################################################################
-# disk2iso v1.2.0
-# Filepath: /usr/local/bin/disk2iso.sh
+# disk2iso v1.3.0 - Service Daemon
+# Filepath: services/disk2iso/daemon.sh
 #
 # Beschreibung:
 #   Automatisches Archivieren optischer Medien als ISO-Images.
@@ -48,18 +48,18 @@ CURRENT_STATE="$STATE_INITIALIZING"
 # DEBUG-MODUS
 # ============================================================================
 
-# Debug-Modus aktivieren: DEBUG=1 ./disk2iso.sh
+# Debug-Modus aktivieren: DEBUG=1 ./daemon.sh
 if [[ "${DEBUG:-0}" == "1" ]]; then
     set -x  # Trace-Modus: Zeigt jede ausgeführte Zeile
     PS4='+ ${BASH_SOURCE}:${LINENO}: '  # Zeigt Datei und Zeilennummer
 fi
 
-# Verbose-Modus: VERBOSE=1 ./disk2iso.sh
+# Verbose-Modus: VERBOSE=1 ./daemon.sh
 if [[ "${VERBOSE:-0}" == "1" ]]; then
     set -v  # Verbose: Zeigt Zeilen während sie gelesen werden
 fi
 
-# Strict-Modus für Entwicklung: STRICT=1 ./disk2iso.sh
+# Strict-Modus für Entwicklung: STRICT=1 ./daemon.sh
 if [[ "${STRICT:-0}" == "1" ]]; then
     set -euo pipefail  # Beende bei Fehlern, undefined vars, pipe failures
 fi
@@ -76,7 +76,9 @@ LOG_CALLER_INFO="${LOG_CALLER_INFO:-0}"
 # Ermittle Script-Verzeichnis (funktioniert auch bei Symlinks und Service)
 # Löse Symlinks auf, um den echten Pfad zu bekommen
 SCRIPT_PATH="$(readlink -f "${BASH_SOURCE[0]}")"
-SCRIPT_DIR="$(dirname "$SCRIPT_PATH")"
+SCRIPT_SERVICE_DIR="$(dirname "$SCRIPT_PATH")"
+# Hauptverzeichnis ist zwei Ebenen höher (von services/disk2iso/ nach root)
+SCRIPT_DIR="$(dirname "$(dirname "$SCRIPT_SERVICE_DIR")")"
 
 # Lade Basis-Module
 source "${SCRIPT_DIR}/conf/disk2iso.conf"

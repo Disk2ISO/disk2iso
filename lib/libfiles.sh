@@ -15,8 +15,8 @@
 # Dependencies: Keine (nutzt nur Bash-Funktionen)
 # -----------------------------------------------------------------------------
 # Author: D.Götze
-# Version: 1.2.1
-# Last Change: 2026-01-26 20:00
+# Version: 1.3.0
+# Last Change: 2026-02-07
 # =============================================================================
 
 # =============================================================================
@@ -490,7 +490,7 @@ files_get_doc_path() {
 # Parameter: $1 = filename (z.B. "header.html" oder "footer.html")
 # Rückgabe.: Vollständiger Pfad zur Datei
 # Beispiel.: files_get_html_path "header.html"
-#            → "/opt/disk2iso/www/templates/header.html"
+#            → "/opt/disk2iso/services/disk2iso-web/templates/header.html"
 # Nutzt....: folders_get_html_dir() aus libfolders.sh
 # ===========================================================================
 files_get_html_path() {
@@ -513,7 +513,7 @@ files_get_html_path() {
 # Parameter: $1 = filename (z.B. "main.css" oder "theme.css")
 # Rückgabe.: Vollständiger Pfad zur Datei
 # Beispiel.: files_get_css_path "main.css"
-#            → "/opt/disk2iso/www/static/css/main.css"
+#            → "/opt/disk2iso/services/disk2iso-web/static/css/main.css"
 # Nutzt....: folders_get_css_dir() aus libfolders.sh
 # ===========================================================================
 files_get_css_path() {
@@ -536,7 +536,7 @@ files_get_css_path() {
 # Parameter: $1 = filename (z.B. "app.js" oder "utils.js")
 # Rückgabe.: Vollständiger Pfad zur Datei
 # Beispiel.: files_get_js_path "app.js"
-#            → "/opt/disk2iso/www/static/js/app.js"
+#            → "/opt/disk2iso/services/disk2iso-web/static/js/app.js"
 # Nutzt....: folders_get_js_dir() aus libfolders.sh
 # ===========================================================================
 files_get_js_path() {
@@ -559,9 +559,9 @@ files_get_js_path() {
 # Parameter: $1 = filename (z.B. "api.py" oder "routes_api.py")
 # Rückgabe.: Vollständiger Pfad zur Datei
 # Beispiel.: files_get_router_path "api.py"
-#            → "/opt/disk2iso/www/routes/routes_api.py"
+#            → "/opt/disk2iso/services/disk2iso-web/routes/routes_api.py"
 #            files_get_router_path "routes_api.py"
-#            → "/opt/disk2iso/www/routes/routes_api.py"
+#            → "/opt/disk2iso/services/disk2iso-web/routes/routes_api.py"
 # Nutzt....: folders_get_router_dir() aus libfolders.sh
 # Hinweis..: Fügt automatisch "routes_" Prefix hinzu wenn nicht vorhanden
 # ===========================================================================

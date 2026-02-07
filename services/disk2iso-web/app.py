@@ -1,7 +1,7 @@
 ﻿#!/usr/bin/env python3
 """
 disk2iso Web Interface
-Version: 1.2.0
+Version: 1.3.0
 Description: Flask-basierte Web-OberflÃ¤che fÃ¼r disk2iso Monitoring
 """
 

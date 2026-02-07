@@ -2,7 +2,7 @@
 # ===========================================================================
 # Volatile Data Updater
 # ===========================================================================
-# Filepath: lib/update_volatile_data.sh
+# Filepath: services/disk2iso-updater/updater.sh
 #
 # Beschreibung:
 #   Aktualisiert flüchtige System-Daten (Uptime, Speicherplatz)
@@ -12,13 +12,15 @@
 # Dependencies: libsysteminfo.sh, libfolders.sh, libsettings.sh
 # ---------------------------------------------------------------------------
 # Author: D.Götze
-# Version: 1.0.0
+# Version: 1.3.0
+# Last Change: 2026-02-07
 # Last Change: 2026-02-05
 # ===========================================================================
 
 # Ermittle Installationsverzeichnis
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-INSTALL_DIR="$(dirname "$SCRIPT_DIR")"
+# Hauptverzeichnis ist zwei Ebenen höher (von services/disk2iso-updater/ nach root)
+INSTALL_DIR="$(dirname "$(dirname "$SCRIPT_DIR")")"
 
 # Lade erforderliche Libraries
 source "${INSTALL_DIR}/lib/liblogging.sh" || exit 1

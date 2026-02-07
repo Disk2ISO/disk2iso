@@ -567,8 +567,8 @@ ping 192.168.20.10
 # Mosquitto auf Home Assistant prüfen
 # Add-on → Mosquitto broker → Logs
 
-# Falls nicht wichtig: In config.sh deaktivieren
-sudo nano /opt/disk2iso/disk2iso-lib/config.sh
+# Falls nicht wichtig: In disk2iso.conf deaktivieren
+sudo nano /opt/disk2iso/conf/disk2iso.conf
 # MQTT_ENABLED=false
 ```
 
@@ -580,8 +580,8 @@ sudo nano /opt/disk2iso/disk2iso-lib/config.sh
 
 **Aktivieren:**
 ```bash
-# In config.sh
-sudo nano /opt/disk2iso/disk2iso-lib/config.sh
+# In disk2iso.conf
+sudo nano /opt/disk2iso/conf/disk2iso.conf
 DEBUG=true
 
 # Service neu starten

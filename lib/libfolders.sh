@@ -15,8 +15,8 @@
 # Dependencies: liblogging (für log_* Funktionen)
 # -----------------------------------------------------------------------------
 # Author: D.Götze
-# Version: 1.2.1
-# Last Change: 2026-01-26 20:00
+# Version: 1.3.0
+# Last Change: 2026-02-07
 # =============================================================================
 
 # =============================================================================
@@ -539,9 +539,9 @@ folders_get_api_dir() {
 # ---------------------------------------------------------------------------
 # Ordner für Web-Frontend (relativ zu INSTALL_DIR)
 # ---------------------------------------------------------------------------
-readonly MODULE_HTML_DIR="www/templates"         # HTML-Partials
-readonly MODULE_CSS_DIR="www/static/css"         # Stylesheets
-readonly MODULE_JS_DIR="www/static/js"           # JavaScript
+readonly MODULE_HTML_DIR="services/disk2iso-web/templates"  # HTML-Partials
+readonly MODULE_CSS_DIR="services/disk2iso-web/static/css"  # Stylesheets
+readonly MODULE_JS_DIR="services/disk2iso-web/static/js"    # JavaScript
 
 # ===========================================================================
 # folders_get_html_dir
@@ -550,7 +550,7 @@ readonly MODULE_JS_DIR="www/static/js"           # JavaScript
 # Parameter: keine
 # Rückgabe.: 0 = Ordner existiert (Pfad in stdout)
 # .........  1 = Ordner fehlt (leerer String in stdout)
-# Beispiel.: folders_get_html_dir → "/opt/disk2iso/www/templates"
+# Beispiel.: folders_get_html_dir → "/opt/disk2iso/services/disk2iso-web/templates"
 # Hinweis..: Erstellt KEINEN Ordner - nur von install.sh erstellt
 # ===========================================================================
 folders_get_html_dir() {
@@ -575,7 +575,7 @@ folders_get_html_dir() {
 # Parameter: keine
 # Rückgabe.: 0 = Ordner existiert (Pfad in stdout)
 # .........  1 = Ordner fehlt (leerer String in stdout)
-# Beispiel.: folders_get_css_dir → "/opt/disk2iso/www/static/css"
+# Beispiel.: folders_get_css_dir → "/opt/disk2iso/services/disk2iso-web/static/css"
 # Hinweis..: Erstellt KEINEN Ordner - nur von install.sh erstellt
 # ===========================================================================
 folders_get_css_dir() {
@@ -600,7 +600,7 @@ folders_get_css_dir() {
 # Parameter: keine
 # Rückgabe.: 0 = Ordner existiert (Pfad in stdout)
 # .........  1 = Ordner fehlt (leerer String in stdout)
-# Beispiel.: folders_get_js_dir → "/opt/disk2iso/www/static/js"
+# Beispiel.: folders_get_js_dir → "/opt/disk2iso/services/disk2iso-web/static/js"
 # Hinweis..: Erstellt KEINEN Ordner - nur von install.sh erstellt
 # ===========================================================================
 folders_get_js_dir() {
@@ -621,7 +621,7 @@ folders_get_js_dir() {
 # ---------------------------------------------------------------------------
 # Ordner für Web-Backend (relativ zu INSTALL_DIR)
 # ---------------------------------------------------------------------------
-readonly MODULE_ROUTER_DIR="www/routes"          # Python-Routes
+readonly MODULE_ROUTER_DIR="services/disk2iso-web/routes"  # Python-Routes
 
 # ===========================================================================
 # folders_get_router_dir
@@ -630,7 +630,7 @@ readonly MODULE_ROUTER_DIR="www/routes"          # Python-Routes
 # Parameter: keine
 # Rückgabe.: 0 = Ordner existiert (Pfad in stdout)
 # .........  1 = Ordner fehlt (leerer String in stdout)
-# Beispiel.: folders_get_router_dir → "/opt/disk2iso/www/routes"
+# Beispiel.: folders_get_router_dir → "/opt/disk2iso/services/disk2iso-web/routes"
 # Hinweis..: Erstellt KEINEN Ordner - nur von install.sh erstellt
 # ===========================================================================
 folders_get_router_dir() {

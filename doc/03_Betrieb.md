@@ -192,7 +192,7 @@ http://<server-ip>:8080
 - MQTT-Status
 
 **Nur-Lesen:**
-Änderungen nur via `/opt/disk2iso/disk2iso-lib/config.sh` möglich.
+Änderungen nur via `/opt/disk2iso/conf/disk2iso.conf` möglich.
 
 #### 💻 System
 
@@ -226,7 +226,7 @@ http://<server-ip>:8080
 ### Sprachunterstützung
 
 **Automatische Erkennung:**
-Web-Interface nutzt `LANGUAGE`-Einstellung aus `config.sh`.
+Web-Interface nutzt `LANGUAGE`-Einstellung aus `disk2iso.conf`.
 
 **Verfügbare Sprachen:**
 - Deutsch (de)
@@ -236,7 +236,7 @@ Web-Interface nutzt `LANGUAGE`-Einstellung aus `config.sh`.
 
 **Ändern:**
 ```bash
-sudo nano /opt/disk2iso/disk2iso-lib/config.sh
+sudo nano /opt/disk2iso/conf/disk2iso.conf
 # readonly LANGUAGE="en"
 sudo systemctl restart disk2iso
 sudo systemctl restart disk2iso-web
@@ -513,7 +513,7 @@ systemd-cgtop
 
 **Disc-I/O:**
 ```bash
-sudo iotop -p $(pgrep -f disk2iso.sh)
+sudo iotop -p $(pgrep -f daemon.sh)
 ```
 
 ### Log-Export
@@ -733,7 +733,7 @@ sudo hdparm -E 255 /dev/sr0  # Max Speed
 # NFS-Mount in /etc/fstab
 nas:/media /mnt/nas nfs defaults,auto 0 0
 
-# In config.sh
+# In disk2iso.conf
 OUTPUT_DIR="/mnt/nas/media"
 ```
 
@@ -793,7 +793,7 @@ grep -q "$DISC_MD5" /media/iso/.duplicates && echo "Duplikat!" || echo "Neu"
 **Ausgabeverzeichnis ändern:**
 
 ```bash
-sudo nano /opt/disk2iso/disk2iso-lib/config.sh
+sudo nano /opt/disk2iso/conf/disk2iso.conf
 # OUTPUT_DIR="/mnt/nas/archive"
 
 sudo systemctl restart disk2iso
@@ -802,7 +802,7 @@ sudo systemctl restart disk2iso
 **Sprache ändern:**
 
 ```bash
-sudo nano /opt/disk2iso/disk2iso-lib/config.sh
+sudo nano /opt/disk2iso/conf/disk2iso.conf
 # readonly LANGUAGE="en"
 
 sudo systemctl restart disk2iso

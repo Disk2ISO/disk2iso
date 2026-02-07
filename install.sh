@@ -1,6 +1,6 @@
 #!/bin/bash
 ################################################################################
-# disk2iso v1.2.0 - Installation Script
+# disk2iso v1.3.0 - Installation Script
 # Filepath: install.sh
 #
 # Beschreibung:
@@ -10,8 +10,8 @@
 #   - MQTT-Integration für Home Assistant
 #   - Optionale systemd Service-Konfiguration
 #
-# Version: 1.2.0
-# Datum: 06.01.2026
+# Version: 1.3.0
+# Datum: 07.02.2026
 ################################################################################
 
 set -e
@@ -235,9 +235,9 @@ check_existing_installation() {
     local version="unbekannt"
     if [[ -f "$INSTALL_DIR/VERSION" ]]; then
         version=$(cat "$INSTALL_DIR/VERSION" 2>/dev/null || echo "unbekannt")
-    elif [[ -f "$INSTALL_DIR/disk2iso.sh" ]]; then
+    elif [[ -f "$INSTALL_DIR/services/disk2iso/daemon.sh" ]]; then
         # Fallback für alte Installationen ohne VERSION-Datei
-        version=$(grep -m1 "^# Version:" "$INSTALL_DIR/disk2iso.sh" 2>/dev/null | awk '{print $3}' || echo "unbekannt")
+        version=$(grep -m1 "^# disk2iso v" "$INSTALL_DIR/services/disk2iso/daemon.sh" 2>/dev/null | awk '{print $3}' | tr -d 'v' || echo "unbekannt")
     fi
     
     INSTALLED_VERSION="$version"
@@ -271,7 +271,7 @@ Neue Version: ${NEW_VERSION}
 Wie möchten Sie fortfahren?
 
 REPARATUR (Empfohlen):
-• Überschreibt Programmdateien (disk2iso.sh, lib/*.sh)
+• Überschreibt Programmdateien (services/*, lib/*.sh)
 • Behält ALLE Einstellungen bei (config.sh)
 • Behält Service-Status bei (aktiviert/deaktiviert)
 • Repariert beschädigte Installationen
@@ -420,14 +420,12 @@ perform_repair() {
     # Fortschrittsanzeige
     (
         echo "10" ; sleep 0.5
-        echo "# Kopiere Haupt-Script..."
-        cp -f "$SCRIPT_DIR/disk2iso.sh" "$INSTALL_DIR/"
-        chmod +x "$INSTALL_DIR/disk2iso.sh"
-        
-        echo "30" ; sleep 0.3
         echo "# Kopiere VERSION-Datei..."
         if [[ -f "$SCRIPT_DIR/VERSION" ]]; then
             cp -f "$SCRIPT_DIR/VERSION" "$INSTALL_DIR/"
+        fi
+        
+        echo "30" ; sleep 0.3
         fi
         
         echo "50" ; sleep 0.3
@@ -459,8 +457,7 @@ perform_repair() {
         echo "90" ; sleep 0.3
         echo "# Erstelle Dokumentations-Symlink..."
         if [[ -d "$INSTALL_DIR/doc" ]]; then
-            mkdir -p "$INSTALL_DIR/www/static"
-            ln -sf "../../doc" "$INSTALL_DIR/www/static/docs" 2>/dev/null || true
+            mkdir -p "$INSTALL_DIR/services/disk2iso-web/static"`r`n            ln -sf "../../../doc" "$INSTALL_DIR/services/disk2iso-web/static/docs" 2>/dev/null || true
         fi
         
         echo "100"
@@ -544,7 +541,7 @@ After=systemd-udevd.service
 Type=simple
 User=root
 Group=root
-ExecStart=$INSTALL_DIR/disk2iso.sh -o $output_dir
+ExecStart=$INSTALL_DIR/services/disk2iso/daemon.sh -o $output_dir
 Restart=always
 RestartSec=5
 StandardOutput=journal
@@ -720,15 +717,15 @@ EOF
             echo "XXX"
             echo "Erstelle Verzeichnisstruktur..."
             echo "XXX"
-            mkdir -p "$INSTALL_DIR/www/templates"
-            mkdir -p "$INSTALL_DIR/www/static/css"
-            mkdir -p "$INSTALL_DIR/www/static/js"
-            mkdir -p "$INSTALL_DIR/www/logs"
-            chmod -R 755 "$INSTALL_DIR/www" 2>/dev/null || true
+            mkdir -p "$INSTALL_DIR/services/disk2iso-web/templates"
+            mkdir -p "$INSTALL_DIR/services/disk2iso-web/static/css"
+            mkdir -p "$INSTALL_DIR/services/disk2iso-web/static/js"
+            mkdir -p "$INSTALL_DIR/services/disk2iso-web/logs"
+            chmod -R 755 "$INSTALL_DIR/services" 2>/dev/null || true
             chmod -R 755 "$INSTALL_DIR/venv" 2>/dev/null || true
             
             # Erstelle requirements.txt
-            cat > "$INSTALL_DIR/www/requirements.txt" <<'EOFREQ'
+            cat > "$INSTALL_DIR/services/disk2iso-web/requirements.txt" <<'EOFREQ'
 # disk2iso Web-Server Dependencies
 flask>=2.0.0
 EOFREQ
@@ -814,14 +811,12 @@ perform_update() {
     # Fortschrittsanzeige während Installation
     (
         echo "5" ; sleep 0.5
-        echo "# Kopiere Haupt-Script..."
-        cp -f "$SCRIPT_DIR/disk2iso.sh" "$INSTALL_DIR/"
-        chmod +x "$INSTALL_DIR/disk2iso.sh"
-        
-        echo "15" ; sleep 0.3
         echo "# Kopiere VERSION-Datei..."
         if [[ -f "$SCRIPT_DIR/VERSION" ]]; then
             cp -f "$SCRIPT_DIR/VERSION" "$INSTALL_DIR/"
+        fi
+        
+        echo "15" ; sleep 0.3
         fi
         
         echo "30" ; sleep 0.3
@@ -855,14 +850,14 @@ perform_update() {
         echo "80" ; sleep 0.3
         echo "# Erstelle Dokumentations-Symlink..."
         if [[ -d "$INSTALL_DIR/doc" ]]; then
-            mkdir -p "$INSTALL_DIR/www/static"
-            ln -sf "../../doc" "$INSTALL_DIR/www/static/docs" 2>/dev/null || true
+            mkdir -p "$INSTALL_DIR/services/disk2iso-web/static"
+            ln -sf "../../../doc" "$INSTALL_DIR/services/disk2iso-web/static/docs" 2>/dev/null || true
         fi
         
         echo "85" ; sleep 0.3
         echo "# Aktualisiere Service-Dateien..."
-        if [[ -d "$SCRIPT_DIR/service" ]]; then
-            cp -rf "$SCRIPT_DIR/service" "$INSTALL_DIR/"
+        if [[ -d "$SCRIPT_DIR/services" ]]; then
+            cp -rf "$SCRIPT_DIR/services" "$INSTALL_DIR/"
         fi
         
         echo "90" ; sleep 0.3
@@ -994,7 +989,7 @@ After=systemd-udevd.service
 Type=simple
 User=root
 Group=root
-ExecStart=$INSTALL_DIR/disk2iso.sh -o $output_dir
+ExecStart=$INSTALL_DIR/services/disk2iso/daemon.sh -o $output_dir
 Restart=always
 RestartSec=5
 StandardOutput=journal
@@ -1162,15 +1157,15 @@ EOF
             echo "XXX"
             echo "Erstelle Verzeichnisstruktur..."
             echo "XXX"
-            mkdir -p "$INSTALL_DIR/www/templates"
-            mkdir -p "$INSTALL_DIR/www/static/css"
-            mkdir -p "$INSTALL_DIR/www/static/js"
-            mkdir -p "$INSTALL_DIR/www/logs"
-            chmod -R 755 "$INSTALL_DIR/www" 2>/dev/null || true
+            mkdir -p "$INSTALL_DIR/services/disk2iso-web/templates"
+            mkdir -p "$INSTALL_DIR/services/disk2iso-web/static/css"
+            mkdir -p "$INSTALL_DIR/services/disk2iso-web/static/js"
+            mkdir -p "$INSTALL_DIR/services/disk2iso-web/logs"
+            chmod -R 755 "$INSTALL_DIR/services" 2>/dev/null || true
             chmod -R 755 "$INSTALL_DIR/venv" 2>/dev/null || true
             
             # Erstelle requirements.txt
-            cat > "$INSTALL_DIR/www/requirements.txt" <<'EOFREQ'
+            cat > "$INSTALL_DIR/services/disk2iso-web/requirements.txt" <<'EOFREQ'
 # disk2iso Web-Server Dependencies
 flask>=2.0.0
 EOFREQ
@@ -1818,8 +1813,8 @@ Dokumentation:
 
 install_disk2iso_files() {
     # Prüfe ob Quell-Dateien existieren
-    if [[ ! -f "$SCRIPT_DIR/disk2iso.sh" ]]; then
-        print_error "disk2iso.sh nicht gefunden in $SCRIPT_DIR"
+    if [[ ! -f "$SCRIPT_DIR/services/disk2iso/daemon.sh" ]]; then
+        print_error "services/disk2iso/daemon.sh nicht gefunden in $SCRIPT_DIR"
         exit 1
     fi
     
@@ -1830,10 +1825,6 @@ install_disk2iso_files() {
     
     # Erstelle Installationsverzeichnis
     mkdir -p "$INSTALL_DIR"
-    
-    # Kopiere Haupt-Script
-    cp -f "$SCRIPT_DIR/disk2iso.sh" "$INSTALL_DIR/"
-    chmod +x "$INSTALL_DIR/disk2iso.sh"
     
     # Kopiere VERSION-Datei
     if [[ -f "$SCRIPT_DIR/VERSION" ]]; then
@@ -1859,8 +1850,8 @@ install_disk2iso_files() {
     fi
     
     # Kopiere Service-Dateien (falls vorhanden)
-    if [[ -d "$SCRIPT_DIR/service" ]]; then
-        cp -rf "$SCRIPT_DIR/service" "$INSTALL_DIR/"
+    if [[ -d "$SCRIPT_DIR/services" ]]; then
+        cp -rf "$SCRIPT_DIR/services" "$INSTALL_DIR/"
     fi
     
     # Kopiere Installations- und Deinstallations-Skripte (für Updates und Deinstallation)
@@ -1879,19 +1870,11 @@ install_disk2iso_files() {
         cp -f "$SCRIPT_DIR/INSTALLED-README.md" "$INSTALL_DIR/README-INSTALLED.md"
     fi
     
-    # Erstelle www-Verzeichnis für Web-Server (vorbereitet für zukünftige Nutzung)
-    mkdir -p "$INSTALL_DIR/www"
-    
-    # Kopiere www-Dateien falls vorhanden (für Web-Server)
-    if [[ -d "$SCRIPT_DIR/www" ]] && [[ -n "$(ls -A "$SCRIPT_DIR/www" 2>/dev/null)" ]]; then
-        cp -rf "$SCRIPT_DIR/www/"* "$INSTALL_DIR/www/" 2>/dev/null || true
-    fi
-    
     # Erstelle Symlink für Dokumentation im Web-Interface
-    # www/static/docs -> ../../doc (zeigt auf /opt/disk2iso/doc)
+    # services/disk2iso-web/static/docs -> ../../../doc (zeigt auf /opt/disk2iso/doc)
     if [[ -d "$INSTALL_DIR/doc" ]]; then
-        mkdir -p "$INSTALL_DIR/www/static"
-        ln -sf "../../doc" "$INSTALL_DIR/www/static/docs" 2>/dev/null || true
+        mkdir -p "$INSTALL_DIR/services/disk2iso-web/static"
+        ln -sf "../../../doc" "$INSTALL_DIR/services/disk2iso-web/static/docs" 2>/dev/null || true
     fi
     
     # Erstelle API-Verzeichnis für JSON-Daten (Live-Status)
@@ -1905,7 +1888,7 @@ install_disk2iso_files() {
     fi
     
     # Erstelle Symlink
-    ln -sf "$INSTALL_DIR/disk2iso.sh" "$BIN_LINK"
+    ln -sf "$INSTALL_DIR/services/disk2iso/daemon.sh" "$BIN_LINK"
 }
 
 configure_service() {
@@ -1938,7 +1921,7 @@ After=systemd-udevd.service
 Type=simple
 User=root
 Group=root
-ExecStart=$INSTALL_DIR/disk2iso.sh
+ExecStart=$INSTALL_DIR/services/disk2iso/daemon.sh
 Restart=always
 RestartSec=5
 StandardOutput=journal
@@ -2069,13 +2052,13 @@ install_web_server() {
             echo "XXX"
             echo "80"
             
-            mkdir -p "$INSTALL_DIR/www/templates"
-            mkdir -p "$INSTALL_DIR/www/static/css"
-            mkdir -p "$INSTALL_DIR/www/static/js"
-            mkdir -p "$INSTALL_DIR/www/logs"
+            mkdir -p "$INSTALL_DIR/services/disk2iso-web/templates"
+            mkdir -p "$INSTALL_DIR/services/disk2iso-web/static/css"
+            mkdir -p "$INSTALL_DIR/services/disk2iso-web/static/js"
+            mkdir -p "$INSTALL_DIR/services/disk2iso-web/logs"
             
             # Setze Berechtigungen
-            chmod -R 755 "$INSTALL_DIR/www"
+            chmod -R 755 "$INSTALL_DIR/services"
             chmod -R 755 "$INSTALL_DIR/venv"
             
             echo "100"
@@ -2096,17 +2079,17 @@ install_web_server() {
         "$INSTALL_DIR/venv/bin/pip" install flask >/dev/null 2>&1
         
         print_info "Erstelle Verzeichnisstruktur..."
-        mkdir -p "$INSTALL_DIR/www/templates"
-        mkdir -p "$INSTALL_DIR/www/static/css"
-        mkdir -p "$INSTALL_DIR/www/static/js"
-        mkdir -p "$INSTALL_DIR/www/logs"
+        mkdir -p "$INSTALL_DIR/services/disk2iso-web/templates"
+        mkdir -p "$INSTALL_DIR/services/disk2iso-web/static/css"
+        mkdir -p "$INSTALL_DIR/services/disk2iso-web/static/js"
+        mkdir -p "$INSTALL_DIR/services/disk2iso-web/logs"
         
-        chmod -R 755 "$INSTALL_DIR/www"
+        chmod -R 755 "$INSTALL_DIR/services"
         chmod -R 755 "$INSTALL_DIR/venv"
     fi
     
     # Erstelle requirements.txt für spätere Updates
-    cat > "$INSTALL_DIR/www/requirements.txt" <<EOF
+    cat > "$INSTALL_DIR/services/disk2iso-web/requirements.txt" <<EOF
 # disk2iso Web-Server Dependencies
 # Install: /opt/disk2iso/venv/bin/pip install -r requirements.txt
 
@@ -2114,8 +2097,8 @@ flask>=2.0.0
 EOF
     
     # Installiere Web-Server Service (disk2iso-web)
-    if [[ -f "$INSTALL_DIR/service/disk2iso-web.service" ]]; then
-        cp "$INSTALL_DIR/service/disk2iso-web.service" /etc/systemd/system/
+    if [[ -f "$INSTALL_DIR/services/disk2iso-web.service" ]]; then
+        cp "$INSTALL_DIR/services/disk2iso-web.service" /etc/systemd/system/
         systemctl daemon-reload
         systemctl enable disk2iso-web.service >/dev/null 2>&1
         systemctl start disk2iso-web.service >/dev/null 2>&1

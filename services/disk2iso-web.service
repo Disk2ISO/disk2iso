@@ -7,9 +7,9 @@ Wants=disk2iso.service
 Type=simple
 User=root
 Group=root
-WorkingDirectory=/opt/disk2iso/www
+WorkingDirectory=/opt/disk2iso/services/disk2iso-web
 Environment="PATH=/opt/disk2iso/venv/bin"
-ExecStart=/opt/disk2iso/venv/bin/python3 /opt/disk2iso/www/app.py
+ExecStart=/opt/disk2iso/venv/bin/python3 /opt/disk2iso/services/disk2iso-web/app.py
 Restart=always
 RestartSec=5
 StandardOutput=journal

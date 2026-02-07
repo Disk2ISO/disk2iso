@@ -314,9 +314,9 @@ ensure_example_dir() {
 
 # Export Config als JSON
 example_export_config_json() {
-    # 1. Source libconfig.sh für get_ini_value
+    # 1. Source libdisk2iso.conf für get_ini_value
     local lib_dir="$(dirname "$BASH_SOURCE")"
-    source "$lib_dir/libconfig.sh"
+    source "$lib_dir/libdisk2iso.conf"
     
     # 2. Read main config
     local conf_file="$BASE_DIR/conf/disk2iso.conf"
@@ -343,7 +343,7 @@ EOF
 example_update_config() {
     # 1. Source dependencies
     local lib_dir="$(dirname "$BASH_SOURCE")"
-    source "$lib_dir/libconfig.sh"
+    source "$lib_dir/libdisk2iso.conf"
     
     # 2. Parse JSON from stdin (jq bevorzugt)
     read -r json_input
@@ -356,7 +356,7 @@ example_update_config() {
         return 1
     fi
     
-    # 4. Write via libconfig.sh (nutzt set_example_* Funktionen)
+    # 4. Write via libdisk2iso.conf (nutzt set_example_* Funktionen)
     set_example_enabled "$example_enabled"
     set_example_setting_x "$setting_x"
     
@@ -467,7 +467,7 @@ def api_example_save():
 ```bash
 # Modul laden (konditional)
 if [[ "$MODULE_EXAMPLE" == "true" ]]; then
-    source "$SCRIPT_DIR/disk2iso-lib/lib-example.sh"
+    source "$SCRIPT_DIR/lib/lib-example.sh"
 fi
 ```
 
@@ -546,14 +546,14 @@ load_mqtt_config() {
 }
 ```
 
-#### ✅ Best Practice: libconfig.sh nutzen
+#### ✅ Best Practice: libdisk2iso.conf nutzen
 
 ```bash
 # FALSCH: Eigene awk-Implementierung (16 Zeilen)
 local ini_value=$(awk -F'=' '/^\[section\]/,/^\[/ {if ($1 ~ /^key/) {print $2}}' "$ini_file")
 
-# RICHTIG: libconfig.sh sourcing (1 Zeile)
-source "$lib_dir/libconfig.sh"
+# RICHTIG: libdisk2iso.conf sourcing (1 Zeile)
+source "$lib_dir/libdisk2iso.conf"
 local ini_value=$(get_ini_value "$ini_file" "section" "key")
 ```
 
@@ -602,11 +602,11 @@ mqtt_test_connection() {
 - [ ] Helper-Funktionen mit `_` Präfix für Wiederverwendung
 - [ ] `_module_get_defaults()` für zentrale Default-Definition
 - [ ] `module_export_config_json()` für Config-Export
-- [ ] `module_update_config()` für Config-Update (nutzt libconfig.sh)
+- [ ] `module_update_config()` für Config-Update (nutzt libdisk2iso.conf)
 - [ ] `module_test_feature()` für Feature-Tests (optional)
 - [ ] `main()` Entry Point mit case-Statement
 - [ ] `if [[ "${BASH_SOURCE[0]}" == "${0}" ]]` Conditional
-- [ ] Source libconfig.sh für get_ini_value() + Setter
+- [ ] Source libdisk2iso.conf für get_ini_value() + Setter
 - [ ] jq für JSON-Parsing nutzen
 - [ ] Keine Code-Duplikation (DRY-Prinzip prüfen)
 
@@ -658,11 +658,11 @@ get_text() {
     local module="${key%%.*}"
     
     # Sprachdatei bestimmen
-    local lang_file="$SCRIPT_DIR/disk2iso-lib/lang/lib-${module}.${LANGUAGE}"
+    local lang_file="$SCRIPT_DIR/lib/lang/lib-${module}.${LANGUAGE}"
     
     # Fallback zu English
     if [[ ! -f "$lang_file" ]]; then
-        lang_file="$SCRIPT_DIR/disk2iso-lib/lang/lib-${module}.en"
+        lang_file="$SCRIPT_DIR/lib/lang/lib-${module}.en"
     fi
     
     # Text aus Datei lesen
@@ -709,7 +709,7 @@ cd.musicbrainz_found="MusicBrainz: %s - %s (%s)"
 
 **3. Konfiguration:**
 ```bash
-# config.sh
+# disk2iso.conf
 readonly LANGUAGE="fr"
 ```
 
@@ -922,7 +922,7 @@ done
 
 ```bash
 # Regelmäßig prüfen
-shellcheck disk2iso.sh disk2iso-lib/*.sh
+shellcheck services/disk2iso/daemon.sh lib/*.sh
 
 # Ignorieren nur wenn nötig
 # shellcheck disable=SC2059

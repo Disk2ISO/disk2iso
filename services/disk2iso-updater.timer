@@ -1,7 +1,7 @@
 [Unit]
-Description=disk2iso Volatile Data Update Timer
+Description=disk2iso Data Update Timer
 Documentation=man:disk2iso(1)
-Requires=disk2iso-volatile-updater.service
+Requires=disk2iso-updater.service
 
 [Timer]
 # Starte 10 Sekunden nach Boot

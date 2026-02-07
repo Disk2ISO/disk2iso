@@ -15,8 +15,8 @@
 # Dependencies: Keine (nutzt nur Bash-Funktionen)
 # -----------------------------------------------------------------------------
 # Author: D.Götze
-# Version: 1.2.1
-# Last Change: 2026-01-26 20:00
+# Version: 1.3.0
+# Last Change: 2026-02-07
 # =============================================================================
 
 # =============================================================================
@@ -340,7 +340,7 @@ EOF
 # api_update_from_state
 # ---------------------------------------------------------------------------
 # Funktion.: Aktualisiere API-Status basierend auf State Machine State
-# .........  Mappt disk2iso.sh States auf API-Status-Werte
+# .........  Mappt Service Daemon States auf API-Status-Werte
 # Parameter: $1 = State Machine State (z.B. "waiting_for_drive", "analyzing")
 #            $2 = Disc-Label (optional)
 #            $3 = Disc-Type (optional)

@@ -1,5 +1,5 @@
 [Unit]
-Description=disk2iso Volatile Data Updater
+Description=disk2iso Data Updater
 Documentation=man:disk2iso(1)
 After=disk2iso.service
 
@@ -7,7 +7,7 @@ After=disk2iso.service
 Type=oneshot
 User=root
 Group=root
-ExecStart=/bin/bash /opt/disk2iso/lib/update_volatile_data.sh
+ExecStart=/bin/bash /opt/disk2iso/services/disk2iso-updater/updater.sh
 
 # Security
 NoNewPrivileges=true
@@ -19,7 +19,7 @@ ReadWritePaths=/opt/disk2iso/api
 # Logging
 StandardOutput=journal
 StandardError=journal
-SyslogIdentifier=disk2iso-volatile-updater
+SyslogIdentifier=disk2iso-updater
 
 [Install]
 WantedBy=multi-user.target

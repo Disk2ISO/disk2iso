@@ -14,7 +14,7 @@ sudo /opt/disk2iso/install.sh
 
 ## Installierte Struktur
 
-Nach der Installation unter `/opt/disk2iso/www/`:
+Nach der Installation unter `/opt/disk2iso/services/disk2iso-web/`:
 
 ```
 www/
@@ -50,7 +50,7 @@ Der Web-Server nutzt ein isoliertes Python Virtual Environment:
 
 ### Abhängigkeiten aktualisieren:
 ```bash
-/opt/disk2iso/venv/bin/pip install -r /opt/disk2iso/www/requirements.txt
+/opt/disk2iso/venv/bin/pip install -r /opt/disk2iso/services/disk2iso-web/requirements.txt
 ```
 
 ## Service
