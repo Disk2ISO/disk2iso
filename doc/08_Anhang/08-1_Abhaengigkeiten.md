@@ -1,4 +1,4 @@
-# Kapitel 8: Anhang
+# Kapitel 8.1: Software-Abhängigkeiten und externe APIs
 
 Referenzen, externe Abhängigkeiten und zusätzliche Ressourcen.
 
@@ -469,10 +469,16 @@ MusicBrainz_ID=6defd963-fe91-4550-b18e-82c685603c2b
 
 ### Dokumentation
 
-- **[← Zurück zum Handbuch](Handbuch.md)** (Kapitel 1)
-- **[Installation](02_Installation.md)** (Kapitel 2)
-- **[Module](04_Module/)** (Kapitel 4)
-- **[Entwickler-Dokumentation](06_Entwickler.md)** (Kapitel 6)
+- **[← Zurück zur Anhang-Übersicht](../08_Anhaenge.md)**
+- **[Handbuch](../Handbuch.md)** (Kapitel 1)
+- **[Installation](../02_Installation.md)** (Kapitel 2)
+- **[Module](../04_Module/)** (Kapitel 4)
+- **[Entwickler-Dokumentation](../06_Entwickler.md)** (Kapitel 6)
+
+### Weitere Anhänge
+
+- **[Widget-Struktur](08-2_Widget_Struktur.md)** (Anhang 8.2)
+- **[Prozessanalyse](08-3_Prozessanalyse.md)** (Anhang 8.3)
 
 ### Externe Ressourcen
 
@@ -511,4 +517,4 @@ MusicBrainz_ID=6defd963-fe91-4550-b18e-82c685603c2b
 
 ---
 
-**Version**: 1.2.0 | **Letzte Aktualisierung**: 26.01.2026
+**Version**: 1.2.0 | **Letzte Aktualisierung**: 07.02.2026
