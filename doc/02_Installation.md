@@ -252,23 +252,28 @@ sudo apt install -y mosquitto-clients
 
 ```bash
 # Erstelle Ziel-Ordner
-sudo mkdir -p /opt/disk2iso/disk2iso-lib/lang
+sudo mkdir -p /opt/disk2iso/lib/lang
+sudo mkdir -p /opt/disk2iso/conf
+sudo mkdir -p /opt/disk2iso/services/{disk2iso,disk2iso-web,disk2iso-updater}
 
-# Hauptskript
-sudo cp disk2iso.sh /opt/disk2iso/
-sudo chmod +x /opt/disk2iso/disk2iso.sh
+# Hauptskripte
+sudo cp services/disk2iso/daemon.sh /opt/disk2iso/services/disk2iso/
+sudo cp services/disk2iso-web/app.py /opt/disk2iso/services/disk2iso-web/
+sudo cp services/disk2iso-updater/updater.sh /opt/disk2iso/services/disk2iso-updater/
+sudo chmod +x /opt/disk2iso/services/disk2iso/daemon.sh
+sudo chmod +x /opt/disk2iso/services/disk2iso-updater/updater.sh
 
-# Alle Module
-sudo cp disk2iso-lib/*.sh /opt/disk2iso/disk2iso-lib/
+# Bibliotheken
+sudo cp lib/*.sh /opt/disk2iso/lib/
 
 # Sprachdateien
-sudo cp disk2iso-lib/lang/* /opt/disk2iso/disk2iso-lib/lang/
+sudo cp lang/* /opt/disk2iso/lang/
 
 # Konfiguration
-sudo cp disk2iso-lib/config.sh /opt/disk2iso/disk2iso-lib/
+sudo cp conf/disk2iso.conf /opt/disk2iso/conf/
 
-# Symlink erstellen
-sudo ln -s /opt/disk2iso/disk2iso.sh /usr/local/bin/disk2iso
+# Web-Interface
+sudo cp -r services/disk2iso-web/{templates,static,routes} /opt/disk2iso/services/disk2iso-web/
 ```
 
 ### 3. Service einrichten (optional)
@@ -290,7 +295,8 @@ After=network.target
 Type=simple
 User=root
 Group=root
-ExecStart=/opt/disk2iso/disk2iso.sh
+WorkingDirectory=/opt/disk2iso
+ExecStart=/opt/disk2iso/services/disk2iso/daemon.sh
 Restart=on-failure
 RestartSec=10s
 NoNewPrivileges=true
@@ -331,8 +337,8 @@ After=network.target
 [Service]
 Type=simple
 User=root
-WorkingDirectory=/opt/disk2iso/www
-ExecStart=/usr/bin/python3 /opt/disk2iso/www/app.py
+WorkingDirectory=/opt/disk2iso/services/disk2iso-web
+ExecStart=/usr/bin/python3 /opt/disk2iso/services/disk2iso-web/app.py
 Restart=on-failure
 
 [Install]
@@ -357,7 +363,7 @@ Detaillierte Beschreibung aller Wizard-Seiten.
 
 ```plain
 ┌───────────────────────────────────────────────────────────┐
-│  Willkommen zur Installation von disk2iso v1.2!          │
+│  Willkommen zur Installation von disk2iso v1.3!          │
 │                                                           │
 │  Dieses Werkzeug archiviert optische Medien automatisch  │
 │  als ISO-Images beim Einlegen in das Laufwerk.           │
@@ -446,12 +452,29 @@ Ziel: `/opt/disk2iso/`
 Struktur:
 ```
 /opt/disk2iso/
-├── disk2iso.sh
-├── disk2iso-lib/
-│   ├── config.sh
-│   ├── lib-*.sh
-│   └── lang/
-└── www/
+├── services/
+│   ├── disk2iso/
+│   │   └── daemon.sh
+│   ├── disk2iso-web/
+│   │   ├── app.py
+│   │   ├── templates/
+│   │   ├── static/
+│   │   └── routes/
+│   ├── disk2iso-updater/
+│   │   └── updater.sh
+│   ├── disk2iso.service
+│   ├── disk2iso-web.service
+│   ├── disk2iso-updater.service
+│   └── disk2iso-updater.timer
+├── lib/
+│   └── lib*.sh
+├── lang/
+├── conf/
+│   └── disk2iso.conf
+└── modules/
+    ├── installed/
+    ├── available/
+    └── downloads/
 ```
 
 ### Seite 9: Service-Installation
@@ -518,8 +541,8 @@ sudo journalctl -u disk2iso -p err
 ### Konfiguration ändern
 
 ```bash
-# config.sh bearbeiten
-sudo nano /opt/disk2iso/disk2iso-lib/config.sh
+# Konfiguration bearbeiten
+sudo nano /opt/disk2iso/conf/disk2iso.conf
 
 # Service neu starten
 sudo systemctl restart disk2iso
@@ -591,18 +614,18 @@ sudo systemd-analyze verify disk2iso.service
 
 1. **Hauptskript nicht ausführbar:**
    ```bash
-   sudo chmod +x /opt/disk2iso/disk2iso.sh
+   sudo chmod +x /opt/disk2iso/services/disk2iso/daemon.sh
    ```
 
 2. **Pfad falsch:**
    ```bash
    sudo nano /etc/systemd/system/disk2iso.service
-   # ExecStart=/opt/disk2iso/disk2iso.sh prüfen
+   # ExecStart=/opt/disk2iso/services/disk2iso/daemon.sh prüfen
    ```
 
 3. **Abhängigkeiten fehlen:**
    ```bash
-   /opt/disk2iso/disk2iso.sh --test
+   /opt/disk2iso/services/disk2iso/daemon.sh --test
    ```
 
 ### Keine Schreibrechte
@@ -627,5 +650,5 @@ sudo chmod 755 /srv/disk2iso
 
 ---
 
-**Version:** 1.2.0  
-**Letzte Aktualisierung:** 26. Januar 2026
+**Version:** 1.3.0  
+**Letzte Aktualisierung:** 7. Februar 2026
