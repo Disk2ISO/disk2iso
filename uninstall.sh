@@ -155,6 +155,40 @@ wizard_page_uninstall() {
                 sleep 0.5
             fi
             
+            # Updater-Services stoppen
+            if [[ -f "/etc/systemd/system/disk2iso-updater.timer" ]]; then
+                current=$((current + 1))
+                percent=$((current * 100 / total))
+                echo "$percent"
+                echo "XXX"
+                echo "Stoppe Updater-Service ($current/$total)..."
+                echo "XXX"
+                
+                systemctl stop disk2iso-updater.timer 2>/dev/null || true
+                systemctl disable disk2iso-updater.timer 2>/dev/null || true
+                rm -f /etc/systemd/system/disk2iso-updater.timer
+                rm -f /etc/systemd/system/disk2iso-updater.service
+                systemctl daemon-reload
+                sleep 0.5
+            fi
+            
+            # Keep-Alive Services stoppen
+            if [[ -f "/etc/systemd/system/disk2iso-keepalive.timer" ]]; then
+                current=$((current + 1))
+                percent=$((current * 100 / total))
+                echo "$percent"
+                echo "XXX"
+                echo "Stoppe Keep-Alive-Service ($current/$total)..."
+                echo "XXX"
+                
+                systemctl stop disk2iso-keepalive.timer 2>/dev/null || true
+                systemctl disable disk2iso-keepalive.timer 2>/dev/null || true
+                rm -f /etc/systemd/system/disk2iso-keepalive.timer
+                rm -f /etc/systemd/system/disk2iso-rescan.service
+                systemctl daemon-reload
+                sleep 0.5
+            fi
+            
             # Symlink entfernen
             if [[ -L "$BIN_LINK" ]]; then
                 current=$((current + 1))
@@ -203,6 +237,26 @@ wizard_page_uninstall() {
             rm -f "$WEB_SERVICE_FILE"
             systemctl daemon-reload
             print_success "Web-Server-Service entfernt"
+        fi
+        
+        if [[ -f "/etc/systemd/system/disk2iso-updater.timer" ]]; then
+            print_info "Stoppe Updater-Service..."
+            systemctl stop disk2iso-updater.timer 2>/dev/null || true
+            systemctl disable disk2iso-updater.timer 2>/dev/null || true
+            rm -f /etc/systemd/system/disk2iso-updater.timer
+            rm -f /etc/systemd/system/disk2iso-updater.service
+            systemctl daemon-reload
+            print_success "Updater-Service entfernt"
+        fi
+        
+        if [[ -f "/etc/systemd/system/disk2iso-keepalive.timer" ]]; then
+            print_info "Stoppe Keep-Alive-Service..."
+            systemctl stop disk2iso-keepalive.timer 2>/dev/null || true
+            systemctl disable disk2iso-keepalive.timer 2>/dev/null || true
+            rm -f /etc/systemd/system/disk2iso-keepalive.timer
+            rm -f /etc/systemd/system/disk2iso-rescan.service
+            systemctl daemon-reload
+            print_success "Keep-Alive-Service entfernt"
         fi
         
         if [[ -L "$BIN_LINK" ]]; then

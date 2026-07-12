@@ -1,0 +1,6 @@
+[Unit]
+Description=Rescan optical drive
+
+[Service]
+Type=oneshot
+ExecStart=/bin/bash -c 'for host in /sys/class/scsi_host/host*/scan; do echo "- - -" > "$host"; done'

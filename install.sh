@@ -1292,12 +1292,24 @@ configure_all_services() {
             systemctl enable disk2iso-updater.timer >/dev/null 2>&1
             sleep 0.3
             
-            # Schritt 6: Updater-Timer starten (100%)
+            # Schritt 6: Updater-Timer starten (83%)
             echo "83"
             echo "XXX"
             echo "Starte API-Updater Timer..."
             echo "XXX"
             systemctl start disk2iso-updater.timer
+            sleep 0.3
+            
+            # Schritt 7: Keep-Alive Service einrichten (92%)
+            echo "92"
+            echo "XXX"
+            echo "Richte Keep-Alive Service ein..."
+            echo "XXX"
+            cp -f "$SCRIPT_DIR/services/disk2iso-rescan.service" /etc/systemd/system/
+            cp -f "$SCRIPT_DIR/services/disk2iso-keepalive.timer" /etc/systemd/system/
+            systemctl daemon-reload
+            systemctl enable disk2iso-keepalive.timer >/dev/null 2>&1
+            systemctl start disk2iso-keepalive.timer
             sleep 0.3
             
             echo "100"
@@ -1338,10 +1350,18 @@ configure_all_services() {
         systemctl enable disk2iso-updater.timer >/dev/null 2>&1
         systemctl start disk2iso-updater.timer
         
+        print_success "Installiere Keep-Alive Service..."
+        cp -f "$SCRIPT_DIR/services/disk2iso-rescan.service" /etc/systemd/system/
+        cp -f "$SCRIPT_DIR/services/disk2iso-keepalive.timer" /etc/systemd/system/
+        systemctl daemon-reload
+        systemctl enable disk2iso-keepalive.timer >/dev/null 2>&1
+        systemctl start disk2iso-keepalive.timer
+        
         print_success "Alle Services erfolgreich installiert!"
         print_info "  • disk2iso Service: aktiv"
         print_info "  • Web-Server: http://$(hostname -I | awk '{print $1}'):8080"
         print_info "  • API-Updater: aktiv"
+        print_info "  • Keep-Alive Timer: aktiv (scannt alle 4h)"
     fi
 }
 
